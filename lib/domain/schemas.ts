@@ -31,6 +31,7 @@ export const TEXT_LIMITS = {
   potName: 60,
   note: 500,
   merchant: 120,
+  keyword: 60,
 } as const;
 
 /**
@@ -108,7 +109,16 @@ export const entrySchema = z.object({
   note: z.string().max(TEXT_LIMITS.note).nullable(),
   merchant: z.string().max(TEXT_LIMITS.merchant).nullable(),
   recurringRuleId: idSchema.nullable(),
+  // Ältere Sicherungen kennen das Feld nicht — ohne den Standardwert
+  // ließe sich keine davon mehr einlesen.
+  splitGroupId: idSchema.nullable().default(null),
   createdBy: idSchema,
+});
+
+export const itemRuleSchema = z.object({
+  ...recordMetaShape,
+  keyword: z.string().min(1).max(TEXT_LIMITS.keyword),
+  potId: idSchema,
 });
 
 export const recurringRuleSchema = z
@@ -159,6 +169,9 @@ export const exportFileSchema = z.object({
   entries: z.array(entrySchema),
   recurringRules: z.array(recurringRuleSchema),
   receipts: z.array(receiptExportSchema),
+  // Erst mit dem Bon-Import dazugekommen, deshalb mit Standardwert:
+  // Sicherungen von vorher sollen weiter einlesbar sein.
+  itemRules: z.array(itemRuleSchema).default([]),
 });
 
 export type ExportFile = z.infer<typeof exportFileSchema>;

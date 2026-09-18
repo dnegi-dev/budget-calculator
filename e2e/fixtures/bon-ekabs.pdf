@@ -1,0 +1,91 @@
+%PDF-1.7
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(ekabs.json) 7 0 R] >> >> >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 500] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 674 >>
+stream
+BT
+/F1 9 Tf
+1 0 0 1 20 470 Tm (Musterb‰ckerei Schmidt) Tj
+1 0 0 1 20 454 Tm (Marktplatz 3, 12345 Musterstadt) Tj
+1 0 0 1 20 422 Tm (5 x Brˆtchen) Tj
+1 0 0 1 220 422 Tm (2,50) Tj
+1 0 0 1 20 406 Tm (Kaffee to go) Tj
+1 0 0 1 220 406 Tm (2,00) Tj
+1 0 0 1 20 390 Tm (Pfand Becher) Tj
+1 0 0 1 220 390 Tm (0,25) Tj
+1 0 0 1 20 374 Tm (Rabatt Stammkunde) Tj
+1 0 0 1 220 374 Tm (-0,25) Tj
+1 0 0 1 20 342 Tm (SUMME) Tj
+1 0 0 1 220 342 Tm (4,50) Tj
+1 0 0 1 20 326 Tm (Geg. EC-Karte) Tj
+1 0 0 1 220 326 Tm (4,50) Tj
+1 0 0 1 20 310 Tm (MwSt 7,00% Netto 4,21 Steuer 0,29) Tj
+1 0 0 1 20 294 Tm (Datum 18.09.2026 Uhrzeit 07:12) Tj
+1 0 0 1 20 278 Tm (TSE-Signatur MUSTER-OHNE-BEDEUTUNG) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /EmbeddedFile /Subtype /application#2Fjson /Length 487 >>
+stream
+{
+  "merchant": {
+    "name": "Musterb\u00e4ckerei Schmidt"
+  },
+  "timestamp_start": "2026-09-18T07:12:00+02:00",
+  "total": 4.5,
+  "items": [
+    {
+      "name": "Br\u00f6tchen",
+      "quantity": 5,
+      "total": 2.5
+    },
+    {
+      "name": "Kaffee to go",
+      "quantity": 1,
+      "total": 2
+    },
+    {
+      "name": "Pfand Becher",
+      "quantity": 1,
+      "total": 0.25
+    },
+    {
+      "name": "Rabatt Stammkunde",
+      "quantity": 1,
+      "total": -0.25
+    }
+  ]
+}
+endstream
+endobj
+7 0 obj
+<< /Type /Filespec /F (ekabs.json) /UF (ekabs.json) /EF << /F 6 0 R >> /Desc (EKaBS-Belegdaten) >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000015 00000 n 
+0000000126 00000 n 
+0000000183 00000 n 
+0000000309 00000 n 
+0000001034 00000 n 
+0000001131 00000 n 
+0000001718 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+1832
+%%EOF

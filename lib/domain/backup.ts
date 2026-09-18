@@ -55,6 +55,7 @@ export function clampBackupText(backup: unknown): number {
     ['merchant', TEXT_LIMITS.merchant],
   ]);
   count += clampEach(backup.recurringRules, [['note', TEXT_LIMITS.note]]);
+  count += clampEach(backup.itemRules, [['keyword', TEXT_LIMITS.keyword]]);
 
   return count;
 }

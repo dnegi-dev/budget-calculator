@@ -4,7 +4,15 @@ import nextTypescript from 'eslint-config-next/typescript';
 /** @type {import('eslint').Linter.Config[]} */
 const config = [
   {
-    ignores: ['.next/**', 'out/**', 'node_modules/**', 'playwright-report/**', 'test-results/**'],
+    ignores: [
+      '.next/**',
+      'out/**',
+      'node_modules/**',
+      'playwright-report/**',
+      'test-results/**',
+      // Fremder, minifizierter Code — einmal kopiert, nicht gepflegt.
+      'public/vendor/**',
+    ],
   },
   ...coreWebVitals,
   ...nextTypescript,

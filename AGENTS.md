@@ -25,6 +25,26 @@ speichert **ausschließlich auf dem Gerät** (IndexedDB), ohne Konto und ohne
 Server. Zentrale Datenhaltung und SSO sind vorbereitet, aber nicht
 eingeschaltet — der Umbauweg steht in `docs/roadmap-server.md`.
 
+## Belege: was mit ihnen passiert und was nicht
+
+**Ein Foto wird nicht ausgelesen.** Es wird gespeichert und angezeigt, sonst
+nichts. Keine Texterkennung, kein OCR, keine Auswertung des Inhalts — das war
+von Anfang an die Zusage und bleibt es.
+
+**Ein PDF-Bon wird gelesen**, aber nur auf Anstoß („Aus PDF-Bon einlesen") und
+nur auf dem Gerät: `lib/pdf/extract.ts` holt Anhänge und Textschicht,
+`lib/domain/receipt-parse.ts` macht daraus Posten.
+
+Darüber steht **die Summenprobe**: Posten werden nur angeboten, wenn sie auf
+die erkannte Endsumme aufgehen (`quality: 'geprüft'`) oder aus der angehängten
+`ekabs.json` stammen (`'exakt'`). Gehen sie nicht auf, gibt es keine
+Postenliste, sondern nur Summe und Datum. Wer diese Regel aufweicht, tauscht
+einen sichtbaren Mangel gegen einen unsichtbaren Fehler: Ein falsch
+aufgeteilter Einkauf sieht richtig aus.
+
+Ändert sich das, ist `app/datenschutz/page.tsx` mitzuändern — dort steht
+belegbar, was mit einem Beleg geschieht.
+
 ## Die fünf Regeln, die das Projekt zusammenhalten
 
 1. **`lib/domain` kennt weder React noch Storage.** Dort liegt die Rechenlogik
@@ -187,6 +207,28 @@ eine zu lange Notiz speichern, exportieren — und dann nicht mehr einlesen. Die
 Sicherung war unbrauchbar. Neu ist außerdem `clampBackupText`
 (`lib/domain/backup.ts`): Der Import kürzt und meldet, statt die ganze Datei
 abzulehnen. Das Schema selbst bleibt streng, es ist die künftige API-Grenze.
+
+## Bon-Import
+
+- **Ein Einkauf, mehrere Buchungen.** Ein Bon auf drei Töpfe wird zu drei
+  Buchungen mit gemeinsamer `splitGroupId` — anders stimmt die Auswertung
+  nicht. Der Beleg hängt an der ersten Buchung der Gruppe; `EntryList` zeigt
+  ihn für die ganze Gruppe.
+- **Gelernte Zuordnungen** (`itemRules`, Dexie `version(2)`) gehören zum
+  Haushalt und stehen in der Sicherung. Gelernt wird nur, was von Hand gesetzt
+  wurde — einen Vorschlag zu bestätigen ist keine neue Information. Löschbar
+  über Einstellungen → „Zuordnungen"; ohne diese Liste wäre eine falsch
+  gelernte Regel nicht mehr loszuwerden.
+- **pdf.js liegt nicht im Startbundle.** `await import('pdfjs-dist')` erst beim
+  ersten Einlesen. Der Worker steht als Datei mit Version im Namen unter
+  `public/vendor/` — nicht als CDN-Adresse, weil die Datenschutzerklärung
+  zusagt, dass alle Dateien vom selben Server kommen. Bei einem Update von
+  `pdfjs-dist`: Datei neu kopieren und `PDFJS_VERSION` in
+  `lib/pdf/extract.ts` nachziehen.
+- **Muster statt echter Bons im Test.** `e2e/fixtures/*.pdf` sind von Hand
+  gebaut (`build.mjs`), einmal mit und einmal ohne `ekabs.json`. Wie die Bons
+  echter Händler aussehen, ist damit **nicht** geprüft — dafür zeigt die
+  Vorschau Zeile für Zeile, was erkannt wurde.
 
 ## Rechtsseiten
 

@@ -16,6 +16,7 @@ import type {
   Entry,
   Household,
   IsoDate,
+  ItemRule,
   NewEntryInput,
   NewPotInput,
   NewRecurringRuleInput,
@@ -185,6 +186,18 @@ export class HttpBudgetRepository implements BudgetRepository {
   }
 
   materializeRecurringRules(_today: IsoDate): Promise<number> {
+    throw new NotImplementedError('Zentrale Datenhaltung');
+  }
+
+  listItemRules(): Promise<ItemRule[]> {
+    throw new NotImplementedError('Zentrale Datenhaltung');
+  }
+
+  rememberItemRule(_keyword: string, _potId: string): Promise<ItemRule> {
+    throw new NotImplementedError('Zentrale Datenhaltung');
+  }
+
+  forgetItemRule(_id: string): Promise<void> {
     throw new NotImplementedError('Zentrale Datenhaltung');
   }
 

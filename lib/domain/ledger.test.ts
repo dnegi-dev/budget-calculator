@@ -46,6 +46,7 @@ function entry(potId: string | null, kind: EntryKind, amountCents: number, date:
     note: null,
     merchant: null,
     recurringRuleId: null,
+    splitGroupId: null,
     createdBy: 'u1',
   };
 }

@@ -58,19 +58,38 @@ export default function DatenschutzPage() {
         <p>
           Die App legt deine Eingaben in der Datenbank <code>haushaltsplanung</code> im
           IndexedDB-Speicher des Browsers ab. Das umfasst Name des Haushalts, Währung, Töpfe mit
-          ihren Limits, alle Buchungen mit Betrag, Datum, Ort und Notiz, wiederkehrende Regeln sowie
-          die Bilddateien der hochgeladenen Belege.
+          ihren Limits, alle Buchungen mit Betrag, Datum, Ort und Notiz, wiederkehrende Regeln, die
+          gelernten Zuordnungen von Artikelbezeichnungen zu Töpfen sowie die hochgeladenen Belege
+          selbst.
         </p>
         <p>
           Diese Daten erreichen keinen Server. Es gibt keine Schnittstelle, über die sie abgerufen
-          werden könnten. Hochgeladene Belege werden nicht ausgelesen, nicht per Texterkennung
-          verarbeitet und nicht weitergereicht — sie dienen allein als Nachweis zu einer Buchung.
+          werden könnten.
         </p>
         <p>
           Du löschst diese Daten jederzeit selbst: in den Einstellungen der App über „Alles
           löschen“, oder indem du die Website-Daten in deinem Browser entfernst. Beides wirkt sofort
           und vollständig. Da es keine Kopie gibt, ist ein Export über die Sicherungsfunktion die
           einzige Möglichkeit, die Daten zu erhalten.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Was mit einem hochgeladenen Beleg passiert">
+        <p>
+          <strong>Fotos werden nicht ausgelesen.</strong> Ein fotografierter Kassenzettel wird
+          gespeichert und angezeigt, mehr nicht — keine Texterkennung, keine Auswertung des Inhalts.
+        </p>
+        <p>
+          <strong>PDF-Bons werden gelesen</strong>, wenn du das ausdrücklich anstößt („Aus PDF-Bon
+          einlesen“). Die App entnimmt der Datei die Einzelposten, die Endsumme, das Datum und den
+          Händler, um dir Buchungen vorzuschlagen; aus den Bezeichnungen der Posten merkt sie sich
+          auf Wunsch, welchem Topf du sie zugeordnet hast.
+        </p>
+        <p>
+          Das geschieht vollständig <strong>auf deinem Gerät</strong>, im Browser. Die Datei wird
+          nicht übertragen, das Ergebnis nicht gemeldet. Der dafür nötige Programmteil (die
+          Bibliothek pdf.js) wird von demselben Server geladen wie diese Seite; es ist kein Dienst
+          eines Dritten beteiligt.
         </p>
       </LegalSection>
 

@@ -37,6 +37,24 @@ export function EntryList({
     return counts;
   }, [snapshot.receipts]);
 
+  /**
+   * Belege und Umfang eines aufgeteilten Einkaufs.
+   *
+   * Der Beleg hängt an einer der Buchungen; die übrigen desselben Einkaufs
+   * sollen ihn trotzdem anzeigen, sonst sucht man ihn bei der falschen Zeile.
+   */
+  const splitGroups = useMemo(() => {
+    const info = new Map<string, { count: number; receipts: number }>();
+    for (const entry of snapshot.entries) {
+      if (!entry.splitGroupId) continue;
+      const bisher = info.get(entry.splitGroupId) ?? { count: 0, receipts: 0 };
+      bisher.count += 1;
+      bisher.receipts += receiptCounts.get(entry.id) ?? 0;
+      info.set(entry.splitGroupId, bisher);
+    }
+    return info;
+  }, [snapshot.entries, receiptCounts]);
+
   const groups = useMemo(() => {
     const byDate = new Map<string, Entry[]>();
     for (const entry of entries) {
@@ -62,7 +80,8 @@ export function EntryList({
             <ul className="divide-y divide-[var(--border)]">
               {dayEntries.map((entry) => {
                 const pot = entry.potId ? potsById.get(entry.potId) : null;
-                const receiptCount = receiptCounts.get(entry.id) ?? 0;
+                const split = entry.splitGroupId ? splitGroups.get(entry.splitGroupId) : null;
+                const receiptCount = split ? split.receipts : (receiptCounts.get(entry.id) ?? 0);
                 return (
                   <li key={entry.id}>
                     <button
@@ -93,6 +112,9 @@ export function EntryList({
                           {[
                             pot?.name ?? 'ohne Topf',
                             entry.recurringRuleId ? 'wiederkehrend' : null,
+                            split && split.count > 1
+                              ? `Einkauf mit ${split.count} Buchungen`
+                              : null,
                             receiptCount > 0
                               ? `${receiptCount} Beleg${receiptCount > 1 ? 'e' : ''}`
                               : null,
