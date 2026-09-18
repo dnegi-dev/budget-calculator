@@ -3,8 +3,11 @@
 /**
  * Kassenzettel zu einer Buchung hochladen.
  *
- * `capture="environment"` öffnet auf dem Telefon direkt die Kamera — der
- * häufigste Fall: man steht an der Kasse und fotografiert den Zettel.
+ * Zwei Wege, weil es zwei Situationen gibt: an der Kasse den Zettel
+ * fotografieren, und am Schreibtisch eine PDF-Rechnung oder ein Foto aus der
+ * Galerie wählen. Nur der Kamera-Knopf trägt `capture` — am Datei-Knopf würde
+ * es die Auswahl des Telefons überspringen und ausschließlich die Kamera
+ * öffnen; genau das war vorher der Fehler.
  *
  * Mit dem Beleg passiert bewusst nichts weiter: kein Auslesen von Beträgen,
  * keine Zuordnung. Er belegt eine konkrete Änderung im Topf, nicht mehr.
@@ -14,17 +17,32 @@ import { useRef, useState } from 'react';
 import { useData } from '../../lib/data/provider';
 import { useCan } from '../../lib/auth/provider';
 import { formatByteSize } from '../../lib/data/blobs';
+import { classifyUpload, MAX_UPLOAD_BYTES, type UploadRejection } from '../../lib/domain/uploads';
 import { Button } from '../../lib/ui/Button';
 import { createThumbnail } from '../../lib/ui/thumbnail';
 import { ReceiptThumbnail } from './ReceiptThumbnail';
 
-const MAX_BYTES = 12 * 1024 * 1024;
+const ACCEPT = 'image/*,application/pdf';
+
+function rejectionText(filename: string, reason: UploadRejection): string {
+  const name = filename.trim() === '' ? 'Die Datei' : `„${filename}“`;
+  switch (reason) {
+    case 'leer':
+      return `${name} ist leer und wurde übersprungen.`;
+    case 'zu-gross':
+      return `${name} ist größer als ${formatByteSize(MAX_UPLOAD_BYTES)} und wurde übersprungen.`;
+    case 'typ':
+      return `${name} ist kein Bild und kein PDF und wurde übersprungen.`;
+  }
+}
 
 export function ReceiptPicker({ entryId }: { entryId: string }) {
   const { repository, snapshot } = useData();
   const can = useCan();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [skipped, setSkipped] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const receipts = snapshot.receipts.filter((receipt) => receipt.entryId === entryId);
@@ -33,18 +51,19 @@ export function ReceiptPicker({ entryId }: { entryId: string }) {
   async function upload(files: FileList | null) {
     if (!files || files.length === 0) return;
     setBusy(true);
+    setSkipped([]);
     setError(null);
+    const abgelehnt: string[] = [];
     try {
       for (const file of Array.from(files)) {
-        if (file.size > MAX_BYTES) {
-          setError(
-            `„${file.name}“ ist größer als ${formatByteSize(MAX_BYTES)} und wurde übersprungen.`,
-          );
+        const verdict = classifyUpload(file.name, file.type, file.size);
+        if (!verdict.ok) {
+          abgelehnt.push(rejectionText(file.name, verdict.reason));
           continue;
         }
         await repository.addReceipt(entryId, {
           filename: file.name,
-          mime: file.type || 'application/octet-stream',
+          mime: verdict.mime,
           blob: file,
           thumbnail: await createThumbnail(file),
         });
@@ -52,8 +71,11 @@ export function ReceiptPicker({ entryId }: { entryId: string }) {
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Upload fehlgeschlagen');
     } finally {
+      setSkipped(abgelehnt);
       setBusy(false);
-      if (inputRef.current) inputRef.current.value = '';
+      // Beide Felder leeren: Dieselbe Datei soll sich erneut wählen lassen.
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
     }
   }
 
@@ -74,34 +96,58 @@ export function ReceiptPicker({ entryId }: { entryId: string }) {
       {allowed ? (
         <>
           <input
-            ref={inputRef}
+            ref={fileInputRef}
             type="file"
-            accept="image/*,application/pdf"
-            capture="environment"
+            accept={ACCEPT}
             multiple
             className="hidden"
             onChange={(event) => void upload(event.target.files)}
           />
-          <Button
-            variant="secondary"
-            block
-            disabled={busy}
-            onClick={() => inputRef.current?.click()}
-          >
-            {busy
-              ? 'Wird gespeichert …'
-              : receipts.length > 0
-                ? 'Weiteren Beleg hinzufügen'
-                : 'Beleg fotografieren oder wählen'}
-          </Button>
+          {/* Eigenes Feld für die Kamera: `capture` darf nur hier stehen. */}
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(event) => void upload(event.target.files)}
+          />
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              variant="secondary"
+              block
+              disabled={busy}
+              className="md:hidden"
+              onClick={() => cameraInputRef.current?.click()}
+            >
+              {busy ? 'Wird gespeichert …' : 'Foto aufnehmen'}
+            </Button>
+            <Button
+              variant="secondary"
+              block
+              disabled={busy}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {busy ? 'Wird gespeichert …' : 'Datei wählen'}
+            </Button>
+          </div>
+
           <p className="mt-1.5 text-xs text-ink-muted">
-            Bleibt auf dem Gerät. Wird nicht ausgelesen — dient nur als Nachweis.
+            Bild oder PDF. Bleibt auf dem Gerät, wird nicht ausgelesen — dient nur als Nachweis.
           </p>
         </>
       ) : (
         <p className="text-sm text-ink-muted">Deine Rolle darf keine Belege hochladen.</p>
       )}
 
+      {skipped.length > 0 && (
+        <ul className="mt-2 flex flex-col gap-1 text-sm text-negative">
+          {skipped.map((text) => (
+            <li key={text}>{text}</li>
+          ))}
+        </ul>
+      )}
       {error && <p className="mt-2 text-sm text-negative">{error}</p>}
     </div>
   );

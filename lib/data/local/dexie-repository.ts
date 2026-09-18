@@ -21,7 +21,13 @@ import { nowIso, todayIso } from '../../domain/dates';
 import { clampPeriodStartDay } from '../../domain/period';
 import { applyPotKindPreset } from '../../domain/pot-kinds';
 import { materializeRule } from '../../domain/recurrence';
-import { EXPORT_SCHEMA_VERSION, type ExportFile, type ReceiptExport } from '../../domain/schemas';
+import {
+  clampText,
+  EXPORT_SCHEMA_VERSION,
+  TEXT_LIMITS,
+  type ExportFile,
+  type ReceiptExport,
+} from '../../domain/schemas';
 import type {
   ChangeLogEntry,
   Entry,
@@ -495,8 +501,8 @@ export class DexieBudgetRepository implements BudgetRepository {
       kind: input.kind,
       amountCents: Math.round(Math.abs(input.amountCents)),
       date: input.date,
-      note: input.note?.trim() || null,
-      merchant: input.merchant?.trim() || null,
+      note: clampText(input.note, TEXT_LIMITS.note),
+      merchant: clampText(input.merchant, TEXT_LIMITS.merchant),
       recurringRuleId: input.recurringRuleId ?? null,
       createdBy: principal?.userId ?? 'unbekannt',
     }));
@@ -524,8 +530,11 @@ export class DexieBudgetRepository implements BudgetRepository {
         patch.amountCents === undefined
           ? entry.amountCents
           : Math.round(Math.abs(patch.amountCents)),
-      note: patch.note === undefined ? entry.note : patch.note?.trim() || null,
-      merchant: patch.merchant === undefined ? entry.merchant : patch.merchant?.trim() || null,
+      note: patch.note === undefined ? entry.note : clampText(patch.note, TEXT_LIMITS.note),
+      merchant:
+        patch.merchant === undefined
+          ? entry.merchant
+          : clampText(patch.merchant, TEXT_LIMITS.merchant),
       updatedAt: nowIso(),
       revision: entry.revision + 1,
     };
@@ -605,7 +614,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       potId: input.potId,
       kind: input.kind,
       amountCents: Math.round(Math.abs(input.amountCents)),
-      note: input.note?.trim() || null,
+      note: clampText(input.note, TEXT_LIMITS.note),
       freq: input.freq,
       interval: input.interval,
       dayOfMonth: input.dayOfMonth ?? null,
@@ -641,7 +650,7 @@ export class DexieBudgetRepository implements BudgetRepository {
         patch.amountCents === undefined
           ? rule.amountCents
           : Math.round(Math.abs(patch.amountCents)),
-      note: patch.note === undefined ? rule.note : patch.note?.trim() || null,
+      note: patch.note === undefined ? rule.note : clampText(patch.note, TEXT_LIMITS.note),
       updatedAt: nowIso(),
       revision: rule.revision + 1,
     };
