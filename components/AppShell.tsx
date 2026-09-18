@@ -34,6 +34,24 @@ function isActive(pathname: string, href: string): boolean {
   return href === '/' ? pathname === '/' : pathname.startsWith(href);
 }
 
+/**
+ * Impressum und Datenschutz müssen von jeder Seite aus erreichbar sein.
+ * Sie gehören aber nicht in die untere Navigation — die hat vier Plätze, und
+ * die gehören dem Alltag.
+ */
+export function LegalLinks({ className = '' }: { className?: string }) {
+  return (
+    <p className={`flex gap-3 ${className}`}>
+      <Link href="/impressum" className="hover:text-ink hover:underline">
+        Impressum
+      </Link>
+      <Link href="/datenschutz" className="hover:text-ink hover:underline">
+        Datenschutz
+      </Link>
+    </p>
+  );
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
@@ -65,7 +83,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
           ))}
         </nav>
-        <p className="px-5 py-4 text-xs text-ink-muted">Daten liegen nur auf diesem Gerät.</p>
+        <div className="px-5 py-4 text-xs text-ink-muted">
+          <p>Daten liegen nur auf diesem Gerät.</p>
+          <LegalLinks className="mt-2" />
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -84,6 +105,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* pb-24: Platz für die untere Navigation, damit sie nichts verdeckt */}
         <main className="mx-auto w-full max-w-3xl flex-1 px-4 pt-5 pb-24 md:max-w-4xl md:px-8 md:pt-8 md:pb-10">
           {children}
+          <footer className="mt-10 border-t border-line pt-4 text-xs text-ink-muted md:hidden">
+            <LegalLinks />
+          </footer>
         </main>
 
         <nav

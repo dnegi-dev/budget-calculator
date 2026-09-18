@@ -1,0 +1,133 @@
+/**
+ * Datenschutzerklärung — Gerüst.
+ *
+ * KEIN RECHTSRAT. Anders als beim Impressum lässt sich hier das meiste
+ * tatsächlich ausformulieren, weil die Architektur die Antworten vorgibt:
+ * Die App speichert ausschließlich lokal (IndexedDB), es gibt keinen Server,
+ * kein Konto, keine Analyse, keine Cookies und keine externen Schriftarten
+ * (siehe `app/globals.css`: nur Systemschriften).
+ *
+ * Offen bleiben nur die Angaben zum Verantwortlichen — und der Punkt, der
+ * beim Hosting auf GitHub Pages ehrlich hingehört: GitHub liefert die Seite
+ * aus und verarbeitet dabei Verbindungsdaten.
+ *
+ * Vor der Veröffentlichung zu tun:
+ *
+ *   1. [Platzhalter] durch echte Angaben ersetzen.
+ *   2. `<PlaceholderWarning />` entfernen.
+ *   3. Prüfen, ob die Beschreibung noch zum Stand der App passt — sobald es
+ *      eine zentrale Datenbank oder SSO gibt (docs/roadmap-server.md), stimmt
+ *      dieser Text nicht mehr.
+ */
+
+import type { Metadata } from 'next';
+import { LegalPage, LegalSection, PlaceholderWarning } from '../../components/legal/LegalPage';
+
+export const metadata: Metadata = {
+  title: 'Datenschutz',
+  description: 'Wie diese Anwendung mit Daten umgeht: alles bleibt auf dem Gerät.',
+};
+
+export default function DatenschutzPage() {
+  return (
+    <LegalPage title="Datenschutzerklärung" updatedAt="[Datum eintragen]">
+      <PlaceholderWarning />
+
+      <LegalSection title="Kurzfassung">
+        <p>
+          Diese Anwendung speichert alle Eingaben — Haushalt, Töpfe, Buchungen und hochgeladene
+          Kassenzettel — ausschließlich im Speicher deines Browsers auf deinem Gerät. Sie werden
+          nicht übertragen, nicht ausgewertet und nicht an Dritte weitergegeben. Es gibt kein
+          Benutzerkonto, keine Anmeldung, keine Cookies und keine Reichweitenmessung.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Verantwortlicher">
+        <p>
+          [Vor- und Nachname]
+          <br />
+          [Straße und Hausnummer]
+          <br />
+          [PLZ und Ort]
+          <br />
+          E-Mail: [E-Mail-Adresse]
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Daten, die auf deinem Gerät bleiben">
+        <p>
+          Die App legt deine Eingaben in der Datenbank <code>haushaltsplanung</code> im
+          IndexedDB-Speicher des Browsers ab. Das umfasst Name des Haushalts, Währung, Töpfe mit
+          ihren Limits, alle Buchungen mit Betrag, Datum, Ort und Notiz, wiederkehrende Regeln sowie
+          die Bilddateien der hochgeladenen Belege.
+        </p>
+        <p>
+          Diese Daten erreichen keinen Server. Es gibt keine Schnittstelle, über die sie abgerufen
+          werden könnten. Hochgeladene Belege werden nicht ausgelesen, nicht per Texterkennung
+          verarbeitet und nicht weitergereicht — sie dienen allein als Nachweis zu einer Buchung.
+        </p>
+        <p>
+          Du löschst diese Daten jederzeit selbst: in den Einstellungen der App über „Alles
+          löschen“, oder indem du die Website-Daten in deinem Browser entfernst. Beides wirkt sofort
+          und vollständig. Da es keine Kopie gibt, ist ein Export über die Sicherungsfunktion die
+          einzige Möglichkeit, die Daten zu erhalten.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Daten, die beim Aufruf der Seite anfallen">
+        <p>
+          Die Seite wird über GitHub Pages ausgeliefert, einen Dienst der GitHub B.V. bzw. GitHub,
+          Inc. Beim Abruf überträgt dein Browser technisch notwendige Verbindungsdaten an diesen
+          Dienst — darunter deine IP-Adresse, Zeitpunkt der Anfrage, die angeforderte Datei sowie
+          Browser- und Betriebssystemangaben. Diese Verarbeitung liegt außerhalb meines Einflusses
+          und ist für den Betrieb einer im Internet abrufbaren Seite unvermeidbar.
+        </p>
+        <p>
+          Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO, das berechtigte Interesse am technisch
+          fehlerfreien Bereitstellen der Seite. Einzelheiten dazu, wie GitHub diese Daten
+          verarbeitet, stehen in der{' '}
+          <a
+            className="text-accent underline"
+            href="https://docs.github.com/privacy"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            Datenschutzerklärung von GitHub
+          </a>
+          .
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Was nicht stattfindet">
+        <p>
+          Keine Cookies, kein Local-Storage-Tracking, keine Analysedienste, keine Werbenetzwerke,
+          keine Einbindung externer Schriftarten oder Skripte von fremden Servern. Alle Dateien, die
+          die Seite lädt, liegen auf demselben Server wie die Seite selbst.
+        </p>
+        <p>
+          Die App kann für den Offline-Betrieb einen Service Worker installieren. Dieser legt nur
+          die Programmdateien im Browser-Cache ab, keine Eingaben, und sendet nichts.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Deine Rechte">
+        <p>
+          Dir stehen gegenüber dem Verantwortlichen die Rechte aus Art. 15 bis 21 DSGVO zu:
+          Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und
+          Widerspruch. Außerdem kannst du dich bei einer Datenschutz-Aufsichtsbehörde beschweren.
+        </p>
+        <p>
+          Zu den Daten in dieser App ist eine Auskunft naturgemäß nicht möglich und auch nicht
+          nötig: Sie liegen ausschließlich bei dir, und niemand sonst hat Zugriff darauf.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Änderungen">
+        <p>
+          Ändert sich die Funktionsweise der App — etwa durch eine zentrale Datenspeicherung oder
+          eine Anmeldung —, wird diese Erklärung vorher angepasst.
+        </p>
+      </LegalSection>
+    </LegalPage>
+  );
+}
