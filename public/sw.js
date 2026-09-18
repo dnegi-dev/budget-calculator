@@ -47,9 +47,20 @@ const APP_SHELL = [
   `${SCOPE}manifest.webmanifest`,
 ];
 
-/** Unveränderlich, weil der Name den Inhalt trägt. */
+/**
+ * Unveränderlich, weil der Name den Inhalt trägt.
+ *
+ * `/vendor/` enthält fremde Dateien mit der Version im Dateinamen (heute der
+ * pdf.js-Worker). Eine neue Version bekommt einen neuen Namen, deshalb ist ein
+ * Cache-Treffer dort immer der richtige — und das Einlesen eines Bons
+ * funktioniert offline.
+ */
 function isImmutable(pathname) {
-  return pathname.startsWith(`${SCOPE}_next/static/`) || pathname.startsWith(`${SCOPE}icons/`);
+  return (
+    pathname.startsWith(`${SCOPE}_next/static/`) ||
+    pathname.startsWith(`${SCOPE}icons/`) ||
+    pathname.startsWith(`${SCOPE}vendor/`)
+  );
 }
 
 /** Die Versionsdatei beantwortet die Frage, ob der Cache veraltet ist. */
