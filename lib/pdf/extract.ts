@@ -14,11 +14,20 @@
  * (`isImmutable()` in `public/sw.js`). Damit funktioniert das Einlesen auch
  * offline.
  *
- * Bei einem Update von `pdfjs-dist` muss die Datei neu kopiert und hier die
- * Version nachgezogen werden:
+ * **Es ist der Legacy-Build, und das ist keine Bequemlichkeit.** Das
+ * Standard-Bundle von pdf.js 6 benutzt `Map.prototype.getOrInsertComputed` —
+ * eine sehr junge JS-Methode. Fehlt sie im Browser, wirft der XRef-Cache
+ * `TypeError: getOrInsertComputed is not a function`, pdf.js fällt auf
+ * „Indexing all PDF objects" zurück und liefert bei einem echten Bon nichts
+ * Brauchbares mehr. Die handgebauten Muster überlebten diesen Rückfall, ein
+ * REWE-Beleg nicht — der Fehler war also mit den Mustern allein nicht zu
+ * sehen. Der Legacy-Build ist transpiliert und genau für solche Browser da.
  *
- *   cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs \
- *      public/vendor/pdf.worker-<version>.min.mjs
+ * Bei einem Update von `pdfjs-dist` muss die Datei neu kopiert und hier die
+ * Version nachgezogen werden — **aus `legacy/`**:
+ *
+ *   cp node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs \
+ *      public/vendor/pdf.worker-<version>-legacy.min.mjs
  */
 
 import type * as PdfjsModule from 'pdfjs-dist';
@@ -29,6 +38,9 @@ type Pdfjs = typeof PdfjsModule;
 
 /** Muss zur Datei in `public/vendor/` und zu `package.json` passen. */
 export const PDFJS_VERSION = '6.3.289';
+
+/** Dateiname des mitgelieferten Workers. `-legacy`, siehe Kopfkommentar. */
+export const PDF_WORKER_FILE = `pdf.worker-${PDFJS_VERSION}-legacy.min.mjs`;
 
 export interface PdfContent {
   /** Angehängte Dateien, Name → Inhalt. Für `ekabs.json`. */
@@ -54,9 +66,13 @@ function isTextItem(item: unknown): item is { str: string; transform: number[] }
 }
 
 /**
- * Wie pdf.js geladen wird. Im Browser das Standard-Bundle; der Test schiebt
- * den Legacy-Build unter, der ohne DOM läuft. So prüft der Test diesen Code
- * und nicht eine Nachbildung davon.
+ * Wie pdf.js geladen wird.
+ *
+ * Browser und Test nehmen denselben Legacy-Build; der Test setzt nur
+ * `workerSrc: null`, weil es `public/` in Node nicht gibt. Dass beide denselben
+ * Build nehmen, ist Absicht: Vorher lief der Test gegen `legacy/` und der
+ * Browser gegen das Standard-Bundle — und genau in dieser Lücke saß ein Fehler,
+ * den kein Test sehen konnte.
  */
 export type PdfjsLoader = () => Promise<Pdfjs>;
 
@@ -71,13 +87,14 @@ export interface ExtractOptions {
   workerSrc?: string | null;
 }
 
-const defaultLoader: PdfjsLoader = () => import('pdfjs-dist');
+export const defaultLoader: PdfjsLoader = () =>
+  import('pdfjs-dist/legacy/build/pdf.mjs') as Promise<Pdfjs>;
 
 export async function extractPdf(blob: Blob, options: ExtractOptions = {}): Promise<PdfContent> {
   const pdfjs = await (options.load ?? defaultLoader)();
   const workerSrc =
     options.workerSrc === undefined
-      ? withBasePath(`/vendor/pdf.worker-${PDFJS_VERSION}.min.mjs`)
+      ? withBasePath(`/vendor/${PDF_WORKER_FILE}`)
       : options.workerSrc;
   if (workerSrc !== null) pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
 
