@@ -78,10 +78,13 @@ Rollen-Code hinaus.
 7. **Cache-Reste.** Der Service Worker legt Dateien mit Hash im Namen
    unbegrenzt ab und räumt sie erst beim Hochzählen von `CACHE` weg. Bei dieser
    Größe unkritisch, aber es wächst.
-8. **Bon-Import an weiteren Händlern prüfen.** Gegen einen echten REWE-Bon
-   geprüft: kein `ekabs.json`, aber eine sauber lesbare Textschicht, 18 Posten
-   auf den Cent. Wie andere Händler drucken, ist offen — die Muster unter
-   `e2e/fixtures/` halten den REWE-Aufbau als Struktur fest.
+8. **Bon-Import an weiteren Händlern prüfen.** Gegen zwei echte Bons geprüft,
+   beide ohne `ekabs.json`, beide mit lesbarer Textschicht: REWE (18 Posten auf
+   den Cent) und dm (17 Posten, 30,75 € auf den Cent). Jeder der beiden hat
+   einen eigenen Fehler aufgedeckt — beim ersten zählten die Bonus-Beträge der
+   Fußzeile mit, beim zweiten passte wegen der Steuerklasse als Ziffer keine
+   einzige Zeile. Wie ein dritter Händler druckt, ist offen; die Muster unter
+   `e2e/fixtures/` halten beide Aufbauten als Struktur fest.
 9. **Papierbons.** Der TSE-QR-Code enthält die Bruttobeträge je Steuersatz,
    aber keine Einzelposten; `zxing-wasm` (953 KB) wäre der Weg, weil
    `BarcodeDetector` in Safari und auf iOS fehlt. Einzelposten aus einem Foto

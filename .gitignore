@@ -12,5 +12,9 @@ playwright-report/
 test-results/
 .playwright/
 
+# Persönliche Claude-Code-Einstellungen. Die geteilten stehen in
+# .claude/settings.json und gehören ins Repository.
+.claude/settings.local.json
+
 .DS_Store
 *.log
