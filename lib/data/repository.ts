@@ -25,6 +25,7 @@ import type { ExportFile } from '../domain/schemas';
 import type {
   Entry,
   Household,
+  ItemRule,
   IsoDate,
   NewEntryInput,
   NewPotInput,
@@ -72,6 +73,7 @@ export interface Snapshot {
   entries: Entry[];
   recurringRules: RecurringRule[];
   receipts: ReceiptMeta[];
+  itemRules: ItemRule[];
 }
 
 export interface ImportResult {
@@ -189,6 +191,15 @@ export interface BudgetRepository {
   deleteRecurringRule(id: string): Promise<void>;
   /** Erzeugt fällige Buchungen aus allen Regeln. Idempotent, darf beliebig oft laufen. */
   materializeRecurringRules(today: IsoDate): Promise<number>;
+
+  listItemRules(): Promise<ItemRule[]>;
+  /**
+   * Merkt sich „Schlagwort → Topf". Dasselbe Schlagwort ein zweites Mal
+   * überschreibt die alte Zuordnung, statt eine zweite anzulegen — sonst
+   * entscheidet die Reihenfolge, und das wäre nicht erklärbar.
+   */
+  rememberItemRule(keyword: string, potId: string): Promise<ItemRule>;
+  forgetItemRule(id: string): Promise<void>;
 
   listReceipts(entryId?: string): Promise<ReceiptMeta[]>;
   addReceipt(entryId: string, upload: ReceiptUpload): Promise<ReceiptMeta>;

@@ -33,6 +33,7 @@ function entry(overrides: Partial<Entry> & { id: string }): Entry {
     note: null,
     merchant: null,
     recurringRuleId: null,
+    splitGroupId: null,
     createdBy: 'u1',
     ...overrides,
   };

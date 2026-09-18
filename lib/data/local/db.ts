@@ -13,6 +13,7 @@ import type {
   ChangeLogEntry,
   Entry,
   Household,
+  ItemRule,
   Pot,
   Receipt,
   RecurringRule,
@@ -28,6 +29,7 @@ export class BudgetDatabase extends Dexie {
   entries!: EntityTable<Entry, 'id'>;
   recurringRules!: EntityTable<RecurringRule, 'id'>;
   receipts!: EntityTable<Receipt, 'id'>;
+  itemRules!: EntityTable<ItemRule, 'id'>;
   changeLog!: EntityTable<ChangeLogEntry, 'id'>;
 
   constructor(name: string = DB_NAME) {
@@ -46,6 +48,18 @@ export class BudgetDatabase extends Dexie {
       recurringRules: 'id, householdId, potId, paused, deletedAt',
       receipts: 'id, householdId, entryId, deletedAt',
       changeLog: 'id, householdId, entity, at',
+    });
+
+    /**
+     * Version 2: gelernte Zuordnungen für den Bon-Import.
+     *
+     * Nur die neue Tabelle — die Zeilen oben bleiben unangetastet, sonst
+     * verlieren bestehende Installationen ihre Daten. `Entry.splitGroupId` kam
+     * im selben Schritt dazu und steht hier bewusst **nicht**: Das Feld wird
+     * nicht indiziert, und ein nicht indiziertes Feld braucht keine Migration.
+     */
+    this.version(2).stores({
+      itemRules: 'id, householdId, keyword, potId, deletedAt',
     });
   }
 }

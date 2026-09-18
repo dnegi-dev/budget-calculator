@@ -33,6 +33,7 @@ const EMPTY_SNAPSHOT: Snapshot = {
   pots: [],
   entries: [],
   recurringRules: [],
+  itemRules: [],
   receipts: [],
 };
 

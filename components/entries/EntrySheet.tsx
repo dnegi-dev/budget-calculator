@@ -11,7 +11,7 @@
  * Regel auf den Haushalt, nicht in einen Ausgabentopf.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useData } from '../../lib/data/provider';
 import { todayIso } from '../../lib/domain/dates';
 import { parseAmountToCents } from '../../lib/domain/money';
@@ -25,6 +25,7 @@ import { Sheet } from '../../lib/ui/Sheet';
 import { potColorVar } from '../../lib/ui/colors';
 import { useFormat } from '../../lib/ui/useFormat';
 import { ReceiptPicker } from '../receipts/ReceiptPicker';
+import { ReceiptImportSheet } from '../receipts/ReceiptImportSheet';
 
 type Step = 'amount' | 'pot' | 'details';
 
@@ -77,6 +78,8 @@ function EntryForm({
   const [potId, setPotId] = useState<string | null>(entry ? entry.potId : defaultPotId);
   const [date, setDate] = useState(entry?.date ?? todayIso());
   const [merchant, setMerchant] = useState(entry?.merchant ?? '');
+  const [bonDatei, setBonDatei] = useState<File | null>(null);
+  const bonRef = useRef<HTMLInputElement>(null);
   const [note, setNote] = useState(entry?.note ?? '');
   const [savedEntryId, setSavedEntryId] = useState<string | null>(entry?.id ?? null);
   const [saving, setSaving] = useState(false);
@@ -205,6 +208,39 @@ function EntryForm({
               Wird auf „{selectedPot.name}“ gebucht. Im nächsten Schritt änderbar.
             </p>
           )}
+
+          {/*
+            Der Bon-Import sitzt hier und nicht beim Beleg-Anhängen in Schritt
+            drei: Dort steht der Betrag längst, und der ist genau das, was aus
+            dem Bon kommen soll. Nur bei einer neuen Buchung — eine bestehende
+            aus einem Bon zu überschreiben wäre keine Hilfe.
+          */}
+          {!editing && (
+            <div className="border-t border-line pt-4">
+              <input
+                ref={bonRef}
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={(event) => {
+                  const datei = event.target.files?.[0];
+                  if (datei) setBonDatei(datei);
+                  event.target.value = '';
+                }}
+              />
+              <button
+                type="button"
+                className="text-sm text-accent hover:underline"
+                onClick={() => bonRef.current?.click()}
+              >
+                Aus PDF-Bon einlesen →
+              </button>
+              <p className="mt-1 text-xs text-ink-muted">
+                Liest Posten und Summe aus einem digitalen Kassenbon. Ein Foto lässt sich noch nicht
+                auswerten.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -311,6 +347,23 @@ function EntryForm({
       )}
 
       {error && <p className="mt-4 text-sm text-negative">{error}</p>}
+
+      {/*
+        Liegt im Baum dieses Sheets und damit darüber. Nach dem Buchen
+        schließen beide: Der Bon hat die Buchungen schon angelegt, das
+        Formular dahinter hätte nichts mehr zu tun.
+      */}
+      {bonDatei && (
+        <ReceiptImportSheet
+          file={bonDatei}
+          pots={pots}
+          onClose={() => setBonDatei(null)}
+          onImported={() => {
+            setBonDatei(null);
+            onClose();
+          }}
+        />
+      )}
     </Sheet>
   );
 }

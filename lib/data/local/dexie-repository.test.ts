@@ -358,6 +358,116 @@ describe('Textlängen', () => {
   });
 });
 
+describe('Bon-Aufteilung und gelernte Zuordnungen', () => {
+  it('legt einen aufgeteilten Einkauf als eine Gruppe an', async () => {
+    const lebensmittel = await repo.createPot({
+      name: 'Lebensmittel',
+      kind: 'budget',
+      limitCents: 40_000,
+      carryOver: false,
+    });
+    const haushalt = await repo.createPot({
+      name: 'Haushalt',
+      kind: 'category',
+      limitCents: null,
+      carryOver: false,
+    });
+
+    const gruppe = 'gruppe-1';
+    const entries = await repo.createEntries([
+      {
+        potId: lebensmittel.id,
+        kind: 'expense',
+        amountCents: 450,
+        date: '2026-09-18',
+        splitGroupId: gruppe,
+      },
+      {
+        potId: haushalt.id,
+        kind: 'expense',
+        amountCents: 249,
+        date: '2026-09-18',
+        splitGroupId: gruppe,
+      },
+    ]);
+
+    expect(entries).toHaveLength(2);
+    expect(entries.every((entry) => entry.splitGroupId === gruppe)).toBe(true);
+
+    // Ein Beleg hängt an der ersten Buchung; über die Gruppe ist er für beide
+    // auffindbar.
+    const receipt = await repo.addReceipt(entries[0]!.id, {
+      filename: 'bon.pdf',
+      mime: 'application/pdf',
+      blob: new Blob(['%PDF-1.4'], { type: 'application/pdf' }),
+      thumbnail: null,
+    });
+    expect(receipt.entryId).toBe(entries[0]!.id);
+
+    const snapshot = await repo.loadSnapshot();
+    const inGruppe = snapshot.entries.filter((entry) => entry.splitGroupId === gruppe);
+    expect(inGruppe).toHaveLength(2);
+  });
+
+  it('lässt eine einzelne Buchung ohne Gruppe', async () => {
+    const entry = await repo.createEntry({
+      potId: null,
+      kind: 'expense',
+      amountCents: 100,
+      date: '2026-09-18',
+    });
+    expect(entry.splitGroupId).toBeNull();
+  });
+
+  it('merkt sich Zuordnungen und überschreibt statt zu verdoppeln', async () => {
+    const erst = await repo.rememberItemRule('vollmilch', 'topf-a');
+    const zweit = await repo.rememberItemRule('vollmilch', 'topf-b');
+
+    expect(zweit.id).toBe(erst.id);
+    expect(zweit.potId).toBe('topf-b');
+    expect(zweit.revision).toBe(2);
+
+    const rules = await repo.listItemRules();
+    expect(rules).toHaveLength(1);
+  });
+
+  it('vergisst eine Zuordnung als Soft Delete', async () => {
+    const rule = await repo.rememberItemRule('spülmittel', 'topf-haushalt');
+    await repo.forgetItemRule(rule.id);
+
+    expect(await repo.listItemRules()).toEqual([]);
+    // Nicht wirklich weg: Der Datensatz bleibt für den späteren Sync stehen.
+    expect(await db.itemRules.get(rule.id)).toMatchObject({ deletedAt: expect.any(String) });
+  });
+
+  it('nimmt Zuordnungen in die Sicherung mit', async () => {
+    await repo.rememberItemRule('kaffee', 'topf-genuss');
+    const file = await repo.exportAll({ includeReceipts: false });
+
+    expect(exportFileSchema.safeParse(file).success).toBe(true);
+    expect(file.itemRules.map((rule) => rule.keyword)).toEqual(['kaffee']);
+
+    await repo.wipeAll();
+    await repo.setupHousehold({
+      name: 'Neu',
+      currency: 'EUR',
+      locale: 'de-DE',
+      periodStartDay: 1,
+    });
+    await repo.importAll(file, 'replace');
+    expect((await repo.listItemRules()).map((rule) => rule.keyword)).toEqual(['kaffee']);
+  });
+
+  it('liest eine Sicherung ohne Zuordnungen weiter ein', async () => {
+    const file = await repo.exportAll({ includeReceipts: false });
+    const { itemRules: _weg, ...alt } = file;
+    const parsed = exportFileSchema.safeParse(alt);
+
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.itemRules).toEqual([]);
+  });
+});
+
 describe('Export und Import', () => {
   it('erzeugt eine Datei, die dem Schema entspricht', async () => {
     const pot = await repo.createPot({

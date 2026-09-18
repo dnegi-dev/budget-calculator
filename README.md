@@ -83,8 +83,18 @@ gelöst: Metadata-URLs und die Service-Worker-Registrierung über
   in drei Schritten, ab dem ersten speicherbar.
 - **Kassenzettel** als Nachweis zu einer Buchung — „Foto aufnehmen" öffnet die
   Kamera, „Datei wählen" die normale Auswahl des Geräts (Bild oder PDF, auch
-  aus der Galerie). Bewusst ohne Auslesen: der Beleg belegt eine Änderung im
+  aus der Galerie). Ein Foto wird nicht ausgelesen: es belegt eine Änderung im
   Topf, mehr nicht.
+- **PDF-Bon einlesen** im ersten Schritt des Erfassens. Die App liest
+  Einzelposten, Endsumme, Datum und Händler und schlägt vor, wie der Einkauf
+  auf Töpfe aufgeteilt wird; ein Bon auf drei Töpfe wird zu drei Buchungen mit
+  einem Beleg. Trägt das PDF die Belegdaten als `ekabs.json` mit sich (der
+  DFKA-Standard für elektronische Kassenbelege), kommen sie exakt von dort —
+  sonst aus der Textschicht, und dann **nur**, wenn die Posten auf die
+  Endsumme aufgehen. Sonst gibt es nur Summe und Datum statt falscher Posten.
+  Welchen Topf du einem Posten gibst, merkt sich die App für das nächste Mal
+  (Einstellungen → „Zuordnungen"). Alles davon läuft auf dem Gerät; pdf.js
+  wird erst beim ersten Einlesen nachgeladen.
 - **Wiederkehrende Buchungen** (wöchentlich, monatlich, jährlich, mit
   Intervall) für Miete, Abos, Gehalt, unter `/buchungen/wiederkehrend`.
   Buchungen entstehen beim Öffnen der App, idempotent.

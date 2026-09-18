@@ -15,7 +15,8 @@ Konto und keine Übertragung.
 | ------------------------------------------------ | ------------------------------------------------------------ |
 | Töpfe (Monatsbudget, Übertrag, reine Kategorie)  | fertig                                                       |
 | Buchungen erfassen, bearbeiten, filtern          | fertig                                                       |
-| Kassenzettel als Nachweis                        | fertig, bewusst ohne Auswertung des Inhalts                  |
+| Kassenzettel als Nachweis                        | fertig; Fotos bewusst ohne Auswertung des Inhalts            |
+| PDF-Bon einlesen, Posten auf Töpfe verteilen     | fertig, mit Summenprobe und gelernten Zuordnungen            |
 | Wiederkehrende Buchungen                         | fertig, Materialisierung beim App-Start                      |
 | Auswertung (Kennzahlen, Verlauf, Töpfe, Anteile) | fertig                                                       |
 | Export/Import (JSON, CSV)                        | fertig                                                       |
@@ -27,8 +28,8 @@ Konto und keine Übertragung.
 | Impressum, Datenschutz                           | **Gerüst mit Platzhaltern — vor Veröffentlichung ausfüllen** |
 | Zentrale Datenbank, SSO                          | vorbereitet, nicht eingeschaltet                             |
 
-**Prüfstand:** 140 Unit-Tests (`npm test`), 15 E2E-Tests auf zwei Viewports
-(`npm run test:e2e`, 30 Läufe), typecheck und lint grün, statischer Build
+**Prüfstand:** 181 Unit-Tests (`npm test`), 17 E2E-Tests auf zwei Viewports
+(`npm run test:e2e`, 34 Läufe), typecheck und lint grün, statischer Build
 erzeugt.
 CI prüft jeden Pull Request, der Deploy-Workflow prüft erneut vor der
 Veröffentlichung.
@@ -43,9 +44,10 @@ Ersteinrichtung kann eine solche Datei wieder einlesen.
 
 ## Bewusst nicht enthalten
 
-Kein Server, kein echter Zugriffsschutz, keine Synchronisation zwischen Geräten, keine
-Texterkennung auf Belegen, keine Bank-Anbindung, keine Mandantenverwaltung
-über den vorbereiteten Rollen-Code hinaus.
+Kein Server, kein echter Zugriffsschutz, keine Synchronisation zwischen
+Geräten, keine Texterkennung auf Foto-Belegen (PDF-Bons werden gelesen, Fotos
+nicht), keine Bank-Anbindung, keine Mandantenverwaltung über den vorbereiteten
+Rollen-Code hinaus.
 
 ## Offene Punkte
 
@@ -76,6 +78,15 @@ Texterkennung auf Belegen, keine Bank-Anbindung, keine Mandantenverwaltung
 7. **Cache-Reste.** Der Service Worker legt Dateien mit Hash im Namen
    unbegrenzt ab und räumt sie erst beim Hochzählen von `CACHE` weg. Bei dieser
    Größe unkritisch, aber es wächst.
+8. **Bon-Import an echten Belegen prüfen.** Die Muster unter `e2e/fixtures/`
+   sind von Hand gebaut. Wie die PDF-Bons echter Händler aussehen, ist nicht
+   geprüft — insbesondere, ob sie `ekabs.json` mitbringen oder nur eine
+   Textschicht. Ein echter Beleg würde zeigen, ob die Erkennung nachgezogen
+   werden muss.
+9. **Papierbons.** Der TSE-QR-Code enthält die Bruttobeträge je Steuersatz,
+   aber keine Einzelposten; `zxing-wasm` (953 KB) wäre der Weg, weil
+   `BarcodeDetector` in Safari und auf iOS fehlt. Einzelposten aus einem Foto
+   bräuchten OCR und bleiben unzuverlässig.
 
 ## Orientierung im Code
 
@@ -88,6 +99,7 @@ lib/auth/         Session-Abstraktion (v1: lokaler Gerätenutzer)
 lib/rbac/         Rechtematrix und Prüfung
 lib/ui/           Primitive: Sheet, Button, AmountInput, Progress …
 lib/prefs/        Einstellungen dieses Geräts (Darstellung, Betragseingabe)
+lib/pdf/          pdf.js-Hülle für den Bon-Import (nachgeladen, nicht im Bundle)
 docs/             Server-Roadmap und Proxy-Vorlage für SSO
 ```
 

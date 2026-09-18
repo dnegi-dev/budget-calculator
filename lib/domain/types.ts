@@ -90,7 +90,33 @@ export interface Entry extends RecordMeta {
   merchant: string | null;
   /** Gesetzt, wenn die Buchung aus einer wiederkehrenden Regel entstand. */
   recurringRuleId: string | null;
+  /**
+   * Klammert die Buchungen, die aus **einem** Kassenbon entstanden sind.
+   *
+   * Ein Einkauf, der auf drei Töpfe geht, muss drei Buchungen werden — sonst
+   * stimmt die Auswertung nicht. Damit er in der Liste trotzdem als ein
+   * Einkauf erkennbar bleibt, tragen alle drei dieselbe Kennung. Nicht
+   * indiziert: Gruppiert wird über den Snapshot, der ohnehin vollständig im
+   * Speicher liegt.
+   */
+  splitGroupId: string | null;
   createdBy: string;
+}
+
+/**
+ * Gelernte Zuordnung „Schlagwort → Topf".
+ *
+ * Ohne dieses Gedächtnis wäre das Aufteilen eines Bons eine Rechenaufgabe pro
+ * Einkauf und damit mühsamer als eine getippte Summe. Mit ihm ist der zweite
+ * Einkauf beim selben Händler fast fertig vorbelegt.
+ *
+ * Gehört zum Haushalt, nicht zum Gerät: Wer die Regeln gelernt hat, soll sie
+ * nach einem Gerätewechsel wiederhaben — sie stehen deshalb in der Sicherung.
+ */
+export interface ItemRule extends RecordMeta {
+  /** Normalisiert über `normalizeKeyword` — klein, ohne Ziffern und Einheiten. */
+  keyword: string;
+  potId: string;
 }
 
 export interface RecurringRule extends RecordMeta {
@@ -133,7 +159,7 @@ export interface Receipt extends ReceiptMeta {
 export interface ChangeLogEntry {
   id: string;
   householdId: string;
-  entity: 'household' | 'user' | 'pot' | 'entry' | 'recurringRule' | 'receipt';
+  entity: 'household' | 'user' | 'pot' | 'entry' | 'recurringRule' | 'receipt' | 'itemRule';
   entityId: string;
   op: 'upsert' | 'delete';
   revision: number;
@@ -142,7 +168,7 @@ export interface ChangeLogEntry {
 
 /** Eingabeform: alles, was der Nutzer angibt, ohne Metadaten. */
 export type NewEntryInput = Pick<Entry, 'potId' | 'kind' | 'amountCents' | 'date'> &
-  Partial<Pick<Entry, 'note' | 'merchant' | 'recurringRuleId'>>;
+  Partial<Pick<Entry, 'note' | 'merchant' | 'recurringRuleId' | 'splitGroupId'>>;
 
 export type NewPotInput = Pick<Pot, 'name' | 'kind' | 'limitCents' | 'carryOver'> &
   Partial<Pick<Pot, 'icon' | 'color' | 'sortIndex'>>;

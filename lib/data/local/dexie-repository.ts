@@ -32,6 +32,7 @@ import type {
   ChangeLogEntry,
   Entry,
   Household,
+  ItemRule,
   IsoDate,
   NewEntryInput,
   NewPotInput,
@@ -107,14 +108,16 @@ export class DexieBudgetRepository implements BudgetRepository {
   // --------------------------------------------------------------- Snapshot
 
   async loadSnapshot(): Promise<Snapshot> {
-    const [household, users, pots, entries, recurringRules, receipts] = await Promise.all([
-      this.getHousehold(),
-      this.db.users.toArray(),
-      this.db.pots.toArray(),
-      this.db.entries.toArray(),
-      this.db.recurringRules.toArray(),
-      this.db.receipts.toArray(),
-    ]);
+    const [household, users, pots, entries, recurringRules, receipts, itemRules] =
+      await Promise.all([
+        this.getHousehold(),
+        this.db.users.toArray(),
+        this.db.pots.toArray(),
+        this.db.entries.toArray(),
+        this.db.recurringRules.toArray(),
+        this.db.receipts.toArray(),
+        this.db.itemRules.toArray(),
+      ]);
 
     return {
       household,
@@ -124,6 +127,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       recurringRules: recurringRules.filter(alive),
       // Blobs werden hier absichtlich abgeworfen: Listen brauchen nur Metadaten.
       receipts: receipts.filter(alive).map(stripBlobs),
+      itemRules: itemRules.filter(alive),
     };
   }
 
@@ -503,6 +507,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       date: input.date,
       note: clampText(input.note, TEXT_LIMITS.note),
       merchant: clampText(input.merchant, TEXT_LIMITS.merchant),
+      splitGroupId: input.splitGroupId ?? null,
       recurringRuleId: input.recurringRuleId ?? null,
       createdBy: principal?.userId ?? 'unbekannt',
     }));
@@ -727,6 +732,7 @@ export class DexieBudgetRepository implements BudgetRepository {
             date: input.date,
             note: input.note ?? null,
             merchant: null,
+            splitGroupId: null,
             recurringRuleId: rule.id,
             createdBy: principal?.userId ?? rule.householdId,
           }));
@@ -758,6 +764,70 @@ export class DexieBudgetRepository implements BudgetRepository {
 
     if (created > 0) await this.notify();
     return created;
+  }
+
+  // ----------------------------------------------------------- Zuordnungen
+
+  async listItemRules(): Promise<ItemRule[]> {
+    const rules = await this.db.itemRules.toArray();
+    return rules.filter(alive);
+  }
+
+  async rememberItemRule(keyword: string, potId: string): Promise<ItemRule> {
+    this.assert('entry.create');
+    const household = await this.requireHousehold();
+    const normalized = clampText(keyword, TEXT_LIMITS.keyword);
+    if (normalized === null) throw new Error('Leeres Schlagwort.');
+
+    const at = nowIso();
+    // Dasselbe Schlagwort überschreibt seine Zuordnung, statt eine zweite
+    // anzulegen: Bei zwei Regeln für ein Wort entschiede die Reihenfolge, und
+    // das ließe sich niemandem erklären.
+    const existing = (await this.db.itemRules.where('keyword').equals(normalized).toArray()).find(
+      (rule) => alive(rule),
+    );
+
+    const rule: ItemRule = existing
+      ? { ...existing, potId, updatedAt: at, revision: existing.revision + 1 }
+      : {
+          id: newId(),
+          householdId: household.id,
+          createdAt: at,
+          updatedAt: at,
+          revision: 1,
+          deletedAt: null,
+          keyword: normalized,
+          potId,
+        };
+
+    await this.db.transaction('rw', this.db.itemRules, this.db.changeLog, async () => {
+      await this.db.itemRules.put(rule);
+      await this.log('itemRule', rule.id, 'upsert', rule.revision, rule.householdId);
+    });
+
+    await this.notify();
+    return rule;
+  }
+
+  async forgetItemRule(id: string): Promise<void> {
+    const rule = await this.db.itemRules.get(id);
+    if (!rule) return;
+    this.assert('entry.create');
+
+    const at = nowIso();
+    const deleted: ItemRule = {
+      ...rule,
+      deletedAt: at,
+      updatedAt: at,
+      revision: rule.revision + 1,
+    };
+
+    await this.db.transaction('rw', this.db.itemRules, this.db.changeLog, async () => {
+      await this.db.itemRules.put(deleted);
+      await this.log('itemRule', deleted.id, 'delete', deleted.revision, deleted.householdId);
+    });
+
+    await this.notify();
   }
 
   // ---------------------------------------------------------------- Belege
@@ -832,12 +902,13 @@ export class DexieBudgetRepository implements BudgetRepository {
   async exportAll(options: { includeReceipts: boolean }): Promise<ExportFile> {
     this.assert('data.export');
     const household = await this.requireHousehold();
-    const [users, pots, entries, recurringRules, receipts] = await Promise.all([
+    const [users, pots, entries, recurringRules, receipts, itemRules] = await Promise.all([
       this.listUsers(),
       this.listPots({ includeArchived: true }),
       this.listEntries(),
       this.listRecurringRules(),
       this.db.receipts.toArray(),
+      this.listItemRules(),
     ]);
 
     const receiptExports: ReceiptExport[] = options.includeReceipts
@@ -860,6 +931,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       entries,
       recurringRules,
       receipts: receiptExports,
+      itemRules,
     };
   }
 
@@ -895,6 +967,7 @@ export class DexieBudgetRepository implements BudgetRepository {
           this.db.entries.clear(),
           this.db.recurringRules.clear(),
           this.db.receipts.clear(),
+          this.db.itemRules.clear(),
         ]);
         await this.db.households.put(file.household);
         await this.db.users.bulkPut(file.users);
@@ -950,6 +1023,12 @@ export class DexieBudgetRepository implements BudgetRepository {
         }
       }
 
+      for (const rule of file.itemRules) {
+        if (mode === 'replace' || (await this.shouldWrite(this.db.itemRules, rule))) {
+          await this.db.itemRules.put(rule);
+        }
+      }
+
       await this.log(
         'household',
         file.household.id,
@@ -973,6 +1052,7 @@ export class DexieBudgetRepository implements BudgetRepository {
         this.db.entries.clear(),
         this.db.recurringRules.clear(),
         this.db.receipts.clear(),
+        this.db.itemRules.clear(),
         this.db.changeLog.clear(),
       ]);
     });
@@ -1001,6 +1081,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       this.db.entries,
       this.db.recurringRules,
       this.db.receipts,
+      this.db.itemRules,
       this.db.changeLog,
     ] as unknown as Table[];
   }
