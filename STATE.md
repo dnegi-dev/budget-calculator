@@ -20,12 +20,16 @@ Konto und keine Übertragung.
 | Auswertung (Kennzahlen, Verlauf, Töpfe, Anteile) | fertig                                                       |
 | Export/Import (JSON, CSV)                        | fertig                                                       |
 | Rollen Admin/Nutzer/Nur Lesen                    | wirksam, im Repository erzwungen                             |
+| Anmeldung (`admin`/`admin`)                      | vorhanden — **Abschreckung, kein Zugriffsschutz**            |
+| Darstellung hell/dunkel/automatisch              | fertig, pro Gerät im `localStorage`                          |
+| Update-Hinweis bei neuer Fassung                 | fertig, Leiste mit „Neu laden“ — kein automatischer Reload   |
 | PWA (Manifest, Icons, Offline-Start)             | fertig                                                       |
 | Impressum, Datenschutz                           | **Gerüst mit Platzhaltern — vor Veröffentlichung ausfüllen** |
 | Zentrale Datenbank, SSO                          | vorbereitet, nicht eingeschaltet                             |
 
-**Prüfstand:** 118 Unit-Tests (`npm test`), 4 E2E-Tests auf zwei Viewports
-(`npm run test:e2e`), typecheck und lint grün, statischer Build erzeugt.
+**Prüfstand:** 140 Unit-Tests (`npm test`), 15 E2E-Tests auf zwei Viewports
+(`npm run test:e2e`, 30 Läufe), typecheck und lint grün, statischer Build
+erzeugt.
 CI prüft jeden Pull Request, der Deploy-Workflow prüft erneut vor der
 Veröffentlichung.
 
@@ -39,7 +43,7 @@ Ersteinrichtung kann eine solche Datei wieder einlesen.
 
 ## Bewusst nicht enthalten
 
-Kein Server, keine Anmeldung, keine Synchronisation zwischen Geräten, keine
+Kein Server, kein echter Zugriffsschutz, keine Synchronisation zwischen Geräten, keine
 Texterkennung auf Belegen, keine Bank-Anbindung, keine Mandantenverwaltung
 über den vorbereiteten Rollen-Code hinaus.
 
@@ -55,15 +59,23 @@ Texterkennung auf Belegen, keine Bank-Anbindung, keine Mandantenverwaltung
    herum — etwa Basic Auth oder ein Zugangsdienst vor einer eigenen Domain.
    GitHub Pages fällt dafür weg. Welche Variante im konkreten Fall passt, ist
    nicht geprüft.
-3. **Limit-Historie für den Übertrag.** Der Übertrag rechnet vergangene
+3. **Barrierefreiheit der Overlays.** Sheets holen den Fokus, halten ihn aber
+   nicht: keine Fokusfalle, kein `inert` auf dem Hintergrund, keine
+   Fokus-Rückgabe beim Schließen. Mit der Tastatur läuft man aus dem Dialog
+   heraus. Das Scrollen im Hintergrund ist gesperrt
+   (`lib/ui/useScrollLock.ts`), der Rest fehlt.
+4. **Limit-Historie für den Übertrag.** Der Übertrag rechnet vergangene
    Perioden mit dem _aktuellen_ Limit — wer das Limit ändert, ändert ihn
    rückwirkend. Dokumentiert in `lib/domain/ledger.ts`; ein Feld
    `limitHistory` am Topf wäre der Weg.
-4. **Server-Schritt.** Wenn zentrale Speicherung und SSO dazukommen sollen:
+5. **Server-Schritt.** Wenn zentrale Speicherung und SSO dazukommen sollen:
    `docs/roadmap-server.md` beschreibt die Reihenfolge und was dafür schon
    vorbereitet ist.
-5. **Feinere Invalidierung.** Heute lädt jede Mutation den ganzen Snapshot neu.
-   Lokal unmessbar, über das Netz nicht — relevant erst mit Schritt 4.
+6. **Feinere Invalidierung.** Heute lädt jede Mutation den ganzen Snapshot neu.
+   Lokal unmessbar, über das Netz nicht — relevant erst mit Schritt 5.
+7. **Cache-Reste.** Der Service Worker legt Dateien mit Hash im Namen
+   unbegrenzt ab und räumt sie erst beim Hochzählen von `CACHE` weg. Bei dieser
+   Größe unkritisch, aber es wächst.
 
 ## Orientierung im Code
 
@@ -75,6 +87,7 @@ lib/data/         BudgetRepository + Dexie-Adapter + HTTP-Adapter (Stub)
 lib/auth/         Session-Abstraktion (v1: lokaler Gerätenutzer)
 lib/rbac/         Rechtematrix und Prüfung
 lib/ui/           Primitive: Sheet, Button, AmountInput, Progress …
+lib/prefs/        Einstellungen dieses Geräts (Darstellung, Betragseingabe)
 docs/             Server-Roadmap und Proxy-Vorlage für SSO
 ```
 
