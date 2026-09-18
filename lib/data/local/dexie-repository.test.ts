@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTestDatabase, type BudgetDatabase } from './db';
 import { DexieBudgetRepository } from './dexie-repository';
 import { PermissionDeniedError, type Principal } from '../../rbac/can';
-import { EXPORT_SCHEMA_VERSION, exportFileSchema } from '../../domain/schemas';
+import { EXPORT_SCHEMA_VERSION, exportFileSchema, TEXT_LIMITS } from '../../domain/schemas';
 import type { Role } from '../../domain/types';
 
 let db: BudgetDatabase;
@@ -321,6 +321,40 @@ describe('Belege', () => {
     });
     await repo.deleteEntry(entry.id);
     expect(await repo.listReceipts()).toHaveLength(0);
+  });
+});
+
+describe('Textlängen', () => {
+  /**
+   * Der Fehler, den dieser Test festhält: Das Limit stand nur im
+   * Import-Schema. Eine längere Notiz ließ sich speichern und exportieren —
+   * und die Sicherung war danach nicht mehr einlesbar.
+   */
+  it('kürzt eine zu lange Notiz beim Schreiben, damit die Sicherung einlesbar bleibt', async () => {
+    const entry = await repo.createEntry({
+      potId: null,
+      kind: 'expense',
+      amountCents: 1_250,
+      date: '2026-09-18',
+      note: 'x'.repeat(TEXT_LIMITS.note + 100),
+      merchant: 'y'.repeat(TEXT_LIMITS.merchant + 100),
+    });
+    expect(entry.note).toHaveLength(TEXT_LIMITS.note);
+    expect(entry.merchant).toHaveLength(TEXT_LIMITS.merchant);
+
+    const file = await repo.exportAll({ includeReceipts: false });
+    expect(exportFileSchema.safeParse(file).success).toBe(true);
+  });
+
+  it('kürzt auch beim Ändern', async () => {
+    const entry = await repo.createEntry({
+      potId: null,
+      kind: 'expense',
+      amountCents: 500,
+      date: '2026-09-18',
+    });
+    const updated = await repo.updateEntry(entry.id, { note: 'z'.repeat(TEXT_LIMITS.note + 1) });
+    expect(updated.note).toHaveLength(TEXT_LIMITS.note);
   });
 });
 

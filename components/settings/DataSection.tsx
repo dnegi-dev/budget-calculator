@@ -16,7 +16,8 @@ import { useCan } from '../../lib/auth/provider';
 import { useData } from '../../lib/data/provider';
 import { downloadFile, entriesToCsv } from '../../lib/data/csv';
 import { formatByteSize } from '../../lib/data/blobs';
-import { exportFileSchema } from '../../lib/domain/schemas';
+import { exportFileSchema, type ExportFile } from '../../lib/domain/schemas';
+import { clampBackupText, describeImportError } from '../../lib/domain/backup';
 import { todayIso } from '../../lib/domain/dates';
 import type { ImportResult } from '../../lib/data/repository';
 import { Banner } from '../../lib/ui/Banner';
@@ -34,7 +35,8 @@ export function DataSection() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pendingImport, setPendingImport] = useState<unknown | null>(null);
+  const [pendingImport, setPendingImport] = useState<ExportFile | null>(null);
+  const [truncated, setTruncated] = useState(0);
   const [result, setResult] = useState<ImportResult | null>(null);
 
   const receiptBytes = snapshot.receipts.reduce((total, receipt) => total + receipt.byteSize, 0);
@@ -74,16 +76,18 @@ export function DataSection() {
     setError(null);
     setMessage(null);
     setResult(null);
+    setTruncated(0);
     try {
       const parsed: unknown = JSON.parse(await file.text());
+      // Zu lange Freitexte kürzen, bevor das Schema urteilt: Eine Notiz soll
+      // die einzige Kopie der Daten nicht unlesbar machen.
+      const gekuerzt = clampBackupText(parsed);
       const validation = exportFileSchema.safeParse(parsed);
       if (!validation.success) {
-        const first = validation.error.issues[0];
-        setError(
-          `Die Datei passt nicht zum erwarteten Format${first ? `: ${first.path.join('.')} — ${first.message}` : ''}.`,
-        );
+        setError(describeImportError(validation.error));
         return;
       }
+      setTruncated(gekuerzt);
       setPendingImport(validation.data);
     } catch {
       setError('Die Datei ist kein gültiges JSON.');
@@ -97,7 +101,9 @@ export function DataSection() {
     setBusy(true);
     setError(null);
     try {
-      const imported = await repository.importAll(exportFileSchema.parse(pendingImport), mode);
+      // Kein zweites `parse`: Die Daten sind schon geprüft, und bei einer
+      // Sicherung mit Belegen wäre das ein Megabyte-Durchlauf für nichts.
+      const imported = await repository.importAll(pendingImport, mode);
       setResult(imported);
       setPendingImport(null);
     } catch (caught) {
@@ -174,6 +180,13 @@ export function DataSection() {
         {pendingImport !== null && (
           <div className="rounded-card border border-[var(--warning)] px-4 py-3">
             <p className="font-medium">Wie soll eingelesen werden?</p>
+            {truncated > 0 && (
+              <p className="mt-1 text-sm text-ink-muted">
+                {truncated === 1
+                  ? 'Ein zu langer Text wurde auf die zulässige Länge gekürzt.'
+                  : `${truncated} zu lange Texte wurden auf die zulässige Länge gekürzt.`}
+              </p>
+            )}
             <ul className="mt-2 flex flex-col gap-2 text-sm text-ink-muted">
               <li>
                 <strong className="text-ink">Ersetzen</strong> — alles auf diesem Gerät wird
@@ -209,7 +222,7 @@ export function DataSection() {
         {message && <p className="text-sm text-positive">{message}</p>}
         {error && (
           <Banner tone="negative" icon="⚠">
-            {error}
+            <span className="whitespace-pre-line">{error}</span>
           </Banner>
         )}
       </div>

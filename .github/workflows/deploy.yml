@@ -13,6 +13,10 @@ on:
 # in die Bundles eingebacken. Bei eigener Domain: auf "" setzen.
 env:
   NEXT_PUBLIC_BASE_PATH: /budget-calculator
+  # Kennung dieses Builds. Steckt im Bundle (lib/build-version.ts) und
+  # gleichlautend in out/version.json — die App vergleicht beides und weist auf
+  # eine neuere Fassung hin. Lokal leer, dann ist die Prüfung aus.
+  NEXT_PUBLIC_BUILD_VERSION: ${{ github.sha }}
 
 permissions:
   contents: read
@@ -48,6 +52,11 @@ jobs:
 
       - name: Bauen
         run: npm run build
+
+      # Nach dem Build, damit sie nicht in public/ liegen muss: Dieselbe
+      # Kennung, die im Bundle steckt, als abfragbare Datei daneben.
+      - name: Versionsdatei schreiben
+        run: printf '{"version":"%s"}\n' "$NEXT_PUBLIC_BUILD_VERSION" > out/version.json
 
       # Ohne .nojekyll ignoriert Pages alles unter _next/, weil Jekyll
       # Verzeichnisse mit führendem Unterstrich auslässt.

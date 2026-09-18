@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { useData } from '../../lib/data/provider';
 import { todayIso } from '../../lib/domain/dates';
 import { parseAmountToCents } from '../../lib/domain/money';
+import { TEXT_LIMITS } from '../../lib/domain/schemas';
 import type { Entry, EntryKind, Pot } from '../../lib/domain/types';
 import { AmountInput } from '../../lib/ui/AmountInput';
 import { Button } from '../../lib/ui/Button';
@@ -286,6 +287,7 @@ function EntryForm({
                 value={merchant}
                 onChange={(event) => setMerchant(event.target.value)}
                 placeholder="z. B. Supermarkt"
+                maxLength={TEXT_LIMITS.merchant}
                 autoComplete="off"
               />
             )}
@@ -299,6 +301,7 @@ function EntryForm({
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
                 placeholder="Optional"
+                maxLength={TEXT_LIMITS.note}
               />
             )}
           </Field>

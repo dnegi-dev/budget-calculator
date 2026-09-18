@@ -7,6 +7,10 @@ import { entsperren, erfassenOeffnen } from './helpers';
  * Geprüft wird nicht, ob Knöpfe existieren, sondern ob am Ende die richtige
  * Zahl dasteht: 400 € Limit minus 12,50 € Ausgabe ergibt 387,50 € — über
  * Wizard, Bottom Sheet, IndexedDB und Restbetragsrechnung hinweg.
+ *
+ * Beträge werden als reine Ziffernfolge eingegeben: Die Voreinstellung ist der
+ * Kassenzettel-Modus, in dem die letzten zwei Ziffern Cent sind. `40000` sind
+ * also 400,00 € — und `400` wären 4,00 €.
  */
 
 // Die Anmeldung selbst prüft login.spec.ts — hier soll der Alltag geprüft
@@ -51,7 +55,7 @@ test.describe('Haushalt einrichten und buchen', () => {
     await page.getByRole('radio', { name: /^Monatsbudget/ }).check();
     await page.getByRole('button', { name: 'Weiter' }).click();
 
-    await page.getByLabel(/Limit pro Periode/).fill('400');
+    await page.getByLabel(/Limit pro Periode/).fill('40000');
     await page.getByRole('button', { name: 'Weiter' }).click();
 
     await page.getByRole('button', { name: 'Topf anlegen' }).click();
@@ -63,7 +67,7 @@ test.describe('Haushalt einrichten und buchen', () => {
     // Seite — beides führt in dasselbe Sheet.
     await erfassenOeffnen(page, 'Ausgabe');
 
-    await page.getByLabel('Betrag').fill('12,50');
+    await page.getByLabel('Betrag').fill('1250');
     await page.getByRole('button', { name: 'Weiter' }).click();
 
     await page.getByRole('button', { name: /Lebensmittel/ }).click();
@@ -72,7 +76,10 @@ test.describe('Haushalt einrichten und buchen', () => {
     // Details: Beleg anhängen. Die Buchung existiert an dieser Stelle schon,
     // denn ein Beleg braucht etwas zu belegen.
     await page.getByLabel('Wo?').fill('Supermarkt');
-    await page.setInputFiles('input[type="file"]', {
+    // Das Feld ohne `capture` — der Kamera-Knopf hat ein eigenes, und ein
+    // unspezifisches input[type=file] träfe beide.
+    const belegFeld = 'input[type="file"][accept="image/*,application/pdf"]';
+    await page.setInputFiles(belegFeld, {
       name: 'kassenzettel.png',
       mimeType: 'image/png',
       // 1x1-PNG — der Inhalt ist unerheblich, geprüft wird die Ablage.
@@ -84,6 +91,23 @@ test.describe('Haushalt einrichten und buchen', () => {
     await expect(
       page.getByRole('button', { name: /Beleg kassenzettel.png ansehen/ }),
     ).toBeVisible();
+
+    // Eine PDF-Rechnung muss denselben Weg gehen — das war vorher unmöglich,
+    // weil `capture` das Telefon in die Kamera zwang.
+    await page.setInputFiles(belegFeld, {
+      name: 'rechnung.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.4\n%%EOF\n', 'utf8'),
+    });
+    await expect(page.getByRole('button', { name: /Beleg rechnung.pdf ansehen/ })).toBeVisible();
+
+    // Alles andere wird mit Begründung abgelehnt, nicht still verschluckt.
+    await page.setInputFiles(belegFeld, {
+      name: 'notizen.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('kein Beleg', 'utf8'),
+    });
+    await expect(page.getByText(/notizen.txt.*kein Bild und kein PDF/)).toBeVisible();
     await page.getByRole('button', { name: 'Fertig' }).click();
 
     // Das Sheet schließt erst, wenn der Schreibvorgang durch ist. Ohne dieses
@@ -107,7 +131,8 @@ test.describe('Haushalt einrichten und buchen', () => {
     // --- Buchungsliste zeigt den Beleg ----------------------------------
     await page.getByRole('link', { name: 'Buchungen' }).first().click();
     await expect(page.getByText('Supermarkt')).toBeVisible();
-    await expect(page.getByText(/1 Beleg/)).toBeVisible();
+    // Zwei: das Foto und die PDF-Rechnung. Die Textdatei wurde abgelehnt.
+    await expect(page.getByText(/2 Belege/)).toBeVisible();
   });
 
   /**
@@ -126,7 +151,7 @@ test.describe('Haushalt einrichten und buchen', () => {
     await page.getByRole('button', { name: /Los geht/ }).click();
 
     await erfassenOeffnen(page, 'Ausgabe');
-    await page.getByLabel('Betrag').fill('33,33');
+    await page.getByLabel('Betrag').fill('3333');
     await page.getByRole('button', { name: 'Speichern' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
 

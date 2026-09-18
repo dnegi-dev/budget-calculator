@@ -6,10 +6,15 @@ import { useEffect, useState } from 'react';
 import { useData } from '../../lib/data/provider';
 import { formatByteSize } from '../../lib/data/blobs';
 import type { ReceiptMeta } from '../../lib/domain/types';
+import { useScrollLock } from '../../lib/ui/useScrollLock';
 
 export function ReceiptViewer({ receipt, onClose }: { receipt: ReceiptMeta; onClose: () => void }) {
   const { repository } = useData();
   const [url, setUrl] = useState<string | null>(null);
+
+  // Dieses Overlay ist von Hand gebaut und hat die Sperre bisher gar nicht
+  // gehabt — bei offenem Beleg scrollte die Liste darunter mit.
+  useScrollLock(true);
 
   useEffect(() => {
     let objectUrl: string | null = null;
@@ -53,7 +58,7 @@ export function ReceiptViewer({ receipt, onClose }: { receipt: ReceiptMeta; onCl
         </button>
       </div>
 
-      <div className="flex flex-1 items-center justify-center overflow-auto p-4">
+      <div className="flex flex-1 items-center justify-center overflow-auto overscroll-contain p-4">
         {url === null ? (
           <p className="text-sm text-white/70">Beleg wird geladen …</p>
         ) : isImage ? (

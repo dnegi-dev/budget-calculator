@@ -3,14 +3,28 @@
 /**
  * Betragseingabe.
  *
- * Auf dem Telefon soll die Zifferntastatur erscheinen (`inputMode="decimal"`),
- * auf dem Desktop soll man einfach tippen können. Deshalb ein normales
- * Textfeld mit eigener Parserlogik statt `type="number"`: letzteres liefert je
- * nach Gebietseinstellung unterschiedliche Werte und verschluckt das Komma.
+ * Auf dem Telefon soll die Zifferntastatur erscheinen, auf dem Desktop soll
+ * man einfach tippen können. Deshalb ein normales Textfeld mit eigener
+ * Parserlogik statt `type="number"`: letzteres liefert je nach
+ * Gebietseinstellung unterschiedliche Werte und verschluckt das Komma.
+ *
+ * Zwei Eingabearten, umschaltbar in den Einstellungen:
+ *
+ * - **Kassenzettel-Modus** (Voreinstellung): Nur Ziffern zählen, die letzten
+ *   zwei sind Cent. Das Komma erscheint von selbst, und es gibt während der
+ *   Eingabe keinen ungültigen Zustand — die Fehlerzeile kann hier nicht
+ *   auslösen. Der Preis: Der Schreibcursor springt ans Ende, weil das Feld
+ *   nach jedem Zeichen neu formatiert wird. Wie an einer Kasse.
+ * - **Freitext**: wie vorher, geprüft durch `parseAmountToCents`.
+ *
+ * Die Einstellung liest das Primitiv selbst, damit die fünf Aufrufstellen
+ * unverändert bleiben — dasselbe Muster wie `lib/ui/useFormat.ts` mit dem
+ * Snapshot.
  */
 
 import { useId } from 'react';
-import { parseAmountToCents } from '../domain/money';
+import { formatDigitsAsAmount, parseAmountToCents } from '../domain/money';
+import { useAmountMode } from '../prefs/useDevicePref';
 
 export interface AmountInputProps {
   value: string;
@@ -32,8 +46,9 @@ export function AmountInput({
   placeholder = '0,00',
 }: AmountInputProps) {
   const id = useId();
+  const mode = useAmountMode();
   const cents = parseAmountToCents(value);
-  const invalid = value.trim() !== '' && cents === null;
+  const invalid = mode === 'free' && value.trim() !== '' && cents === null;
 
   return (
     <div>
@@ -50,8 +65,12 @@ export function AmountInput({
         <input
           id={id}
           value={value}
-          onChange={(event) => onChange(event.target.value)}
-          inputMode="decimal"
+          onChange={(event) =>
+            onChange(
+              mode === 'cents' ? formatDigitsAsAmount(event.target.value) : event.target.value,
+            )
+          }
+          inputMode={mode === 'cents' ? 'numeric' : 'decimal'}
           autoComplete="off"
           // Im Erfassungs-Sheet ist der Betrag das erste und einzige Feld.
           autoFocus={autoFocus}

@@ -16,6 +16,35 @@ export const isoDateTimeSchema = z.string().refine((value) => !Number.isNaN(Date
 });
 export const periodKeySchema = z.string().refine(isPeriodKey, 'Kein Periodenschlüssel (YYYY-MM)');
 
+/**
+ * Längen der Freitextfelder. Eine Zahl, drei Verwendungen: die Schemas hier,
+ * `maxLength` an den Eingabefeldern und das Kürzen beim Import
+ * (`lib/domain/backup.ts`).
+ *
+ * Vorher stand das Limit nur im Schema. Weil das Schema aber ausschließlich
+ * beim Import läuft, ließ sich eine längere Notiz speichern, exportieren und
+ * anschließend nicht mehr einlesen — die Sicherung war unbrauchbar.
+ */
+export const TEXT_LIMITS = {
+  householdName: 80,
+  displayName: 80,
+  potName: 60,
+  note: 500,
+  merchant: 120,
+} as const;
+
+/**
+ * Freitext für die Ablage: getrimmt, auf sein Limit gekürzt, leer wird `null`.
+ *
+ * Hier und nicht in der Oberfläche, weil `maxLength` am Eingabefeld nur die
+ * Tastatur bremst — eingefügter Text, Import und jeder künftige API-Aufruf
+ * kommen daran vorbei.
+ */
+export function clampText(value: string | null | undefined, limit: number): string | null {
+  const trimmed = value?.trim() ?? '';
+  return trimmed === '' ? null : trimmed.slice(0, limit);
+}
+
 export const idSchema = z.string().min(1).max(64);
 export const roleSchema = z.enum(['admin', 'member', 'viewer']);
 export const potKindSchema = z.enum(['budget', 'envelope', 'category']);
@@ -40,7 +69,7 @@ const recordMetaShape = {
 
 export const householdSchema = z.object({
   id: idSchema,
-  name: z.string().min(1, 'Name fehlt').max(80),
+  name: z.string().min(1, 'Name fehlt').max(TEXT_LIMITS.householdName),
   currency: z.string().length(3, 'Währung als ISO-Code, z. B. EUR'),
   locale: z.string().min(2).max(35),
   periodStartDay: z.number().int().min(1).max(28),
@@ -52,7 +81,7 @@ export const householdSchema = z.object({
 
 export const userSchema = z.object({
   ...recordMetaShape,
-  displayName: z.string().min(1).max(80),
+  displayName: z.string().min(1).max(TEXT_LIMITS.displayName),
   role: roleSchema,
   externalSubject: z.string().min(1).max(255).nullable(),
   isLocalDevice: z.boolean(),
@@ -60,7 +89,7 @@ export const userSchema = z.object({
 
 export const potSchema = z.object({
   ...recordMetaShape,
-  name: z.string().min(1, 'Name fehlt').max(60),
+  name: z.string().min(1, 'Name fehlt').max(TEXT_LIMITS.potName),
   icon: z.string().min(1).max(8),
   color: z.string().min(1).max(24),
   kind: potKindSchema,
@@ -76,8 +105,8 @@ export const entrySchema = z.object({
   kind: entryKindSchema,
   amountCents: amountCentsSchema,
   date: isoDateSchema,
-  note: z.string().max(500).nullable(),
-  merchant: z.string().max(120).nullable(),
+  note: z.string().max(TEXT_LIMITS.note).nullable(),
+  merchant: z.string().max(TEXT_LIMITS.merchant).nullable(),
   recurringRuleId: idSchema.nullable(),
   createdBy: idSchema,
 });
@@ -88,7 +117,7 @@ export const recurringRuleSchema = z
     potId: idSchema.nullable(),
     kind: entryKindSchema,
     amountCents: amountCentsSchema,
-    note: z.string().max(500).nullable(),
+    note: z.string().max(TEXT_LIMITS.note).nullable(),
     freq: frequencySchema,
     interval: z.number().int().min(1).max(60),
     dayOfMonth: z.number().int().min(1).max(31).nullable(),

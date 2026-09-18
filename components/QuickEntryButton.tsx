@@ -17,6 +17,7 @@
  */
 
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { useCan } from '../lib/auth/provider';
 import { useSnapshot } from '../lib/data/provider';
 import type { EntryKind } from '../lib/domain/types';
@@ -26,10 +27,16 @@ import { EntrySheet } from './entries/EntrySheet';
 export function QuickEntryButton() {
   const snapshot = useSnapshot();
   const can = useCan();
+  const pathname = usePathname();
   const [chooserOpen, setChooserOpen] = useState(false);
   const [kind, setKind] = useState<EntryKind | null>(null);
 
   if (!can('entry.create')) return null;
+
+  // Nicht in den Einstellungen: Dort erfasst niemand eine Buchung, und die
+  // Seite ist die mit den meisten Schaltern — beim Prüfen lag der Knopf auf
+  // dem Umschalter für die Darstellung.
+  if (pathname.startsWith('/einstellungen')) return null;
 
   const activePots = snapshot.pots.filter((pot) => pot.archivedAt === null);
 

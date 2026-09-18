@@ -101,3 +101,23 @@ export function sumCents(values: readonly number[]): number {
 export function signedCents(kind: 'expense' | 'income', amountCents: number): number {
   return kind === 'expense' ? -amountCents : amountCents;
 }
+
+/** Obergrenze der Ziffernfolge im Kassenzettel-Modus: 9 999 999,99 €. */
+export const MAX_AMOUNT_DIGITS = 9;
+
+/**
+ * Kassenzettel-Modus: Ziffernfolge zu Anzeige.
+ *
+ * `''` → `''`, `'1'` → `'0,01'`, `'1250'` → `'12,50'`. Die letzten zwei
+ * Ziffern sind Cent, wie an einer Registrierkasse. Damit muss niemand ein
+ * Komma tippen, und es gibt während der Eingabe keinen ungültigen Zustand.
+ *
+ * Alles außer Ziffern wird verworfen — auch ein getipptes Komma, das sonst
+ * zwei konkurrierende Dezimalzeichen im Feld hinterließe.
+ */
+export function formatDigitsAsAmount(input: string): string {
+  const digits = input.replace(/\D/g, '').slice(0, MAX_AMOUNT_DIGITS);
+  if (digits === '') return '';
+  const padded = digits.padStart(3, '0');
+  return `${String(Number(padded.slice(0, -2)))},${padded.slice(-2)}`;
+}

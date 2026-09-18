@@ -38,7 +38,7 @@ export default function DatenschutzPage() {
           Diese Anwendung speichert alle Eingaben — Haushalt, Töpfe, Buchungen und hochgeladene
           Kassenzettel — ausschließlich im Speicher deines Browsers auf deinem Gerät. Sie werden
           nicht übertragen, nicht ausgewertet und nicht an Dritte weitergegeben. Es gibt kein
-          Benutzerkonto, keine Anmeldung, keine Cookies und keine Reichweitenmessung.
+          Benutzerkonto, keine Cookies und keine Reichweitenmessung.
         </p>
       </LegalSection>
 
@@ -74,6 +74,35 @@ export default function DatenschutzPage() {
         </p>
       </LegalSection>
 
+      <LegalSection title="Anmeldung und Einstellungen auf dem Gerät">
+        <p>
+          Vor der App steht ein Anmeldefenster. Es ist <strong>kein Zugriffsschutz</strong>: Die
+          Seite ist ein statisches Bundle, jede Datei wird an jeden ausgeliefert, der sie anfragt,
+          und die Zugangsdaten stehen im ausgelieferten JavaScript. Es hält Gelegenheitsbesucher ab,
+          mehr nicht. Ein Benutzerkonto entsteht dadurch nicht: Es wird nichts angelegt, nichts
+          übertragen und nichts protokolliert.
+        </p>
+        <p>
+          Dafür und für zwei Anzeigeeinstellungen legt die App drei Werte im lokalen Speicher des
+          Browsers ab:
+        </p>
+        <ul className="ml-4 flex list-disc flex-col gap-1">
+          <li>
+            <code>haushalt.unlocked</code> — der Merker, dass das Anmeldefenster passiert wurde.
+          </li>
+          <li>
+            <code>haushalt.theme</code> — die gewählte Darstellung (automatisch, hell oder dunkel).
+          </li>
+          <li>
+            <code>haushalt.amountMode</code> — die gewählte Art der Betragseingabe.
+          </li>
+        </ul>
+        <p>
+          Alle drei bleiben auf dem Gerät, enthalten keine Kennung, werden nicht übertragen und
+          lassen sich mit den Website-Daten des Browsers löschen.
+        </p>
+      </LegalSection>
+
       <LegalSection title="Daten, die beim Aufruf der Seite anfallen">
         <p>
           Die Seite wird über GitHub Pages ausgeliefert, einen Dienst der GitHub B.V. bzw. GitHub,
@@ -100,13 +129,19 @@ export default function DatenschutzPage() {
 
       <LegalSection title="Was nicht stattfindet">
         <p>
-          Keine Cookies, kein Local-Storage-Tracking, keine Analysedienste, keine Werbenetzwerke,
-          keine Einbindung externer Schriftarten oder Skripte von fremden Servern. Alle Dateien, die
-          die Seite lädt, liegen auf demselben Server wie die Seite selbst.
+          Keine Cookies, keine Analysedienste, keine Werbenetzwerke, keine Einbindung externer
+          Schriftarten oder Skripte von fremden Servern. Auch der lokale Speicher wird nicht zur
+          Wiedererkennung benutzt — er enthält die drei oben genannten Werte und nichts sonst. Alle
+          Dateien, die die Seite lädt, liegen auf demselben Server wie die Seite selbst.
         </p>
         <p>
           Die App kann für den Offline-Betrieb einen Service Worker installieren. Dieser legt nur
           die Programmdateien im Browser-Cache ab, keine Eingaben, und sendet nichts.
+        </p>
+        <p>
+          Um zu erkennen, ob eine neuere Version veröffentlicht wurde, ruft die App gelegentlich die
+          Datei <code>version.json</code> ab. Sie liegt auf demselben Server, enthält nur eine
+          Versionskennung und überträgt nichts über dich.
         </p>
       </LegalSection>
 

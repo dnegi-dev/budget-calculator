@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 /**
  * Setzt den Entsperr-Merker, bevor die erste Seite lädt.
@@ -52,4 +52,33 @@ export async function erfassenOeffnen(page: Page, art: 'Ausgabe' | 'Einnahme'): 
   // Desktop: Knopf auf der Seite, Art danach im Sheet.
   await page.getByRole('button', { name: 'Ausgabe erfassen' }).click();
   if (art === 'Einnahme') await page.getByRole('radio', { name: 'Einnahme' }).click();
+}
+
+/**
+ * Ersteinrichtung im Schnelldurchlauf.
+ *
+ * Die Vorschlagstöpfe bleiben wie sie sind — die Tests, die diesen Helfer
+ * benutzen, prüfen nicht den Wizard (das macht `alltag.spec.ts`), sondern
+ * brauchen nur einen eingerichteten Haushalt.
+ */
+export async function einrichten(page: Page, name = 'Testhaushalt'): Promise<void> {
+  await page.goto('/');
+  await page.getByLabel('Name des Haushalts').fill(name);
+  await page.getByRole('button', { name: 'Weiter' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Währung und Periode' })).toBeVisible();
+  await page.getByRole('button', { name: 'Weiter' }).click();
+
+  await expect(page.getByRole('heading', { name: /Welche T/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Weiter' }).click();
+
+  await expect(page.getByRole('heading', { name: /Einkommen/ })).toBeVisible();
+  await page.getByRole('button', { name: /Los geht/ }).click();
+
+  await expect(page.getByRole('link', { name: /Wohnen/ })).toBeVisible();
+}
+
+/** Ob das Fenster schmaler ist als der `md`-Umbruch — mobile Oberfläche. */
+export function istMobil(page: Page): boolean {
+  return (page.viewportSize()?.width ?? MD_BREAKPOINT) < MD_BREAKPOINT;
 }

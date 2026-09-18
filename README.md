@@ -81,17 +81,27 @@ gelöst: Metadata-URLs und die Service-Worker-Registrierung über
 
 - **Buchungen** als Ausgabe oder Einnahme, mit Datum, Ort und Notiz. Erfassung
   in drei Schritten, ab dem ersten speicherbar.
-- **Kassenzettel** als Nachweis zu einer Buchung — fotografieren oder Datei
-  wählen. Bewusst ohne Auslesen: der Beleg belegt eine Änderung im Topf, mehr
-  nicht.
+- **Kassenzettel** als Nachweis zu einer Buchung — „Foto aufnehmen" öffnet die
+  Kamera, „Datei wählen" die normale Auswahl des Geräts (Bild oder PDF, auch
+  aus der Galerie). Bewusst ohne Auslesen: der Beleg belegt eine Änderung im
+  Topf, mehr nicht.
 - **Wiederkehrende Buchungen** (wöchentlich, monatlich, jährlich, mit
-  Intervall) für Miete, Abos, Gehalt. Buchungen entstehen beim Öffnen der App,
-  idempotent.
+  Intervall) für Miete, Abos, Gehalt, unter `/buchungen/wiederkehrend`.
+  Buchungen entstehen beim Öffnen der App, idempotent.
 - **Auswertung**: Einnahmen, Ausgaben, Saldo sowie Verlauf, Ausgaben pro Topf
   und Anteile.
 - **Export/Import**: JSON als vollständige Sicherung (optional mit Belegen),
   CSV für Tabellenprogramme.
 - **Rollen** Admin / Nutzer / Nur Lesen — wirksam, nicht dekorativ.
+- **Darstellung** hell, dunkel oder automatisch, und zwei Arten der
+  Betragseingabe. Beides in den Einstellungen unter „Dieses Gerät": Die Wahl
+  liegt im `localStorage` dieses Browsers und steht nicht in der Sicherung.
+  Voreingestellt ist der Kassenzettel-Modus — nur Ziffern tippen, die letzten
+  zwei sind Cent: Aus `1250` wird `12,50`, aus `12` wird `0,12`. Wer lieber
+  selbst ein Komma setzt, schaltet auf „Freitext".
+- **Update-Hinweis**: Ist eine neuere Fassung veröffentlicht, während die App
+  offen ist, erscheint eine Leiste mit „Neu laden". Automatisch neu geladen
+  wird nicht — das würde eine halb getippte Buchung verwerfen.
 - **Impressum und Datenschutz** unter `/impressum` und `/datenschutz`, auch vor
   der Ersteinrichtung erreichbar. Beide sind Gerüste mit Platzhaltern und
   zeigen einen sichtbaren Warnhinweis, solange sie nicht ausgefüllt sind.
@@ -104,10 +114,14 @@ der vorab nach Ausgabe oder Einnahme fragt. Töpfe werden über die Zeile „Neu
 Topf" auf der Startseite angelegt und über den Link in den Einstellungen
 verwaltet.
 
+Auf der Buchungsseite liegen Suche und Filter mobil hinter je einem Symbol
+(Lupe und Zahnrad); das Schließen der Suche räumt den Begriff weg, damit kein
+unsichtbarer Filter weiterwirkt.
+
 Ab Tablet-Breite gibt es eine Seitenleiste mit allen fünf Zielen, die Knöpfe
-zum Erfassen stehen auf den Seiten, und die Auswertung wird mehrspaltig. Die
-Routen und der Funktionsumfang sind identisch — nur die Anordnung
-unterscheidet sich.
+zum Erfassen stehen auf den Seiten, Suche und Filter stehen aufgeklappt in
+einer Karte, und die Auswertung wird mehrspaltig. Die Routen und der
+Funktionsumfang sind identisch — nur die Anordnung unterscheidet sich.
 
 ## Daten und Sicherung
 
@@ -153,10 +167,17 @@ niemand; ohne sie wäre eine nachträgliche Synchronisation nicht möglich.
 `.env.example` beschreibt alle Variablen. Für v1 ist keine nötig; die
 interessanten sind:
 
-| Variable                 | Bedeutung                        |
-| ------------------------ | -------------------------------- |
-| `NEXT_PUBLIC_DATA_MODE`  | `local` (Standard) oder `remote` |
-| `NEXT_PUBLIC_CHANGE_LOG` | `on` (Standard) oder `off`       |
+| Variable                    | Bedeutung                                         |
+| --------------------------- | ------------------------------------------------- |
+| `NEXT_PUBLIC_DATA_MODE`     | `local` (Standard) oder `remote`                  |
+| `NEXT_PUBLIC_CHANGE_LOG`    | `on` (Standard) oder `off`                        |
+| `NEXT_PUBLIC_BUILD_VERSION` | Kennung des Builds; leer = kein Update-Hinweis    |
+| `NEXT_PUBLIC_APP_USER`      | Benutzername am Anmeldefenster (Standard `admin`) |
+| `NEXT_PUBLIC_APP_PASSWORD`  | Passwort am Anmeldefenster (Standard `admin`)     |
+
+`NEXT_PUBLIC_BUILD_VERSION` setzt der Deploy-Workflow auf den Commit und legt
+dieselbe Kennung als `version.json` neben die Anwendung. Lokal ist die Variable
+leer, dann sucht die App nicht nach Updates.
 
 ## Tests
 
@@ -166,7 +187,9 @@ interessanten sind:
 Februar), Idempotenz der Materialisierung, Rechteprüfung im Adapter und der
 Merge-Import bei Revisionskonflikt.
 
-`npm run test:e2e` fährt den Alltagsweg einmal durch. In Umgebungen mit
+`npm run test:e2e` fährt den Alltagsweg durch und prüft zusätzlich Anmeldung,
+Rechtsseiten, Suche und Filter, Dunkelmodus, Betragseingabe und die Scrollsperre
+unter Overlays — je einmal bei 390 px und bei 1440 px. In Umgebungen mit
 vorinstalliertem Chromium:
 
 ```bash

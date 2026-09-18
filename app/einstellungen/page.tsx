@@ -12,8 +12,8 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { DataSection } from '../../components/settings/DataSection';
+import { DeviceSection } from '../../components/settings/DeviceSection';
 import { RolesSection } from '../../components/settings/RolesSection';
-import { RecurringSection } from '../../components/recurring/RecurringSection';
 import { useCan } from '../../lib/auth/provider';
 import { setUnlocked } from '../../lib/auth/local-credentials';
 import { useData, useSnapshot } from '../../lib/data/provider';
@@ -128,6 +128,8 @@ export default function SettingsPage() {
         </div>
       </Card>
 
+      <DeviceSection />
+
       <Card>
         <CardHeader title="Töpfe" />
         <div className="px-4 pb-4">
@@ -141,7 +143,6 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      <RecurringSection />
       <DataSection />
       <RolesSection />
 

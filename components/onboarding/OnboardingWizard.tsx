@@ -26,6 +26,7 @@ import { WizardSteps } from '../../lib/ui/WizardSteps';
 import { Banner } from '../../lib/ui/Banner';
 import { potColorVar } from '../../lib/ui/colors';
 import { exportFileSchema } from '../../lib/domain/schemas';
+import { clampBackupText, describeImportError } from '../../lib/domain/backup';
 import { LegalLinks } from '../AppShell';
 
 const STEP_COUNT = 4;
@@ -77,12 +78,11 @@ export function OnboardingWizard() {
     setError(null);
     try {
       const parsed: unknown = JSON.parse(await file.text());
+      // Wie beim Import in den Einstellungen: zuerst kürzen, dann prüfen.
+      clampBackupText(parsed);
       const validation = exportFileSchema.safeParse(parsed);
       if (!validation.success) {
-        const first = validation.error.issues[0];
-        setError(
-          `Die Datei passt nicht zum erwarteten Format${first ? `: ${first.path.join('.')} — ${first.message}` : ''}.`,
-        );
+        setError(describeImportError(validation.error));
         return;
       }
       await repository.restoreFromBackup(validation.data);
@@ -212,7 +212,7 @@ export function OnboardingWizard() {
               {error && (
                 <div className="mt-3">
                   <Banner tone="negative" icon="⚠">
-                    {error}
+                    <span className="whitespace-pre-line">{error}</span>
                   </Banner>
                 </div>
               )}
