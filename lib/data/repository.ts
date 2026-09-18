@@ -56,6 +56,8 @@ export interface EntryFilter {
   kind?: Entry['kind'];
   /** Freitext über Notiz und Händler. */
   search?: string;
+  /** Nur Buchungen mit diesem Tag — Schreibweise ist gleichgültig. */
+  tag?: string;
   limit?: number;
 }
 
@@ -191,6 +193,18 @@ export interface BudgetRepository {
   deleteRecurringRule(id: string): Promise<void>;
   /** Erzeugt fällige Buchungen aus allen Regeln. Idempotent, darf beliebig oft laufen. */
   materializeRecurringRules(today: IsoDate): Promise<number>;
+
+  /**
+   * Benennt einen Tag in allen Buchungen um, in einer Transaktion. Rückgabe:
+   * Anzahl der geänderten Buchungen.
+   *
+   * Sammeloperationen gehören hierher und nicht in die Oberfläche: Nur hier
+   * sind sie atomar, und nur hier entsteht für jede berührte Buchung die Zeile
+   * in der Outbox.
+   */
+  renameTag(from: string, to: string): Promise<number>;
+  /** Nimmt einen Tag aus allen Buchungen. Die Buchungen selbst bleiben. */
+  deleteTag(tag: string): Promise<number>;
 
   listItemRules(): Promise<ItemRule[]>;
   /**

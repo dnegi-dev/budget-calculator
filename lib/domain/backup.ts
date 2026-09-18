@@ -11,6 +11,7 @@
 
 import type { ZodError } from 'zod';
 import { TEXT_LIMITS } from './schemas';
+import { dedupeTags } from './tags';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -34,6 +35,25 @@ function clampEach(value: unknown, fields: readonly (readonly [string, number])[
 }
 
 /**
+ * Räumt die Tag-Liste einer Buchung auf: kürzen, Dubletten weg, Anzahl deckeln.
+ *
+ * Dieselbe Nachsicht wie bei den Freitexten, aus demselben Grund: Eine
+ * Sicherung mit einem zu langen Tag darf nicht unbrauchbar sein. `dedupeTags`
+ * macht die Arbeit, damit hier keine zweite Regel entsteht.
+ */
+function clampTags(target: Record<string, unknown>): number {
+  const value = target.tags;
+  if (!Array.isArray(value)) return 0;
+  const strings = value.filter((item): item is string => typeof item === 'string');
+  const cleaned = dedupeTags(strings);
+  const changed =
+    strings.length !== value.length || cleaned.join('\u0000') !== value.join('\u0000');
+  if (!changed) return 0;
+  target.tags = cleaned;
+  return 1;
+}
+
+/**
  * Kürzt zu lange Freitexte auf ihr Limit und gibt zurück, wie oft.
  *
  * Verändert das übergebene Objekt **an Ort und Stelle**. Das ist Absicht: Der
@@ -54,6 +74,9 @@ export function clampBackupText(backup: unknown): number {
     ['note', TEXT_LIMITS.note],
     ['merchant', TEXT_LIMITS.merchant],
   ]);
+  if (Array.isArray(backup.entries)) {
+    for (const item of backup.entries) if (isRecord(item)) count += clampTags(item);
+  }
   count += clampEach(backup.recurringRules, [['note', TEXT_LIMITS.note]]);
   count += clampEach(backup.itemRules, [['keyword', TEXT_LIMITS.keyword]]);
 

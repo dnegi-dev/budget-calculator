@@ -1,19 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { einrichten, entsperren, erfassenOeffnen } from './helpers';
-import type { Page } from '@playwright/test';
-
-/**
- * Wählt einen Topf über den Text der Option.
- *
- * `selectOption({ label })` braucht den Text genau — und der enthält ein
- * Emoji. Über den Wert (die Topf-ID) ist es stabil.
- */
-async function topfWaehlen(page: Page, feld: string, topf: string): Promise<void> {
-  const select = page.getByLabel(feld);
-  const wert = await select.locator('option', { hasText: topf }).first().getAttribute('value');
-  if (!wert) throw new Error(`Keine Option für ${topf} in ${feld}`);
-  await select.selectOption(wert);
-}
+import { einrichten, entsperren, erfassenOeffnen, optionWaehlen } from './helpers';
 
 /**
  * Der Bon-Import von der Datei bis zu den Buchungen.
@@ -81,8 +67,8 @@ test.describe('Bon einlesen', () => {
     await expect(page.getByText('Musterbäckerei Schmidt')).toBeVisible();
 
     // Erst alles auf einen Topf, dann eine Zeile umhängen.
-    await topfWaehlen(page, 'Alles auf einen Topf', 'Wohnen');
-    await topfWaehlen(page, 'Topf für Kaffee to go', 'Mobilität');
+    await optionWaehlen(page, 'Alles auf einen Topf', 'Wohnen');
+    await optionWaehlen(page, 'Topf für Kaffee to go', 'Mobilität');
 
     await page.getByRole('button', { name: '2 Buchungen anlegen' }).click();
     // Zwei Dialoge sind offen — der Bon liegt über dem Erfassen-Sheet. Nach

@@ -23,6 +23,7 @@ import { useSnapshot } from '../../lib/data/provider';
 import { todayIso } from '../../lib/domain/dates';
 import { entriesInPeriod } from '../../lib/domain/ledger';
 import { periodForDate } from '../../lib/domain/period';
+import { collectTags, hasTag } from '../../lib/domain/tags';
 import type { EntryKind } from '../../lib/domain/types';
 import { Button } from '../../lib/ui/Button';
 import { Card, CardHeader } from '../../lib/ui/Card';
@@ -44,6 +45,7 @@ export default function EntriesPage() {
   const [periodKey, setPeriodKey] = useState(currentKey);
   const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const [potFilter, setPotFilter] = useState<string>('all');
+  const [tagFilter, setTagFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -60,11 +62,26 @@ export default function EntriesPage() {
     [snapshot.pots],
   );
 
+  const tagsEnabled = snapshot.household?.tagsEnabled ?? false;
+  /**
+   * Alle benutzten Tags, nicht nur die der gewählten Periode: Wer nach
+   * „Urlaub" filtert, will die Periode finden, in der etwas drinsteht — und
+   * nicht erst raten, in welcher der Tag auftaucht.
+   */
+  const alleTags = useMemo(
+    () => collectTags(snapshot.entries).map((usage) => usage.tag),
+    [snapshot.entries],
+  );
+
   const visible = useMemo(() => {
     let entries = entriesInPeriod(snapshot.entries, periodKey, format.periodStartDay);
     if (kindFilter !== 'all') entries = entries.filter((entry) => entry.kind === kindFilter);
     if (potFilter === 'none') entries = entries.filter((entry) => entry.potId === null);
     else if (potFilter !== 'all') entries = entries.filter((entry) => entry.potId === potFilter);
+
+    if (tagFilter === 'none') entries = entries.filter((entry) => (entry.tags ?? []).length === 0);
+    else if (tagFilter !== 'all')
+      entries = entries.filter((entry) => hasTag(entry.tags, tagFilter));
 
     const needle = search.trim().toLowerCase();
     if (needle !== '') {
@@ -75,7 +92,15 @@ export default function EntriesPage() {
       );
     }
     return entries;
-  }, [snapshot.entries, periodKey, format.periodStartDay, kindFilter, potFilter, search]);
+  }, [
+    snapshot.entries,
+    periodKey,
+    format.periodStartDay,
+    kindFilter,
+    potFilter,
+    tagFilter,
+    search,
+  ]);
 
   const total = useMemo(
     () =>
@@ -86,7 +111,7 @@ export default function EntriesPage() {
     [visible],
   );
 
-  const filtersActive = kindFilter !== 'all' || potFilter !== 'all';
+  const filtersActive = kindFilter !== 'all' || potFilter !== 'all' || tagFilter !== 'all';
 
   function closeSearch() {
     setSearch('');
@@ -96,6 +121,7 @@ export default function EntriesPage() {
   function resetFilters() {
     setKindFilter('all');
     setPotFilter('all');
+    setTagFilter('all');
   }
 
   /**
@@ -142,6 +168,23 @@ export default function EntriesPage() {
           </option>
         ))}
       </select>
+      {/* Ohne benutzte Tags gibt es nichts zu filtern — dann auch kein Feld. */}
+      {tagsEnabled && alleTags.length > 0 && (
+        <select
+          className={selectClass}
+          value={tagFilter}
+          onChange={(event) => setTagFilter(event.target.value)}
+          aria-label="Tag"
+        >
+          <option value="all">Alle Tags</option>
+          <option value="none">Ohne Tag</option>
+          {alleTags.map((tag) => (
+            <option key={tag} value={tag}>
+              {tag}
+            </option>
+          ))}
+        </select>
+      )}
     </div>
   );
 

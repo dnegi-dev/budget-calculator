@@ -8,10 +8,13 @@
  * Bequemlichkeit weggelassen hat.
  *
  * Bei Einnahmen wird der Topf-Schritt übersprungen: Einnahmen laufen in der
- * Regel auf den Haushalt, nicht in einen Ausgabentopf.
+ * Regel auf den Haushalt, nicht in einen Ausgabentopf. Dasselbe gilt für
+ * Ausgaben, wenn „Topf beim Erfassen abfragen" aus ist — dann ist der
+ * Standardtopf vorbelegt und in den Details änderbar. Sichtbar bleibt er
+ * trotzdem: Ein stumm gesetzter Topf wäre eine Überraschung beim Auswerten.
  */
 
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useData } from '../../lib/data/provider';
 import { todayIso } from '../../lib/domain/dates';
 import { parseAmountToCents } from '../../lib/domain/money';
@@ -24,7 +27,9 @@ import { SegmentedControl } from '../../lib/ui/SegmentedControl';
 import { Sheet } from '../../lib/ui/Sheet';
 import { potColorVar } from '../../lib/ui/colors';
 import { useFormat } from '../../lib/ui/useFormat';
+import { collectTags } from '../../lib/domain/tags';
 import { ReceiptPicker } from '../receipts/ReceiptPicker';
+import { TagInput } from './TagInput';
 import { ReceiptImportSheet } from '../receipts/ReceiptImportSheet';
 
 type Step = 'amount' | 'pot' | 'details';
@@ -66,16 +71,38 @@ function EntryForm({
   lockKind = false,
   entry = null,
 }: Omit<EntrySheetProps, 'open'>) {
-  const { repository } = useData();
+  const { repository, snapshot } = useData();
   const format = useFormat();
   const editing = entry !== null;
+
+  const household = snapshot.household;
+  /**
+   * Fehlt der Haushalt (theoretisch: das Sheet steht hinter `AppGate`), gilt
+   * das bisherige Verhalten — fragen, keine Tags.
+   */
+  const askForPot = household?.askForPot ?? true;
+  const tagsEnabled = household?.tagsEnabled ?? false;
+  const fallbackPotId = household?.defaultPotId ?? null;
+
+  // Nicht von den Tags dieser Buchung abhängig: Die Vorschlagsliste soll nicht
+  // springen, während man tippt.
+  const vorschlaege = useMemo(
+    () => collectTags(snapshot.entries).map((usage) => usage.tag),
+    [snapshot.entries],
+  );
 
   const [step, setStep] = useState<Step>('amount');
   const [kind, setKind] = useState<EntryKind>(entry?.kind ?? defaultKind);
   const [amountRaw, setAmountRaw] = useState(() =>
     entry ? format.moneyPlain(entry.amountCents) : '',
   );
-  const [potId, setPotId] = useState<string | null>(entry ? entry.potId : defaultPotId);
+  const [potId, setPotId] = useState<string | null>(() => {
+    if (entry) return entry.potId;
+    // Ein Topf, aus dessen Detailseite heraus gebucht wird, gewinnt immer.
+    if (defaultPotId !== null) return defaultPotId;
+    return askForPot ? null : fallbackPotId;
+  });
+  const [tags, setTags] = useState<string[]>(entry?.tags ?? []);
   const [date, setDate] = useState(entry?.date ?? todayIso());
   const [merchant, setMerchant] = useState(entry?.merchant ?? '');
   const [bonDatei, setBonDatei] = useState<File | null>(null);
@@ -101,6 +128,7 @@ function EntryForm({
         date,
         note: note.trim() || null,
         merchant: merchant.trim() || null,
+        tags,
       };
 
       if (savedEntryId) {
@@ -124,8 +152,11 @@ function EntryForm({
   }
 
   /** Vor dem Beleg-Upload muss die Buchung existieren — ein Beleg braucht etwas zu belegen. */
+  /** Ob der Topf-Schritt zwischen Betrag und Details liegt. */
+  const potStepActive = kind === 'expense' && askForPot;
+
   async function goToDetails() {
-    if (kind === 'expense' && step === 'amount') {
+    if (potStepActive && step === 'amount') {
       setStep('pot');
       return;
     }
@@ -149,9 +180,7 @@ function EntryForm({
           {step !== 'amount' && (
             <Button
               variant="ghost"
-              onClick={() =>
-                setStep(step === 'details' ? (kind === 'expense' ? 'pot' : 'amount') : 'amount')
-              }
+              onClick={() => setStep(step === 'details' && potStepActive ? 'pot' : 'amount')}
             >
               Zurück
             </Button>
@@ -205,7 +234,8 @@ function EntryForm({
           />
           {selectedPot && (
             <p className="text-sm text-ink-muted">
-              Wird auf „{selectedPot.name}“ gebucht. Im nächsten Schritt änderbar.
+              Wird auf „{selectedPot.name}“ gebucht.{' '}
+              {potStepActive ? 'Im nächsten Schritt änderbar.' : 'In den Details änderbar.'}
             </p>
           )}
 
@@ -303,6 +333,24 @@ function EntryForm({
 
       {step === 'details' && (
         <div className="flex flex-col gap-4">
+          {kind === 'expense' && (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-line px-3 py-2.5">
+              <span className="min-w-0 truncate text-sm">
+                {selectedPot ? (
+                  <>
+                    <span aria-hidden>{selectedPot.icon} </span>
+                    {selectedPot.name}
+                  </>
+                ) : (
+                  <span className="text-ink-muted">Ohne Topf</span>
+                )}
+              </span>
+              <Button variant="ghost" onClick={() => setStep('pot')}>
+                Topf ändern
+              </Button>
+            </div>
+          )}
+
           <Field label="Datum">
             {(props) => (
               <input
@@ -341,6 +389,8 @@ function EntryForm({
               />
             )}
           </Field>
+
+          {tagsEnabled && <TagInput tags={tags} onChange={setTags} suggestions={vorschlaege} />}
 
           {savedEntryId && <ReceiptPicker entryId={savedEntryId} />}
         </div>

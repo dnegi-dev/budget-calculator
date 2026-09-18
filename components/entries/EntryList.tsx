@@ -111,6 +111,13 @@ export function EntryList({
                         <span className="block truncate text-xs text-ink-muted">
                           {[
                             pot?.name ?? 'ohne Topf',
+                            // Tags in dieselbe Zeile und nicht als eigene
+                            // Marken: Die Liste soll bei 320 px nicht in die
+                            // Höhe wachsen, und hier zählt „welcher Tag war
+                            // das", nicht das Bearbeiten.
+                            (entry.tags ?? []).length > 0
+                              ? (entry.tags ?? []).map((tag) => `#${tag}`).join(' ')
+                              : null,
                             entry.recurringRuleId ? 'wiederkehrend' : null,
                             split && split.count > 1
                               ? `Einkauf mit ${split.count} Buchungen`

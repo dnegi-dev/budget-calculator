@@ -46,6 +46,22 @@ export interface Household {
   locale: string;
   /** Tag im Monat, an dem eine Budgetperiode beginnt (1–28). */
   periodStartDay: number;
+  /**
+   * Topf, auf den eine Ausgabe ohne eigene Zuordnung läuft. `null` = keiner,
+   * dann bleibt die Buchung wie bisher ohne Topf.
+   *
+   * Gesetzt wird das **im Repository** auf dem Schreibweg, nicht in der
+   * Oberfläche: Der Bon-Import und später die API gehen an jedem Formular
+   * vorbei.
+   */
+  defaultPotId: string | null;
+  /**
+   * Ob beim Erfassen nach dem Topf gefragt wird. `false` = direkt in den
+   * Standardtopf; der Topf steht dann in den Details und ist dort änderbar.
+   */
+  askForPot: boolean;
+  /** Ob Tags erfasst, gefiltert und ausgewertet werden. */
+  tagsEnabled: boolean;
   onboardingCompletedAt: IsoDateTime | null;
   createdAt: IsoDateTime;
   updatedAt: IsoDateTime;
@@ -100,6 +116,14 @@ export interface Entry extends RecordMeta {
    * Speicher liegt.
    */
   splitGroupId: string | null;
+  /**
+   * Freie Marken zum Nachverfolgen quer zu den Töpfen („Urlaub", „Umzug").
+   *
+   * Liegen an der Buchung und nicht in einer eigenen Tabelle — Begründung und
+   * die Regeln zum Vergleichen stehen in `lib/domain/tags.ts`. Nicht
+   * indiziert: Gefiltert wird über den Snapshot, der ohnehin im Speicher liegt.
+   */
+  tags: string[];
   createdBy: string;
 }
 
@@ -168,7 +192,7 @@ export interface ChangeLogEntry {
 
 /** Eingabeform: alles, was der Nutzer angibt, ohne Metadaten. */
 export type NewEntryInput = Pick<Entry, 'potId' | 'kind' | 'amountCents' | 'date'> &
-  Partial<Pick<Entry, 'note' | 'merchant' | 'recurringRuleId' | 'splitGroupId'>>;
+  Partial<Pick<Entry, 'note' | 'merchant' | 'recurringRuleId' | 'splitGroupId' | 'tags'>>;
 
 export type NewPotInput = Pick<Pot, 'name' | 'kind' | 'limitCents' | 'carryOver'> &
   Partial<Pick<Pot, 'icon' | 'color' | 'sortIndex'>>;

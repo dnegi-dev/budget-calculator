@@ -193,6 +193,14 @@ export class HttpBudgetRepository implements BudgetRepository {
     throw new NotImplementedError('Zentrale Datenhaltung');
   }
 
+  renameTag(_from: string, _to: string): Promise<number> {
+    throw new NotImplementedError('Zentrale Datenhaltung');
+  }
+
+  deleteTag(_tag: string): Promise<number> {
+    throw new NotImplementedError('Zentrale Datenhaltung');
+  }
+
   rememberItemRule(_keyword: string, _potId: string): Promise<ItemRule> {
     throw new NotImplementedError('Zentrale Datenhaltung');
   }

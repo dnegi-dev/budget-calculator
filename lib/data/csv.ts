@@ -16,6 +16,7 @@ const HEADERS = [
   'Betrag',
   'Ort',
   'Notiz',
+  'Tags',
   'Belege',
   'Wiederkehrend',
 ] as const;
@@ -48,6 +49,9 @@ export function entriesToCsv(
     formatCentsPlain(entry.kind === 'expense' ? -entry.amountCents : entry.amountCents, decimal),
     entry.merchant ?? '',
     entry.note ?? '',
+    // Komma als Trenner, auch bei deutscher Locale: Die Zelle wird ohnehin
+    // maskiert, und in einer Tabelle liest sich „urlaub, auto" wie Text.
+    (entry.tags ?? []).join(', '),
     String(receiptCounts.get(entry.id) ?? 0),
     entry.recurringRuleId ? 'ja' : '',
   ]);

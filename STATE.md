@@ -17,6 +17,8 @@ Konto und keine Übertragung.
 | Buchungen erfassen, bearbeiten, filtern          | fertig                                                       |
 | Kassenzettel als Nachweis                        | fertig; Fotos bewusst ohne Auswertung des Inhalts            |
 | PDF-Bon einlesen, Posten auf Töpfe verteilen     | fertig, mit Summenprobe und gelernten Zuordnungen            |
+| Standardtopf für Ausgaben ohne Zuordnung         | fertig, schaltbar samt Topf-Abfrage beim Erfassen            |
+| Tags als zweite Achse, mit Auswertung je Tag     | fertig, abschaltbar; an Buchung und Bon-Posten               |
 | Wiederkehrende Buchungen                         | fertig, Materialisierung beim App-Start                      |
 | Auswertung (Kennzahlen, Verlauf, Töpfe, Anteile) | fertig                                                       |
 | Export/Import (JSON, CSV)                        | fertig                                                       |
@@ -85,10 +87,14 @@ Rollen-Code hinaus.
    Fußzeile mit, beim zweiten passte wegen der Steuerklasse als Ziffer keine
    einzige Zeile. Wie ein dritter Händler druckt, ist offen; die Muster unter
    `e2e/fixtures/` halten beide Aufbauten als Struktur fest.
-9. **Papierbons.** Der TSE-QR-Code enthält die Bruttobeträge je Steuersatz,
-   aber keine Einzelposten; `zxing-wasm` (953 KB) wäre der Weg, weil
-   `BarcodeDetector` in Safari und auf iOS fehlt. Einzelposten aus einem Foto
-   bräuchten OCR und bleiben unzuverlässig.
+9. **Tags an wiederkehrenden Regeln.** Eine Regel trägt heute keine Tags, die
+   daraus erzeugten Buchungen also auch nicht. Das Feld an `RecurringRule`
+   nachzuziehen ist klein; die Frage dahinter ist, ob eine Regel überhaupt
+   Tags setzen soll oder ob das am erzeugten Datensatz passiert.
+10. **Papierbons.** Der TSE-QR-Code enthält die Bruttobeträge je Steuersatz,
+    aber keine Einzelposten; `zxing-wasm` (953 KB) wäre der Weg, weil
+    `BarcodeDetector` in Safari und auf iOS fehlt. Einzelposten aus einem Foto
+    bräuchten OCR und bleiben unzuverlässig.
 
 ## Orientierung im Code
 

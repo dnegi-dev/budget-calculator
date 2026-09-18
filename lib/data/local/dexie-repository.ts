@@ -21,6 +21,7 @@ import { nowIso, todayIso } from '../../domain/dates';
 import { clampPeriodStartDay } from '../../domain/period';
 import { applyPotKindPreset } from '../../domain/pot-kinds';
 import { materializeRule } from '../../domain/recurrence';
+import { dedupeTags, hasTag, normalizeTag, removeTag, tagKey } from '../../domain/tags';
 import {
   clampText,
   EXPORT_SCHEMA_VERSION,
@@ -135,7 +136,8 @@ export class DexieBudgetRepository implements BudgetRepository {
 
   async getHousehold(): Promise<Household | null> {
     const households = await this.db.households.toArray();
-    return households[0] ?? null;
+    const stored = households[0];
+    return stored ? withHouseholdDefaults(stored) : null;
   }
 
   /**
@@ -156,6 +158,9 @@ export class DexieBudgetRepository implements BudgetRepository {
       currency: input.currency,
       locale: input.locale,
       periodStartDay: clampPeriodStartDay(input.periodStartDay),
+      defaultPotId: null,
+      askForPot: true,
+      tagsEnabled: false,
       onboardingCompletedAt: null,
       createdAt: at,
       updatedAt: at,
@@ -369,17 +374,25 @@ export class DexieBudgetRepository implements BudgetRepository {
     const pot = await this.getPot(id);
     if (!pot) throw new Error('Topf nicht gefunden.');
 
+    const at = nowIso();
     const updated: Pot = {
       ...pot,
-      archivedAt: archived ? nowIso() : null,
-      updatedAt: nowIso(),
+      archivedAt: archived ? at : null,
+      updatedAt: at,
       revision: pot.revision + 1,
     };
 
-    await this.db.transaction('rw', this.db.pots, this.db.changeLog, async () => {
-      await this.db.pots.put(updated);
-      await this.log('pot', updated.id, 'upsert', updated.revision, updated.householdId);
-    });
+    await this.db.transaction(
+      'rw',
+      this.db.pots,
+      this.db.households,
+      this.db.changeLog,
+      async () => {
+        await this.db.pots.put(updated);
+        await this.log('pot', updated.id, 'upsert', updated.revision, updated.householdId);
+        if (archived) await this.detachDefaultPot(pot.id, at);
+      },
+    );
 
     await this.notify();
     return updated;
@@ -401,6 +414,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       this.db.pots,
       this.db.entries,
       this.db.recurringRules,
+      this.db.households,
       this.db.changeLog,
       async () => {
         await this.db.pots.put({
@@ -410,6 +424,7 @@ export class DexieBudgetRepository implements BudgetRepository {
           revision: pot.revision + 1,
         });
         await this.log('pot', pot.id, 'delete', pot.revision + 1, pot.householdId);
+        await this.detachDefaultPot(pot.id, at);
 
         const affected = (await this.db.entries.where('potId').equals(id).toArray()).filter(alive);
         for (const entry of affected) {
@@ -461,6 +476,10 @@ export class DexieBudgetRepository implements BudgetRepository {
       const wanted = new Set(filter.potIds);
       entries = entries.filter((entry) => entry.potId !== null && wanted.has(entry.potId));
     }
+    if (filter.tag) {
+      const wanted = filter.tag;
+      entries = entries.filter((entry) => hasTag(entry.tags, wanted));
+    }
     if (filter.search) {
       const needle = filter.search.trim().toLowerCase();
       if (needle !== '') {
@@ -494,6 +513,23 @@ export class DexieBudgetRepository implements BudgetRepository {
     const principal = this.principalResolver();
     const at = nowIso();
 
+    /**
+     * Der Standardtopf als Auffangnetz — hier und nicht im Formular.
+     *
+     * Der Bon-Import legt Buchungen ohne Umweg über ein Formular an, und die
+     * künftige API tut es auch. Eine Regel in der Oberfläche wäre also eine
+     * Regel mit Löchern.
+     *
+     * Zwei Einschränkungen, beide mit Grund: Nur **Ausgaben** — Einnahmen
+     * laufen auf den Haushalt, dafür ist der Topf-Schritt beim Erfassen
+     * schon immer übersprungen. Und nur, wenn der Topf noch existiert: Auf
+     * einen gelöschten Topf zu buchen, wäre schlimmer als kein Topf.
+     */
+    const fallbackPotId =
+      household.defaultPotId !== null && (await this.getPot(household.defaultPotId)) !== null
+        ? household.defaultPotId
+        : null;
+
     const entries: Entry[] = inputs.map((input) => ({
       id: newId(),
       householdId: household.id,
@@ -501,12 +537,13 @@ export class DexieBudgetRepository implements BudgetRepository {
       updatedAt: at,
       revision: 1,
       deletedAt: null,
-      potId: input.potId,
+      potId: input.potId ?? (input.kind === 'expense' ? fallbackPotId : null),
       kind: input.kind,
       amountCents: Math.round(Math.abs(input.amountCents)),
       date: input.date,
       note: clampText(input.note, TEXT_LIMITS.note),
       merchant: clampText(input.merchant, TEXT_LIMITS.merchant),
+      tags: dedupeTags(input.tags ?? []),
       splitGroupId: input.splitGroupId ?? null,
       recurringRuleId: input.recurringRuleId ?? null,
       createdBy: principal?.userId ?? 'unbekannt',
@@ -540,6 +577,10 @@ export class DexieBudgetRepository implements BudgetRepository {
         patch.merchant === undefined
           ? entry.merchant
           : clampText(patch.merchant, TEXT_LIMITS.merchant),
+      // Beim Bearbeiten greift der Standardtopf **nicht**: Wer hier
+      // ausdrücklich „Kein Topf" wählt, meint das auch. Der Auffangnetz-Fall
+      // ist das Anlegen.
+      tags: patch.tags === undefined ? dedupeTags(entry.tags ?? []) : dedupeTags(patch.tags),
       updatedAt: nowIso(),
       revision: entry.revision + 1,
     };
@@ -596,6 +637,83 @@ export class DexieBudgetRepository implements BudgetRepository {
     );
 
     await this.notify();
+  }
+
+  // ------------------------------------------------------------------ Tags
+
+  /**
+   * Benennt einen Tag in allen Buchungen um und gibt zurück, wie viele
+   * angefasst wurden.
+   *
+   * Hier und nicht in der Oberfläche, aus zwei Gründen: Es ist **eine**
+   * Transaktion (die Hälfte umbenannt wäre schlimmer als nichts), und jede
+   * berührte Buchung braucht ihre Zeile in der Outbox, sonst fehlt sie später
+   * beim Sync.
+   *
+   * Trägt eine Buchung Quell- **und** Zieltag, bleibt nach dem Umbenennen
+   * einer übrig — das entscheidet `dedupeTags`, damit es nur eine Regel gibt.
+   */
+  async renameTag(from: string, to: string): Promise<number> {
+    // Bewusst ohne `ownerId`: Die Operation fasst auch fremde Buchungen an,
+    // also braucht sie das Recht auf fremde Buchungen.
+    this.assert('entry.edit.any');
+    const target = normalizeTag(to);
+    if (target === null) throw new Error('Der neue Name ist leer.');
+    if (tagKey(from) === tagKey(target)) return 0;
+
+    const at = nowIso();
+    let touched = 0;
+
+    await this.db.transaction('rw', this.db.entries, this.db.changeLog, async () => {
+      const entries = (await this.db.entries.toArray()).filter(alive);
+      for (const entry of entries) {
+        if (!hasTag(entry.tags, from)) continue;
+        const updated: Entry = {
+          ...entry,
+          tags: dedupeTags(
+            (entry.tags ?? []).map((tag) => (tagKey(tag) === tagKey(from) ? target : tag)),
+          ),
+          updatedAt: at,
+          revision: entry.revision + 1,
+        };
+        await this.db.entries.put(updated);
+        await this.log('entry', updated.id, 'upsert', updated.revision, updated.householdId);
+        touched += 1;
+      }
+    });
+
+    if (touched > 0) await this.notify();
+    return touched;
+  }
+
+  /**
+   * Nimmt einen Tag aus allen Buchungen. Die Buchungen bleiben — einen Tag zu
+   * löschen ist eine Ordnungsfrage und keine Aufforderung, Historie
+   * wegzuwerfen.
+   */
+  async deleteTag(tag: string): Promise<number> {
+    this.assert('entry.edit.any');
+    const at = nowIso();
+    let touched = 0;
+
+    await this.db.transaction('rw', this.db.entries, this.db.changeLog, async () => {
+      const entries = (await this.db.entries.toArray()).filter(alive);
+      for (const entry of entries) {
+        if (!hasTag(entry.tags, tag)) continue;
+        const updated: Entry = {
+          ...entry,
+          tags: removeTag(entry.tags ?? [], tag),
+          updatedAt: at,
+          revision: entry.revision + 1,
+        };
+        await this.db.entries.put(updated);
+        await this.log('entry', updated.id, 'upsert', updated.revision, updated.householdId);
+        touched += 1;
+      }
+    });
+
+    if (touched > 0) await this.notify();
+    return touched;
   }
 
   // ---------------------------------------------------------------- Regeln
@@ -709,6 +827,15 @@ export class DexieBudgetRepository implements BudgetRepository {
     let created = 0;
     const at = nowIso();
 
+    // Dasselbe Auffangnetz wie beim Erfassen: Eine wiederkehrende Ausgabe
+    // ohne Topf landet im Standardtopf, wenn es einen gibt. Der Topf wird
+    // vorab geprüft, weil in der Transaktion kein zweiter Lesezugriff auf
+    // `pots` erlaubt ist — die Tabelle steht nicht in ihrer Liste.
+    const fallbackPotId =
+      household.defaultPotId !== null && (await this.getPot(household.defaultPotId)) !== null
+        ? household.defaultPotId
+        : null;
+
     await this.db.transaction(
       'rw',
       this.db.entries,
@@ -726,12 +853,15 @@ export class DexieBudgetRepository implements BudgetRepository {
             updatedAt: at,
             revision: 1,
             deletedAt: null,
-            potId: input.potId,
+            potId: input.potId ?? (input.kind === 'expense' ? fallbackPotId : null),
             kind: input.kind,
             amountCents: input.amountCents,
             date: input.date,
             note: input.note ?? null,
             merchant: null,
+            // Wiederkehrende Regeln tragen selbst noch keine Tags — offen und
+            // in STATE.md notiert, nicht vergessen.
+            tags: [],
             splitGroupId: null,
             recurringRuleId: rule.id,
             createdBy: principal?.userId ?? rule.householdId,
@@ -1086,6 +1216,28 @@ export class DexieBudgetRepository implements BudgetRepository {
     ] as unknown as Table[];
   }
 
+  /**
+   * Räumt den Standardtopf, wenn er auf diesen Topf zeigt.
+   *
+   * Läuft **in der Transaktion des Aufrufers**: Ein Abbruch dazwischen würde
+   * sonst einen Standardtopf hinterlassen, den es nicht mehr gibt. Auch beim
+   * Archivieren — ein Standardtopf, der in keiner Liste mehr steht, wäre ein
+   * unsichtbares Ziel für jede Ausgabe ohne Zuordnung.
+   */
+  private async detachDefaultPot(potId: string, at: string): Promise<void> {
+    const household = await this.getHousehold();
+    if (!household || household.defaultPotId !== potId) return;
+
+    const updated: Household = {
+      ...household,
+      defaultPotId: null,
+      updatedAt: at,
+      revision: household.revision + 1,
+    };
+    await this.db.households.put(updated);
+    await this.log('household', updated.id, 'upsert', updated.revision, updated.id);
+  }
+
   private async requireHousehold(): Promise<Household> {
     const household = await this.getHousehold();
     if (!household) throw new Error('Kein Haushalt eingerichtet.');
@@ -1127,6 +1279,24 @@ export class DexieBudgetRepository implements BudgetRepository {
   private emit(): void {
     for (const listener of this.listeners) listener();
   }
+}
+
+/**
+ * Füllt Felder auf, die es in älteren Installationen noch nicht gab.
+ *
+ * `Household` liegt als ganzes Objekt in IndexedDB; ein neues Feld ist dort
+ * schlicht `undefined`, und eine Dexie-Migration gibt es dafür nicht (die
+ * Felder sind nicht indiziert). Ohne diese Stelle wäre `askForPot` bei jedem
+ * bestehenden Haushalt `undefined` — und damit falsch, denn `undefined` ist
+ * unwahr, der Topf würde stumm nicht mehr abgefragt.
+ */
+function withHouseholdDefaults(stored: Household): Household {
+  return {
+    ...stored,
+    defaultPotId: stored.defaultPotId ?? null,
+    askForPot: stored.askForPot ?? true,
+    tagsEnabled: stored.tagsEnabled ?? false,
+  };
 }
 
 function alive<T extends { deletedAt: string | null }>(record: T): boolean {

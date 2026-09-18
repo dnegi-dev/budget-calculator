@@ -11,9 +11,15 @@
  * (angehängte `ekabs.json`), „erkannt, Posten gehen auf die Summe auf" oder
  * „Summe unklar" — im letzten Fall gibt es gar keine Postenliste, nur Summe
  * und Datum. Die Regel dahinter steht in `lib/domain/receipt-parse.ts`.
+ *
+ * Tags gibt es hier auf zwei Ebenen: für den **ganzen Einkauf** und je
+ * **Posten**. Weil ein Bon zu einer Buchung pro Topf wird, sammelt jede
+ * Buchung die Tags ihrer Posten ein — die Zuordnung dafür liefert
+ * `groupItemsByPot` über `indices`, damit die Gruppierung nicht zweimal
+ * existiert.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useCan } from '../../lib/auth/provider';
 import { useData } from '../../lib/data/provider';
 import { newId } from '../../lib/domain/ids';
@@ -26,12 +32,14 @@ import {
   suggestPot,
   type ParsedReceipt,
 } from '../../lib/domain/receipt-parse';
+import { collectTags, dedupeTags } from '../../lib/domain/tags';
 import { TEXT_LIMITS } from '../../lib/domain/schemas';
 import type { Pot } from '../../lib/domain/types';
 import { extractPdf, PdfReadError } from '../../lib/pdf/extract';
 import { Banner } from '../../lib/ui/Banner';
 import { Button } from '../../lib/ui/Button';
 import { Sheet } from '../../lib/ui/Sheet';
+import { TagInput } from '../entries/TagInput';
 import { selectClass } from '../../lib/ui/Field';
 import { useFormat } from '../../lib/ui/useFormat';
 
@@ -58,8 +66,18 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
   const [parsed, setParsed] = useState<ParsedReceipt | null>(null);
   const [potIds, setPotIds] = useState<(string | null)[]>([]);
   const [manuell, setManuell] = useState<boolean[]>([]);
+  const [einkaufTags, setEinkaufTags] = useState<string[]>([]);
+  const [postenTags, setPostenTags] = useState<string[][]>([]);
+  /** Posten, für die das Tag-Feld aufgeklappt ist. */
+  const [offeneTagFelder, setOffeneTagFelder] = useState<number[]>([]);
   const [fehler, setFehler] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const tagsEnabled = snapshot.household?.tagsEnabled ?? false;
+  const vorschlaege = useMemo(
+    () => collectTags(snapshot.entries).map((usage) => usage.tag),
+    [snapshot.entries],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -86,6 +104,7 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
         setParsed(ergebnis);
         setPotIds(vorschlag);
         setManuell(ergebnis.items.map(() => false));
+        setPostenTags(ergebnis.items.map(() => []));
       } catch (caught) {
         if (cancelled) return;
         // Der Grund gehört in die Meldung. Eine Sammelmeldung ohne Ursache
@@ -146,6 +165,14 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
                 merchant,
                 note: group.labels.join(', ').slice(0, TEXT_LIMITS.note),
                 splitGroupId,
+                // Tags des Einkaufs plus die der Posten, die in diese Buchung
+                // eingegangen sind. `dedupeTags` deckelt auch die Anzahl.
+                tags: tagsEnabled
+                  ? dedupeTags([
+                      ...einkaufTags,
+                      ...group.indices.flatMap((index) => postenTags[index] ?? []),
+                    ])
+                  : [],
               })),
             )
           : [
@@ -155,6 +182,7 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
                 amountCents: parsed.totalCents ?? 0,
                 date,
                 merchant,
+                tags: tagsEnabled ? einkaufTags : [],
               }),
             ];
 
@@ -239,6 +267,16 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
             <p className="mt-1 text-xs text-ink-muted">{HERKUNFT[parsed.quality]}</p>
           </div>
 
+          {tagsEnabled && (
+            <TagInput
+              tags={einkaufTags}
+              onChange={setEinkaufTags}
+              suggestions={vorschlaege}
+              label="Tags für den ganzen Einkauf"
+              hint="Gelten für jede Buchung, die aus diesem Bon entsteht."
+            />
+          )}
+
           {parsed.items.length > 0 && (
             <>
               <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-muted">
@@ -282,6 +320,35 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
                         </option>
                       ))}
                     </select>
+
+                    {/*
+                      Aufklappbar und nicht gleich sichtbar: Ein echter Bon hat
+                      zwanzig Posten, und zwanzig offene Tag-Felder machen die
+                      Liste unlesbar. Wer schon Tags gesetzt hat, sieht sie.
+                    */}
+                    {tagsEnabled &&
+                      (offeneTagFelder.includes(index) || (postenTags[index]?.length ?? 0) > 0 ? (
+                        <TagInput
+                          tags={postenTags[index] ?? []}
+                          onChange={(next) =>
+                            setPostenTags((previous) =>
+                              previous.map((value, i) => (i === index ? next : value)),
+                            )
+                          }
+                          suggestions={vorschlaege}
+                          label={`Tags für ${item.label}`}
+                          hint=""
+                          maxSuggestions={3}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          className="self-start text-xs text-accent hover:underline"
+                          onClick={() => setOffeneTagFelder((previous) => [...previous, index])}
+                        >
+                          + Tags
+                        </button>
+                      ))}
                   </li>
                 ))}
               </ul>

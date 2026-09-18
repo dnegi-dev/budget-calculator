@@ -226,8 +226,25 @@ describe('groupItemsByPot', () => {
         amountCents: 400,
         kind: 'expense',
         labels: ['Brötchen', 'Kaffee', 'Rabatt'],
+        indices: [0, 2, 3],
       },
-      { potId: 'haushalt', amountCents: 249, kind: 'expense', labels: ['Spülmittel'] },
+      {
+        potId: 'haushalt',
+        amountCents: 249,
+        kind: 'expense',
+        labels: ['Spülmittel'],
+        indices: [1],
+      },
+    ]);
+  });
+
+  it('nennt die Plätze der Posten — daran hängen die Angaben je Posten', () => {
+    const groups = groupItemsByPot(items, ['essen', 'haushalt', 'essen', 'haushalt']);
+    // Ohne diese Zuordnung müsste die Oberfläche die Gruppierung nachbauen,
+    // um Tags am Posten der richtigen Buchung zuzuschlagen.
+    expect(groups.map((group) => group.indices)).toEqual([
+      [0, 2],
+      [1, 3],
     ]);
   });
 
@@ -251,7 +268,9 @@ describe('groupItemsByPot', () => {
 
   it('macht aus einem negativen Topf eine Einnahme', () => {
     const groups = groupItemsByPot([{ label: 'Rabatt', amountCents: -50, quantity: null }], ['x']);
-    expect(groups).toEqual([{ potId: 'x', amountCents: 50, kind: 'income', labels: ['Rabatt'] }]);
+    expect(groups).toEqual([
+      { potId: 'x', amountCents: 50, kind: 'income', labels: ['Rabatt'], indices: [0] },
+    ]);
   });
 
   it('behandelt eine fehlende Zuordnung wie „ohne Topf"', () => {
