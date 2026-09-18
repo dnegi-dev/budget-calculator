@@ -3,7 +3,7 @@
  *
  * In v1 gibt es nichts anzumelden: Wer das Gerät in der Hand hat, ist der
  * Nutzer. Trotzdem läuft aller Code über `useSession()` statt über „es gibt
- * genau einen Admin". Nach Einführung von SSO wird nur der Provider getauscht;
+ * genau einen Admin“. Nach Einführung von SSO wird nur der Provider getauscht;
  * keine Komponente und keine Rechteprüfung ändert sich.
  */
 

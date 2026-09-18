@@ -6,9 +6,11 @@
  * `NEXT_PUBLIC_DATA_MODE` entscheidet — das ist die einzige Stelle, die beim
  * Wechsel auf die zentrale DB angefasst werden muss.
  *
- * Der Snapshot wird hier gehalten und bei jeder Mutation neu geladen. Grob,
- * aber bei gerätelokalen Haushaltsdaten unmessbar — und der Code bleibt frei
- * von Cache-Invalidierungslogik, die bei zentraler DB ohnehin anders aussieht.
+ * Der Stand kommt über `useSyncExternalStore` aus dem Adapter, nicht über
+ * einen Effect, der Daten in State schaufelt. Das ist die React-Primitive für
+ * externe Datenquellen: kein Zwischenzustand, keine Kaskade von Re-Renders und
+ * kein Auseinanderlaufen zweier Komponenten, die im gleichen Render
+ * unterschiedliche Stände sehen.
  */
 
 import {
@@ -17,8 +19,8 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 import { DexieBudgetRepository } from './local/dexie-repository';
@@ -52,37 +54,43 @@ function createRepository(): BudgetRepository {
 }
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  // Der Adapter darf bei Re-Renders nicht neu entstehen — er hält die Abos.
-  const repositoryRef = useRef<BudgetRepository | null>(null);
-  repositoryRef.current ??= createRepository();
-  const repository = repositoryRef.current;
+  // Der Adapter darf bei Re-Renders nicht neu entstehen — er hält Cache und
+  // Abos. Der State-Initializer läuft genau einmal.
+  const [repository] = useState<BudgetRepository>(createRepository);
 
-  const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY_SNAPSHOT);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const subscribe = useCallback(
+    (listener: () => void) => repository.subscribe(listener),
+    [repository],
+  );
 
-  const reload = useCallback(async () => {
-    try {
-      const next = await repository.loadSnapshot();
-      setSnapshot(next);
-      setError(null);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught : new Error(String(caught)));
-    } finally {
-      setLoading(false);
-    }
-  }, [repository]);
+  const cached = useSyncExternalStore(
+    subscribe,
+    () => repository.getCachedSnapshot(),
+    // Beim Server-Rendering gibt es keine lokale Datenbank.
+    () => null,
+  );
+
+  const error = useSyncExternalStore(
+    subscribe,
+    () => repository.getLastError(),
+    () => null,
+  );
+
+  const reload = useCallback(() => repository.refresh(), [repository]);
 
   useEffect(() => {
     void reload();
-    return repository.subscribe(() => {
-      void reload();
-    });
-  }, [repository, reload]);
+  }, [reload]);
 
   const value = useMemo<DataContextValue>(
-    () => ({ repository, snapshot, loading, error, reload }),
-    [repository, snapshot, loading, error, reload],
+    () => ({
+      repository,
+      snapshot: cached ?? EMPTY_SNAPSHOT,
+      loading: cached === null && error === null,
+      error,
+      reload,
+    }),
+    [repository, cached, error, reload],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

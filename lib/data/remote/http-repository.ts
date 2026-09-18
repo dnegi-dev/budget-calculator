@@ -61,6 +61,18 @@ export class HttpBudgetRepository implements BudgetRepository {
     return () => {};
   }
 
+  getCachedSnapshot(): Snapshot | null {
+    return null;
+  }
+
+  getLastError(): Error | null {
+    return new NotImplementedError('Zentrale Datenhaltung');
+  }
+
+  refresh(): Promise<void> {
+    throw new NotImplementedError('Zentrale Datenhaltung');
+  }
+
   loadSnapshot(): Promise<Snapshot> {
     throw new NotImplementedError('Zentrale Datenhaltung');
   }
@@ -89,6 +101,15 @@ export class HttpBudgetRepository implements BudgetRepository {
 
   setUserRole(_userId: string, _role: Role): Promise<User> {
     throw new NotImplementedError('Nutzerverwaltung');
+  }
+
+  /**
+   * Der Notausgang aus dem lokalen Betrieb hat serverseitig keine Entsprechung
+   * und darf sie auch nicht haben: Wer sich dort die Rechte nimmt, bekommt sie
+   * von einem anderen Admin zurück, nicht per Knopfdruck.
+   */
+  resetLocalDeviceRole(): Promise<User | null> {
+    throw new NotImplementedError('Rollen-Notausgang');
   }
 
   listPots(_options?: { includeArchived?: boolean }): Promise<Pot[]> {

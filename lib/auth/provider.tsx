@@ -38,11 +38,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /**
    * Das Repository fragt den Principal bei jeder Mutation neu ab. Über ein Ref
-   * statt über eine Closure, damit Rollenwechsel sofort greifen, ohne dass der
-   * Resolver neu gesetzt werden muss.
+   * statt über eine Closure, damit ein Rollenwechsel sofort greift, ohne dass
+   * der Resolver neu gesetzt werden muss.
    */
   const principalRef = useRef<Principal | null>(session.principal);
-  principalRef.current = session.principal;
+
+  useEffect(() => {
+    principalRef.current = session.principal;
+  }, [session.principal]);
 
   useEffect(() => {
     repository.setPrincipalResolver(() => principalRef.current);

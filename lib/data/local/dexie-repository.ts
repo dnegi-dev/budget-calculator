@@ -58,6 +58,8 @@ export class DexieBudgetRepository implements BudgetRepository {
   private readonly listeners = new Set<() => void>();
   private readonly writeChangeLog: boolean;
   private principalResolver: () => Principal | null = () => null;
+  private cachedSnapshot: Snapshot | null = null;
+  private lastError: Error | null = null;
 
   constructor(db: BudgetDatabase = getDatabase(), writeChangeLog = process.env.NEXT_PUBLIC_CHANGE_LOG !== 'off') {
     this.db = db;
@@ -73,6 +75,24 @@ export class DexieBudgetRepository implements BudgetRepository {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  getCachedSnapshot(): Snapshot | null {
+    return this.cachedSnapshot;
+  }
+
+  getLastError(): Error | null {
+    return this.lastError;
+  }
+
+  async refresh(): Promise<void> {
+    try {
+      this.cachedSnapshot = await this.loadSnapshot();
+      this.lastError = null;
+    } catch (caught) {
+      this.lastError = caught instanceof Error ? caught : new Error(String(caught));
+    }
+    this.emit();
   }
 
   // --------------------------------------------------------------- Snapshot
@@ -151,7 +171,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       await this.log('user', user.id, 'upsert', user.revision, household.id);
     });
 
-    this.notify();
+    await this.notify();
     return { household, user };
   }
 
@@ -183,7 +203,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       await this.log('household', updated.id, 'upsert', updated.revision, updated.id);
     });
 
-    this.notify();
+    await this.notify();
     return updated;
   }
 
@@ -209,7 +229,25 @@ export class DexieBudgetRepository implements BudgetRepository {
       await this.log('user', updated.id, 'upsert', updated.revision, updated.householdId);
     });
 
-    this.notify();
+    await this.notify();
+    return updated;
+  }
+
+  /**
+   * Siehe `BudgetRepository.resetLocalDeviceRole` — bewusst ohne `assert`.
+   * Betrifft ausschließlich den Nutzer, der dieses Gerät repräsentiert.
+   */
+  async resetLocalDeviceRole(): Promise<User | null> {
+    const user = await this.getLocalDeviceUser();
+    if (!user || user.role === 'admin') return user;
+
+    const updated: User = { ...user, role: 'admin', updatedAt: nowIso(), revision: user.revision + 1 };
+    await this.db.transaction('rw', this.db.users, this.db.changeLog, async () => {
+      await this.db.users.put(updated);
+      await this.log('user', updated.id, 'upsert', updated.revision, updated.householdId);
+    });
+
+    await this.notify();
     return updated;
   }
 
@@ -254,7 +292,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       await this.log('pot', pot.id, 'upsert', pot.revision, pot.householdId);
     });
 
-    this.notify();
+    await this.notify();
     return pot;
   }
 
@@ -271,7 +309,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       name: (patch.name ?? pot.name).trim(),
       kind,
       // Limit und Übertrag bleiben frei einstellbar; nur bei 'category' erzwingt
-      // das Preset „kein Limit", weil sonst widersprüchliche Zustände entstehen.
+      // das Preset „kein Limit“, weil sonst widersprüchliche Zustände entstehen.
       limitCents: kind === 'category' ? null : limitCents,
       carryOver: patch.carryOver ?? pot.carryOver,
       updatedAt: nowIso(),
@@ -283,7 +321,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       await this.log('pot', updated.id, 'upsert', updated.revision, updated.householdId);
     });
 
-    this.notify();
+    await this.notify();
     return updated;
   }
 
@@ -304,7 +342,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       await this.log('pot', updated.id, 'upsert', updated.revision, updated.householdId);
     });
 
-    this.notify();
+    await this.notify();
     return updated;
   }
 
@@ -338,7 +376,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       }
     });
 
-    this.notify();
+    await this.notify();
   }
 
   // ------------------------------------------------------------- Buchungen
@@ -410,7 +448,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       }
     });
 
-    this.notify();
+    await this.notify();
     return entries;
   }
 
@@ -435,7 +473,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       await this.log('entry', updated.id, 'upsert', updated.revision, updated.householdId);
     });
 
-    this.notify();
+    await this.notify();
     return updated;
   }
 
@@ -457,7 +495,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       }
     });
 
-    this.notify();
+    await this.notify();
   }
 
   // ---------------------------------------------------------------- Regeln
@@ -498,7 +536,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       await this.log('recurringRule', rule.id, 'upsert', rule.revision, rule.householdId);
     });
 
-    this.notify();
+    await this.notify();
     return rule;
   }
 
@@ -525,7 +563,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       await this.log('recurringRule', updated.id, 'upsert', updated.revision, updated.householdId);
     });
 
-    this.notify();
+    await this.notify();
     return updated;
   }
 
@@ -544,7 +582,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       await this.log('recurringRule', rule.id, 'delete', rule.revision + 1, rule.householdId);
     });
 
-    this.notify();
+    await this.notify();
   }
 
   /**
@@ -604,7 +642,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       }
     });
 
-    if (created > 0) this.notify();
+    if (created > 0) await this.notify();
     return created;
   }
 
@@ -642,7 +680,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       await this.log('receipt', receipt.id, 'upsert', receipt.revision, receipt.householdId);
     });
 
-    this.notify();
+    await this.notify();
     return stripBlobs(receipt);
   }
 
@@ -664,7 +702,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       await this.log('receipt', id, 'delete', receipt.revision + 1, receipt.householdId, at);
     });
 
-    this.notify();
+    await this.notify();
   }
 
   async receiptStorageStats(): Promise<ReceiptStorageStats> {
@@ -789,7 +827,7 @@ export class DexieBudgetRepository implements BudgetRepository {
         await this.log('household', file.household.id, 'upsert', file.household.revision, file.household.id);
     });
 
-    this.notify();
+    await this.notify();
     return result;
   }
 
@@ -806,7 +844,7 @@ export class DexieBudgetRepository implements BudgetRepository {
         this.db.changeLog.clear(),
       ]);
     });
-    this.notify();
+    await this.notify();
   }
 
   async pendingChangeCount(): Promise<number> {
@@ -858,7 +896,19 @@ export class DexieBudgetRepository implements BudgetRepository {
     await this.db.changeLog.add({ id: newId(), householdId, entity, entityId, op, revision, at });
   }
 
-  private notify(): void {
+  /**
+   * Nach jeder Mutation: Cache erneuern, dann benachrichtigen.
+   *
+   * Bewusst `await`, bevor die aufrufende Methode zurückkehrt — dann gilt nach
+   * jedem `await repository.createEntry(...)` bereits der neue Stand. Ein
+   * nachgelagertes Neuladen wäre schneller, aber jeder Aufrufer müsste dann
+   * mit einem Zwischenzustand rechnen.
+   */
+  private async notify(): Promise<void> {
+    await this.refresh();
+  }
+
+  private emit(): void {
     for (const listener of this.listeners) listener();
   }
 }

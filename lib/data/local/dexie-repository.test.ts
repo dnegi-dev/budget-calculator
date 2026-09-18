@@ -354,3 +354,51 @@ describe('loadSnapshot', () => {
     expect('blob' in (snapshot.receipts[0] ?? {})).toBe(false);
   });
 });
+
+describe('Rollen-Notausgang', () => {
+  it('holt den Gerätenutzer aus einer Sackgasse zurück', async () => {
+    const user = await repo.getLocalDeviceUser();
+    await repo.setUserRole(user!.id, 'viewer');
+    principal = { ...principal!, role: 'viewer' };
+
+    // Sackgasse: als Leser ist weder Rollenwechsel noch Import möglich.
+    await expect(repo.setUserRole(user!.id, 'admin')).rejects.toThrow(PermissionDeniedError);
+
+    const restored = await repo.resetLocalDeviceRole();
+    expect(restored?.role).toBe('admin');
+  });
+
+  it('ändert nichts, wenn der Nutzer schon Admin ist', async () => {
+    const before = await repo.getLocalDeviceUser();
+    const after = await repo.resetLocalDeviceRole();
+    expect(after?.revision).toBe(before?.revision);
+  });
+});
+
+describe('Snapshot-Cache (Vertrag für useSyncExternalStore)', () => {
+  it('ist vor dem ersten Laden null', async () => {
+    dbCounter += 1;
+    const fresh = createTestDatabase(`cache-${dbCounter}`);
+    const freshRepo = new DexieBudgetRepository(fresh, false);
+    expect(freshRepo.getCachedSnapshot()).toBeNull();
+    await freshRepo.refresh();
+    expect(freshRepo.getCachedSnapshot()).not.toBeNull();
+    fresh.close();
+    await fresh.delete();
+  });
+
+  it('gibt zwischen zwei Benachrichtigungen dieselbe Referenz zurück', async () => {
+    await repo.refresh();
+    const first = repo.getCachedSnapshot();
+    expect(repo.getCachedSnapshot()).toBe(first);
+
+    await repo.createPot({ name: 'Sport', kind: 'budget', limitCents: 5_000, carryOver: false });
+    // Nach einer Mutation ein neuer Stand — sonst würde die Oberfläche nicht neu rendern.
+    expect(repo.getCachedSnapshot()).not.toBe(first);
+  });
+
+  it('enthält nach einer Mutation bereits den neuen Stand', async () => {
+    await repo.createPot({ name: 'Urlaub', kind: 'budget', limitCents: 10_000, carryOver: false });
+    expect(repo.getCachedSnapshot()?.pots.some((pot) => pot.name === 'Urlaub')).toBe(true);
+  });
+});

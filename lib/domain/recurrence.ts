@@ -7,7 +7,7 @@
  *
  * Wichtig beim Monatsschritt: Vorkommen werden **immer aus dem Ankertag**
  * berechnet, nicht aus dem jeweils vorigen Vorkommen. Sonst wandert eine Regel
- * „am 31." nach dem Februar dauerhaft auf den 28.
+ * „am 31.“ nach dem Februar dauerhaft auf den 28.
  */
 
 import { addDays, compareDates, daysInMonth, fromParts, toParts, weekdayOf } from './dates';

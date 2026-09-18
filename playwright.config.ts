@@ -4,9 +4,17 @@ import { defineConfig, devices } from '@playwright/test';
  * Ein Smoke-Test über den kompletten Alltagsweg. Läuft gegen `next dev`, damit
  * kein Build-Schritt nötig ist.
  *
- * Chromium ist in der CI-Umgebung vorinstalliert (PLAYWRIGHT_BROWSERS_PATH),
- * deshalb kein `playwright install`.
+ * `CHROMIUM_PATH` setzen, wenn ein vorinstalliertes Chromium benutzt werden
+ * soll, dessen Version nicht zu der von @playwright/test erwarteten passt
+ * (typisch in vorbereiteten CI-Images):
+ *
+ *   CHROMIUM_PATH=/opt/pw-browsers/chromium npm run test:e2e
+ *
+ * Ohne die Variable gilt der normale Weg über `npx playwright install`.
  */
+const executablePath = process.env.CHROMIUM_PATH;
+const launchOptions = executablePath ? { executablePath } : {};
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
@@ -16,6 +24,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:3100',
     trace: 'retain-on-failure',
+    launchOptions,
   },
   projects: [
     { name: 'mobil', use: { ...devices['Pixel 7'] } },

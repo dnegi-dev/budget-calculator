@@ -10,11 +10,15 @@
  *
  * - **Alles ist `async`**, auch wo IndexedDB synchron sein könnte. Sonst müsste
  *   beim Wechsel jede Signatur und jeder Aufrufer angefasst werden.
- * - **`subscribe()` statt Dexie-Live-Queries.** Ein Listener, der bei jeder
- *   Mutation feuert, lässt sich vom HTTP-Adapter mit Polling oder SSE
- *   nachbilden. Der Preis ist grobe Invalidierung: jede Änderung lädt den
- *   Snapshot neu. Bei geräteloklaen Haushaltsdaten (einige tausend Buchungen)
- *   ist das nicht messbar; bei zentraler DB wird daraus feinere Invalidierung.
+ * - **`subscribe()` + synchroner Cache statt Dexie-Live-Queries.** Der Adapter
+ *   hält den letzten Snapshot und benachrichtigt nach jeder Mutation. Damit
+ *   kann die Oberfläche `useSyncExternalStore` benutzen — die React-Primitive
+ *   für genau diesen Fall — statt Daten per Effect in State zu schaufeln. Der
+ *   HTTP-Adapter bildet dasselbe mit Polling oder SSE nach.
+ *
+ *   Der Preis ist grobe Invalidierung: jede Änderung lädt den Snapshot neu.
+ *   Bei gerätelokalen Haushaltsdaten (einige tausend Buchungen) ist das nicht
+ *   messbar; bei zentraler DB wird daraus feinere Invalidierung.
  */
 
 import type { ExportFile } from '../domain/schemas';
@@ -109,9 +113,23 @@ export interface BudgetRepository {
    */
   setPrincipalResolver(resolver: () => Principal | null): void;
 
-  /** Feuert nach jeder Mutation. Rückgabe hebt das Abo auf. */
+  /** Feuert nach jeder Mutation und nach jedem Neuladen. Rückgabe hebt das Abo auf. */
   subscribe(listener: () => void): () => void;
 
+  /**
+   * Der zuletzt geladene Stand, **synchron**. `null`, solange nie geladen
+   * wurde. Muss zwischen zwei Benachrichtigungen identisch bleiben (gleiche
+   * Objektreferenz), sonst rendert `useSyncExternalStore` endlos.
+   */
+  getCachedSnapshot(): Snapshot | null;
+
+  /** Fehler des letzten Ladeversuchs, sonst `null`. */
+  getLastError(): Error | null;
+
+  /** Lädt neu, aktualisiert den Cache und benachrichtigt. */
+  refresh(): Promise<void>;
+
+  /** Liest frisch aus der Quelle, ohne den Cache zu benutzen. */
   loadSnapshot(): Promise<Snapshot>;
 
   getHousehold(): Promise<Household | null>;
@@ -122,6 +140,19 @@ export interface BudgetRepository {
   listUsers(): Promise<User[]>;
   getLocalDeviceUser(): Promise<User | null>;
   setUserRole(userId: string, role: Role): Promise<User>;
+  /**
+   * Notausgang: setzt den Gerätenutzer zurück auf `admin`, **ohne**
+   * Rechteprüfung.
+   *
+   * Nötig, weil sich sonst jemand aussperren kann: Wer seine eigene Rolle auf
+   * `viewer` setzt, darf danach weder Rollen ändern noch importieren noch
+   * löschen — die Daten wären unerreichbar. Auf einem Gerät ohne Anmeldung ist
+   * das auch keine Sicherheitslücke: Wer das Gerät hat, hat die Daten ohnehin.
+   *
+   * In der Server-Implementierung darf es diese Methode **nicht** geben; dort
+   * ist die Rollenvergabe Sache eines anderen Admins.
+   */
+  resetLocalDeviceRole(): Promise<User | null>;
 
   listPots(options?: { includeArchived?: boolean }): Promise<Pot[]>;
   getPot(id: string): Promise<Pot | null>;

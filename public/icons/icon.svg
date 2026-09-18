@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Haushalt">
+  <rect width="512" height="512" rx="112" fill="#3b5bdb"/>
+  <!-- Drei Töpfe unterschiedlicher Füllhöhe: das Kernbild der App. -->
+  <g fill="#ffffff">
+    <rect x="112" y="248" width="72" height="152" rx="20"/>
+    <rect x="220" y="184" width="72" height="216" rx="20"/>
+    <rect x="328" y="296" width="72" height="104" rx="20"/>
+  </g>
+  <rect x="96" y="120" width="320" height="24" rx="12" fill="#ffffff" opacity="0.55"/>
+</svg>

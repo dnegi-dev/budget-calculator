@@ -75,7 +75,7 @@ export function weekdayOf(date: IsoDate): number {
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
 }
 
-/** Der Kalendertag „heute" in der Zeitzone des Geräts. */
+/** Der Kalendertag „heute“ in der Zeitzone des Geräts. */
 export function todayIso(now: Date = new Date()): IsoDate {
   return fromParts({
     year: now.getFullYear(),

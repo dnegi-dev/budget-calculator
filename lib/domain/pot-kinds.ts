@@ -73,7 +73,7 @@ export function hasLimit(pot: Pick<Pot, 'limitCents'>): pot is Pick<Pot, 'limitC
 
 /**
  * Stimmen die Felder noch mit dem Preset überein? Wenn nicht, zeigt die UI
- * „angepasst" statt eines Preset-Namens, der dann nur in die Irre führt.
+ * „angepasst“ statt eines Preset-Namens, der dann nur in die Irre führt.
  */
 export function matchesPreset(pot: Pick<Pot, 'kind' | 'limitCents' | 'carryOver'>): boolean {
   const preset = potKindPreset(pot.kind);
