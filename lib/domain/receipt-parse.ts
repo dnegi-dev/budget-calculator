@@ -72,12 +72,24 @@ const NON_ITEM_PATTERNS: readonly RegExp[] = [
   /^\s*[-=*_.]{3,}\s*$/,
 ];
 
-/** Betrag am Zeilenende, mit den Schreibweisen, die Kassen wirklich drucken. */
+/**
+ * Betrag am Zeilenende, mit den Schreibweisen, die Kassen wirklich drucken.
+ *
+ * Hinter dem Betrag steht oft die Steuerklasse — bei einem Händler als
+ * Buchstabe (`2,75 B`), beim nächsten als Ziffer (`2,75 1`). Ohne die Ziffer
+ * passte auf einem dm-Bon keine einzige Zeile.
+ */
 const TRAILING_AMOUNT =
-  /(-?\d{1,3}(?:[.\s]\d{3})*[.,]\d{2})\s*(-)?\s*(?:€|EUR)?\s*(?:[A-Z]{1,2})?\s*$/;
+  /(-?\d{1,3}(?:[.\s]\d{3})*[.,]\d{2})\s*(-)?\s*(?:€|EUR)?\s*(?:[A-Z]{1,2}|\d)?\s*$/;
 
-/** `2 x`, `2x`, `2 Stk x`, `0,568 kg x` — die Menge vor dem Namen. */
-const LEADING_QUANTITY = /^\s*(\d{1,3}(?:[.,]\d{1,3})?)\s*(?:kg|g|ml|l|stk\.?|st\.?)?\s*[x*]\s*/i;
+/**
+ * Die Menge vor dem Namen: `2 x`, `2x`, `2 Stk x`, `0,568 kg x` — und, weil
+ * manche Kassen es so drucken, samt Einzelpreis: `2x 1,55 dmBio Apfelsaft`.
+ * Der Einzelpreis wird mitverschluckt, sonst beginnt die Bezeichnung mit einer
+ * Zahl und der Posten heißt „1,55 dmBio Apfelsaft".
+ */
+const LEADING_QUANTITY =
+  /^\s*(\d{1,3}(?:[.,]\d{1,3})?)\s*(?:kg|g|ml|l|stk\.?|st\.?)?\s*[x*]\s*(?:\d{1,3}[.,]\d{2}\s+)?/i;
 
 const GERMAN_DATE = /\b(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})\b/;
 const ISO_DATE_IN_TEXT = /\b(\d{4}-\d{2}-\d{2})\b/;
