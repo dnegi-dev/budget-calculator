@@ -66,6 +66,48 @@ belegbar, was mit einem Beleg geschieht.
    derselben Transaktion eine Zeile in die Outbox-Tabelle `changeLog`. In v1
    liest die niemand; ohne sie ist späterer Sync nicht nachrüstbar.
 
+## Standardtopf und Tags
+
+Zwei Einstellungen am **Haushalt** (nicht am Gerät — sie stehen in der
+Sicherung und verweisen auf Töpfe dieses Haushalts):
+
+- **`defaultPotId` ist ein Auffangnetz, und es hängt im Repository.** Eine
+  Ausgabe ohne Zuordnung bekommt den Standardtopf in `createEntries` und in
+  `materializeRecurringRules` — nicht im Formular. Der Bon-Import und die
+  künftige API gehen an jedem Formular vorbei; eine Regel in der Oberfläche
+  wäre eine Regel mit Löchern. Nur Ausgaben (Einnahmen laufen auf den
+  Haushalt), nur beim **Anlegen** (wer beim Bearbeiten „Kein Topf" wählt, meint
+  das), und nur wenn der Topf noch existiert. Wird er gelöscht oder
+  archiviert, räumt `detachDefaultPot` das Feld in derselben Transaktion.
+- **`askForPot` schaltet den Topf-Schritt beim Erfassen aus**, nicht die
+  Zuordnung: `EntrySheet` belegt dann den Standardtopf vor und zeigt ihn in den
+  Details mit „Topf ändern". Ein stumm gesetzter Topf wäre beim Auswerten eine
+  Überraschung.
+
+**Tags** (`tagsEnabled`, Feld `Entry.tags`) sind die zweite Achse neben den
+Töpfen. Die Regeln stehen in `lib/domain/tags.ts`:
+
+- Verglichen wird über `tagKey()` (klein geschrieben), angezeigt die
+  geschriebene Form. „Urlaub" und „urlaub" sind derselbe Tag.
+- Tags liegen **an der Buchung**, nicht in einer eigenen Tabelle: ein
+  Schreibweg, eine Outbox-Zeile, Vorschläge aus dem Bestand. Der Preis sind die
+  Sammeloperationen `renameTag`/`deleteTag` im Repository — in **einer**
+  Transaktion, mit `revision`-Erhöhung je berührter Buchung. Eine Schleife in
+  der Oberfläche wäre beim Abbruch halb fertig.
+- Nicht indiziert, gefiltert wird über den Snapshot — wie bei `splitGroupId`.
+- **Die Summen je Tag addieren sich nicht zur Gesamtsumme**, weil eine Buchung
+  mehrere tragen kann. Die Auswertung schreibt das dazu; wer den Satz entfernt,
+  hinterlässt Zahlen, die sich nicht erklären lassen.
+- Ein Bon kann Tags für den ganzen Einkauf **und** je Posten haben. Weil daraus
+  eine Buchung pro Topf wird, sammelt jede Buchung die Tags ihrer Posten ein —
+  über `indices` aus `groupItemsByPot`, damit die Gruppierung nicht zweimal
+  existiert.
+
+Neue Felder am `Household` brauchen keine Dexie-Migration (nicht indiziert),
+aber einen Standardwert in `withHouseholdDefaults` **und** im `householdSchema`
+— sonst ist das Feld bei bestehenden Installationen `undefined` (also unwahr)
+und ältere Sicherungen lassen sich nicht mehr einlesen.
+
 ## Deployment
 
 Die App läuft auf GitHub Pages unter einem **Unterpfad**

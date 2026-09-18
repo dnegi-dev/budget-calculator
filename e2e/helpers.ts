@@ -82,3 +82,25 @@ export async function einrichten(page: Page, name = 'Testhaushalt'): Promise<voi
 export function istMobil(page: Page): boolean {
   return (page.viewportSize()?.width ?? MD_BREAKPOINT) < MD_BREAKPOINT;
 }
+
+/**
+ * Wählt in einem Auswahlfeld die Option, deren Text den Begriff enthält.
+ *
+ * `selectOption({ label })` braucht den Text genau — und die Topf-Optionen
+ * tragen ein Emoji davor. Über den Wert (die Topf-ID) ist es stabil, und ein
+ * Regex-Label unterstützt Playwright nicht.
+ */
+export async function optionWaehlen(page: Page, feld: string, text: string): Promise<void> {
+  const select = page.getByLabel(feld).first();
+  const wert = await select.locator('option', { hasText: text }).first().getAttribute('value');
+  if (wert === null) throw new Error(`Keine Option für ${text} in ${feld}`);
+  await select.selectOption(wert);
+}
+
+/**
+ * Klappt Suche und Filter auf der Buchungsseite auf, falls sie hinter den
+ * Symbolen liegen (mobil). Ab `md` stehen sie ohnehin offen.
+ */
+export async function filterOeffnen(page: Page): Promise<void> {
+  if (istMobil(page)) await page.getByRole('button', { name: 'Filter' }).click();
+}
