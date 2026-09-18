@@ -78,7 +78,10 @@ export function RecurringSection() {
               : nextOccurrenceAfter(rule, rule.lastMaterializedDate ?? todayIso());
             return (
               <li key={rule.id} className="flex items-center gap-3 px-4 py-3">
-                <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-subtle">
+                <span
+                  aria-hidden
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-subtle"
+                >
                   {pot?.icon ?? (rule.kind === 'income' ? '↓' : '↻')}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -316,9 +319,10 @@ function RecurringSheet({
                   >
                     {Array.from({ length: 12 }, (_, index) => index + 1).map((value) => (
                       <option key={value} value={value}>
-                        {new Intl.DateTimeFormat(format.locale, { month: 'long', timeZone: 'UTC' }).format(
-                          new Date(Date.UTC(2026, value - 1, 1)),
-                        )}
+                        {new Intl.DateTimeFormat(format.locale, {
+                          month: 'long',
+                          timeZone: 'UTC',
+                        }).format(new Date(Date.UTC(2026, value - 1, 1)))}
                       </option>
                     ))}
                   </select>
@@ -327,7 +331,11 @@ function RecurringSheet({
             )}
             <Field
               label="Tag im Monat"
-              hint={dayOfMonth >= 29 ? 'In kürzeren Monaten wird auf den letzten Tag vorgezogen.' : undefined}
+              hint={
+                dayOfMonth >= 29
+                  ? 'In kürzeren Monaten wird auf den letzten Tag vorgezogen.'
+                  : undefined
+              }
             >
               {(props) => (
                 <select

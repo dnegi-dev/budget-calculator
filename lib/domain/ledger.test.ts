@@ -63,7 +63,10 @@ describe('entriesInPeriod', () => {
   });
 
   it('ignoriert gelöschte Buchungen', () => {
-    const deleted = { ...entry('p1', 'expense', 100, '2026-09-10'), deletedAt: '2026-09-11T00:00:00.000Z' };
+    const deleted = {
+      ...entry('p1', 'expense', 100, '2026-09-10'),
+      deletedAt: '2026-09-11T00:00:00.000Z',
+    };
     expect(entriesInPeriod([deleted], '2026-09', 1)).toEqual([]);
   });
 });
@@ -71,7 +74,12 @@ describe('entriesInPeriod', () => {
 describe('Topf ohne Limit (Kategorie)', () => {
   it('zeigt nur den Verbrauch, kein Verfügbar', () => {
     const p = pot({ id: 'p1', kind: 'category' });
-    const state = computePotPeriodState(p, [entry('p1', 'expense', 1250, '2026-09-05')], '2026-09', 1);
+    const state = computePotPeriodState(
+      p,
+      [entry('p1', 'expense', 1250, '2026-09-05')],
+      '2026-09',
+      1,
+    );
     expect(state.spentCents).toBe(1250);
     expect(state.availableCents).toBeNull();
     expect(state.progress).toBeNull();
@@ -83,7 +91,12 @@ describe('Monatsbudget ohne Übertrag', () => {
   const p = pot({ id: 'p1', kind: 'budget', limitCents: 40_000, carryOver: false });
 
   it('rechnet Verfügbar gegen das Limit', () => {
-    const state = computePotPeriodState(p, [entry('p1', 'expense', 1250, '2026-09-05')], '2026-09', 1);
+    const state = computePotPeriodState(
+      p,
+      [entry('p1', 'expense', 1250, '2026-09-05')],
+      '2026-09',
+      1,
+    );
     expect(state.availableCents).toBe(38_750);
     expect(state.progress).toBeCloseTo(1250 / 40_000);
     expect(state.overspent).toBe(false);
@@ -97,13 +110,21 @@ describe('Monatsbudget ohne Übertrag', () => {
   });
 
   it('erkennt Überziehung', () => {
-    const state = computePotPeriodState(p, [entry('p1', 'expense', 45_000, '2026-09-05')], '2026-09', 1);
+    const state = computePotPeriodState(
+      p,
+      [entry('p1', 'expense', 45_000, '2026-09-05')],
+      '2026-09',
+      1,
+    );
     expect(state.availableCents).toBe(-5_000);
     expect(state.overspent).toBe(true);
   });
 
   it('zieht Erstattungen vom Verbrauch ab', () => {
-    const entries = [entry('p1', 'expense', 5_000, '2026-09-05'), entry('p1', 'income', 2_000, '2026-09-06')];
+    const entries = [
+      entry('p1', 'expense', 5_000, '2026-09-05'),
+      entry('p1', 'income', 2_000, '2026-09-06'),
+    ];
     const state = computePotPeriodState(p, entries, '2026-09', 1);
     expect(state.spentCents).toBe(5_000);
     expect(state.refundCents).toBe(2_000);

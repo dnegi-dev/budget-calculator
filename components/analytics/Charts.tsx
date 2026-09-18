@@ -67,7 +67,11 @@ export function PotBarChart({
 }) {
   return (
     <ResponsiveContainer width="100%" height={Math.max(160, data.length * 44)}>
-      <BarChart data={[...data]} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 4 }}>
+      <BarChart
+        data={[...data]}
+        layout="vertical"
+        margin={{ top: 4, right: 16, bottom: 4, left: 4 }}
+      >
         <CartesianGrid horizontal={false} stroke={GRID_COLOR} />
         <XAxis
           type="number"
@@ -126,7 +130,9 @@ export function PotShareChart({
           verticalAlign="bottom"
           iconType="circle"
           iconSize={8}
-          formatter={(value: string) => <span style={{ color: 'var(--text)', fontSize: 12 }}>{value}</span>}
+          formatter={(value: string) => (
+            <span style={{ color: 'var(--text)', fontSize: 12 }}>{value}</span>
+          )}
         />
         <Tooltip contentStyle={tooltipStyle()} formatter={(value) => formatMoney(asCents(value))} />
       </PieChart>
@@ -134,7 +140,13 @@ export function PotShareChart({
   );
 }
 
-/** Verlauf über mehrere Perioden. */
+/**
+ * Verlauf über mehrere Perioden.
+ *
+ * `type="linear"`, nicht `"monotone"`: Es gibt nur einen Wert pro Periode.
+ * Eine geglättete Kurve würde Zwischenwerte behaupten, die es nicht gibt —
+ * und suggerieren, die Ausgaben seien stetig gestiegen.
+ */
 export function TrendChart({
   data,
   formatMoney,
@@ -170,10 +182,12 @@ export function TrendChart({
         <Legend
           iconType="plainline"
           iconSize={16}
-          formatter={(value: string) => <span style={{ color: 'var(--text)', fontSize: 12 }}>{value}</span>}
+          formatter={(value: string) => (
+            <span style={{ color: 'var(--text)', fontSize: 12 }}>{value}</span>
+          )}
         />
         <Line
-          type="monotone"
+          type="linear"
           dataKey="expenseCents"
           name="Ausgaben"
           stroke="var(--negative)"
@@ -182,7 +196,7 @@ export function TrendChart({
           isAnimationActive={false}
         />
         <Line
-          type="monotone"
+          type="linear"
           dataKey="incomeCents"
           name="Einnahmen"
           stroke="var(--positive)"

@@ -6,20 +6,20 @@ bleibt.
 
 ## Was schon liegt
 
-| Vorbereitung | Ort | Warum das den Aufwand senkt |
-| --- | --- | --- |
-| `BudgetRepository` als einzige Datenschnittstelle | `lib/data/repository.ts` | Kein UI-Code kennt die Speicherung. Der Wechsel betrifft eine Datei. |
-| HTTP-Adapter mit identischer Signatur | `lib/data/remote/http-repository.ts` | Ausfüllen statt Umbauen; das Interface wurde von zwei Seiten benutzt. |
-| Alle Methoden `async` | `lib/data/repository.ts` | Keine Signatur ändert sich, wenn Aufrufe über das Netz gehen. |
-| Clientseitige UUIDs | `lib/domain/ids.ts` | Bestehende Daten können unverändert hochgeladen werden; keine Referenz muss umgeschrieben werden. |
-| `revision`, `updatedAt`, `deletedAt` auf jedem Record | `lib/domain/types.ts` | Konflikte sind entscheidbar, Löschungen übertragbar. |
-| Outbox `changeLog` | `lib/data/local/db.ts` | Der lokale Änderungsverlauf existiert bereits; ein Sync-Worker kann ihn abarbeiten. |
-| Zod-Schemas für alle Entitäten | `lib/domain/schemas.ts` | Dieselbe Definition validiert Import und später die API-Grenze. |
-| Session-Abstraktion | `lib/auth/` | Komponenten fragen `useSession()`, nicht „es gibt einen Admin". |
-| Rechtematrix, im Adapter erzwungen | `lib/rbac/` | Die Prüfungen liegen an einer Stelle und wandern unverändert in den Server. |
-| `externalSubject` auf `User` | `lib/domain/types.ts` | Platz für den OIDC-`sub`, ohne Migration. |
-| Middleware-Gerüst | `middleware.ts` | Der Matcher für geschützte Pfade steht. |
-| `.env.example` | Projektwurzel | Alle nötigen Variablen sind benannt und kommentiert. |
+| Vorbereitung                                          | Ort                                  | Warum das den Aufwand senkt                                                                       |
+| ----------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `BudgetRepository` als einzige Datenschnittstelle     | `lib/data/repository.ts`             | Kein UI-Code kennt die Speicherung. Der Wechsel betrifft eine Datei.                              |
+| HTTP-Adapter mit identischer Signatur                 | `lib/data/remote/http-repository.ts` | Ausfüllen statt Umbauen; das Interface wurde von zwei Seiten benutzt.                             |
+| Alle Methoden `async`                                 | `lib/data/repository.ts`             | Keine Signatur ändert sich, wenn Aufrufe über das Netz gehen.                                     |
+| Clientseitige UUIDs                                   | `lib/domain/ids.ts`                  | Bestehende Daten können unverändert hochgeladen werden; keine Referenz muss umgeschrieben werden. |
+| `revision`, `updatedAt`, `deletedAt` auf jedem Record | `lib/domain/types.ts`                | Konflikte sind entscheidbar, Löschungen übertragbar.                                              |
+| Outbox `changeLog`                                    | `lib/data/local/db.ts`               | Der lokale Änderungsverlauf existiert bereits; ein Sync-Worker kann ihn abarbeiten.               |
+| Zod-Schemas für alle Entitäten                        | `lib/domain/schemas.ts`              | Dieselbe Definition validiert Import und später die API-Grenze.                                   |
+| Session-Abstraktion                                   | `lib/auth/`                          | Komponenten fragen `useSession()`, nicht „es gibt einen Admin".                                   |
+| Rechtematrix, im Adapter erzwungen                    | `lib/rbac/`                          | Die Prüfungen liegen an einer Stelle und wandern unverändert in den Server.                       |
+| `externalSubject` auf `User`                          | `lib/domain/types.ts`                | Platz für den OIDC-`sub`, ohne Migration.                                                         |
+| Middleware-Gerüst                                     | `middleware.ts`                      | Der Matcher für geschützte Pfade steht.                                                           |
+| `.env.example`                                        | Projektwurzel                        | Alle nötigen Variablen sind benannt und kommentiert.                                              |
 
 ## Schritte
 
@@ -90,7 +90,7 @@ arbeitet nur mit Metadaten plus Blob-URL.
 ### 7. Was dann noch zu entscheiden ist
 
 - **Limit-Historie.** Der Übertrag rechnet vergangene Perioden mit dem
-  *aktuellen* Limit (siehe Kommentar in `lib/domain/ledger.ts`). Für mehrere
+  _aktuellen_ Limit (siehe Kommentar in `lib/domain/ledger.ts`). Für mehrere
   Nutzer über längere Zeiträume lohnt ein Feld `limitHistory`.
 - **`resetLocalDeviceRole()`** darf serverseitig nicht existieren. Der Stub
   wirft bereits.

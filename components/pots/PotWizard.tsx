@@ -139,7 +139,9 @@ export function PotWizard({ open, onClose }: { open: boolean; onClose: () => voi
 
       {currentStep === 'kind' && (
         <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1.5 text-sm font-medium text-ink-muted">Wie soll er sich verhalten?</legend>
+          <legend className="mb-1.5 text-sm font-medium text-ink-muted">
+            Wie soll er sich verhalten?
+          </legend>
           {POT_KINDS.map((option) => {
             const optionPreset = potKindPreset(option);
             const selected = option === kind;
@@ -161,8 +163,12 @@ export function PotWizard({ open, onClose }: { open: boolean; onClose: () => voi
                 />
                 <span className="min-w-0">
                   <span className="block font-medium">{optionPreset.label}</span>
-                  <span className="mt-0.5 block text-sm text-ink-muted">{optionPreset.explanation}</span>
-                  <span className="mt-1 block text-sm text-ink-muted italic">{optionPreset.example}</span>
+                  <span className="mt-0.5 block text-sm text-ink-muted">
+                    {optionPreset.explanation}
+                  </span>
+                  <span className="mt-1 block text-sm text-ink-muted italic">
+                    {optionPreset.example}
+                  </span>
                 </span>
               </label>
             );

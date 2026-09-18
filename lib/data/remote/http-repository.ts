@@ -91,6 +91,10 @@ export class HttpBudgetRepository implements BudgetRepository {
     throw new NotImplementedError('Zentrale Datenhaltung');
   }
 
+  restoreFromBackup(_file: ExportFile): Promise<ImportResult> {
+    throw new NotImplementedError('Wiederherstellung');
+  }
+
   listUsers(): Promise<User[]> {
     throw new NotImplementedError('Nutzerverwaltung');
   }
@@ -168,10 +172,7 @@ export class HttpBudgetRepository implements BudgetRepository {
     throw new NotImplementedError('Zentrale Datenhaltung');
   }
 
-  updateRecurringRule(
-    _id: string,
-    _patch: Partial<NewRecurringRuleInput>,
-  ): Promise<RecurringRule> {
+  updateRecurringRule(_id: string, _patch: Partial<NewRecurringRuleInput>): Promise<RecurringRule> {
     throw new NotImplementedError('Zentrale Datenhaltung');
   }
 

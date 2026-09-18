@@ -33,7 +33,9 @@ export function useFormat(): Formatters {
   return useMemo(() => {
     const locale = household?.locale ?? FALLBACK.locale;
     const currency = household?.currency ?? FALLBACK.currency;
-    const periodStartDay = clampPeriodStartDay(household?.periodStartDay ?? FALLBACK.periodStartDay);
+    const periodStartDay = clampPeriodStartDay(
+      household?.periodStartDay ?? FALLBACK.periodStartDay,
+    );
 
     return {
       locale,

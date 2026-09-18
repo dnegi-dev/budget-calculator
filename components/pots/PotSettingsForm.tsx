@@ -129,8 +129,8 @@ function PotFields({ pot }: { pot: Pot }) {
           <span className="min-w-0">
             <span className="block font-medium">Restbetrag übertragen</span>
             <span className="mt-0.5 block text-sm text-ink-muted">
-              Was übrig bleibt, erhöht das Limit der nächsten Periode. Überziehungen werden
-              genauso mitgenommen.
+              Was übrig bleibt, erhöht das Limit der nächsten Periode. Überziehungen werden genauso
+              mitgenommen.
             </span>
           </span>
         </label>

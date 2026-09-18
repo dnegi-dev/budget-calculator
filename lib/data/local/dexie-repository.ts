@@ -61,7 +61,10 @@ export class DexieBudgetRepository implements BudgetRepository {
   private cachedSnapshot: Snapshot | null = null;
   private lastError: Error | null = null;
 
-  constructor(db: BudgetDatabase = getDatabase(), writeChangeLog = process.env.NEXT_PUBLIC_CHANGE_LOG !== 'off') {
+  constructor(
+    db: BudgetDatabase = getDatabase(),
+    writeChangeLog = process.env.NEXT_PUBLIC_CHANGE_LOG !== 'off',
+  ) {
     this.db = db;
     this.writeChangeLog = writeChangeLog;
   }
@@ -164,15 +167,35 @@ export class DexieBudgetRepository implements BudgetRepository {
       isLocalDevice: true,
     };
 
-    await this.db.transaction('rw', this.db.households, this.db.users, this.db.changeLog, async () => {
-      await this.db.households.add(household);
-      await this.db.users.add(user);
-      await this.log('household', household.id, 'upsert', household.revision, household.id);
-      await this.log('user', user.id, 'upsert', user.revision, household.id);
-    });
+    await this.db.transaction(
+      'rw',
+      this.db.households,
+      this.db.users,
+      this.db.changeLog,
+      async () => {
+        await this.db.households.add(household);
+        await this.db.users.add(user);
+        await this.log('household', household.id, 'upsert', household.revision, household.id);
+        await this.log('user', user.id, 'upsert', user.revision, household.id);
+      },
+    );
 
     await this.notify();
     return { household, user };
+  }
+
+  /**
+   * Siehe `BudgetRepository.restoreFromBackup`. Ohne Rechteprüfung, aber nur
+   * bei leerer Datenbank — danach greift wieder `importAll` mit `data.import`.
+   */
+  async restoreFromBackup(file: ExportFile): Promise<ImportResult> {
+    const existing = await this.getHousehold();
+    if (existing !== null) {
+      throw new Error(
+        'Auf diesem Gerät gibt es schon einen Haushalt. Nutze den Import in den Einstellungen.',
+      );
+    }
+    return this.writeImport(file, 'replace');
   }
 
   async updateHousehold(
@@ -241,7 +264,12 @@ export class DexieBudgetRepository implements BudgetRepository {
     const user = await this.getLocalDeviceUser();
     if (!user || user.role === 'admin') return user;
 
-    const updated: User = { ...user, role: 'admin', updatedAt: nowIso(), revision: user.revision + 1 };
+    const updated: User = {
+      ...user,
+      role: 'admin',
+      updatedAt: nowIso(),
+      revision: user.revision + 1,
+    };
     await this.db.transaction('rw', this.db.users, this.db.changeLog, async () => {
       await this.db.users.put(updated);
       await this.log('user', updated.id, 'upsert', updated.revision, updated.householdId);
@@ -278,7 +306,8 @@ export class DexieBudgetRepository implements BudgetRepository {
       deletedAt: null,
       name: input.name.trim(),
       icon: input.icon ?? '🧺',
-      color: input.color ?? (DEFAULT_POT_COLORS[existing.length % DEFAULT_POT_COLORS.length] as string),
+      color:
+        input.color ?? (DEFAULT_POT_COLORS[existing.length % DEFAULT_POT_COLORS.length] as string),
       sortIndex: input.sortIndex ?? existing.length,
       archivedAt: null,
       ...applyPotKindPreset(input.kind, input.limitCents),
@@ -357,24 +386,55 @@ export class DexieBudgetRepository implements BudgetRepository {
     if (!pot) return;
 
     const at = nowIso();
-    await this.db.transaction('rw', this.db.pots, this.db.entries, this.db.recurringRules, this.db.changeLog, async () => {
-      await this.db.pots.put({ ...pot, deletedAt: at, updatedAt: at, revision: pot.revision + 1 });
-      await this.log('pot', pot.id, 'delete', pot.revision + 1, pot.householdId);
+    await this.db.transaction(
+      'rw',
+      this.db.pots,
+      this.db.entries,
+      this.db.recurringRules,
+      this.db.changeLog,
+      async () => {
+        await this.db.pots.put({
+          ...pot,
+          deletedAt: at,
+          updatedAt: at,
+          revision: pot.revision + 1,
+        });
+        await this.log('pot', pot.id, 'delete', pot.revision + 1, pot.householdId);
 
-      const affected = (await this.db.entries.where('potId').equals(id).toArray()).filter(alive);
-      for (const entry of affected) {
-        const detached: Entry = { ...entry, potId: null, updatedAt: at, revision: entry.revision + 1 };
-        await this.db.entries.put(detached);
-        await this.log('entry', detached.id, 'upsert', detached.revision, detached.householdId);
-      }
+        const affected = (await this.db.entries.where('potId').equals(id).toArray()).filter(alive);
+        for (const entry of affected) {
+          const detached: Entry = {
+            ...entry,
+            potId: null,
+            updatedAt: at,
+            revision: entry.revision + 1,
+          };
+          await this.db.entries.put(detached);
+          await this.log('entry', detached.id, 'upsert', detached.revision, detached.householdId);
+        }
 
-      const rules = (await this.db.recurringRules.where('potId').equals(id).toArray()).filter(alive);
-      for (const rule of rules) {
-        const detached: RecurringRule = { ...rule, potId: null, paused: true, updatedAt: at, revision: rule.revision + 1 };
-        await this.db.recurringRules.put(detached);
-        await this.log('recurringRule', detached.id, 'upsert', detached.revision, detached.householdId);
-      }
-    });
+        const rules = (await this.db.recurringRules.where('potId').equals(id).toArray()).filter(
+          alive,
+        );
+        for (const rule of rules) {
+          const detached: RecurringRule = {
+            ...rule,
+            potId: null,
+            paused: true,
+            updatedAt: at,
+            revision: rule.revision + 1,
+          };
+          await this.db.recurringRules.put(detached);
+          await this.log(
+            'recurringRule',
+            detached.id,
+            'upsert',
+            detached.revision,
+            detached.householdId,
+          );
+        }
+      },
+    );
 
     await this.notify();
   }
@@ -461,7 +521,9 @@ export class DexieBudgetRepository implements BudgetRepository {
       ...entry,
       ...patch,
       amountCents:
-        patch.amountCents === undefined ? entry.amountCents : Math.round(Math.abs(patch.amountCents)),
+        patch.amountCents === undefined
+          ? entry.amountCents
+          : Math.round(Math.abs(patch.amountCents)),
       note: patch.note === undefined ? entry.note : patch.note?.trim() || null,
       merchant: patch.merchant === undefined ? entry.merchant : patch.merchant?.trim() || null,
       updatedAt: nowIso(),
@@ -483,17 +545,41 @@ export class DexieBudgetRepository implements BudgetRepository {
     this.assert('entry.edit.any', { ownerId: entry.createdBy, householdId: entry.householdId });
 
     const at = nowIso();
-    await this.db.transaction('rw', this.db.entries, this.db.receipts, this.db.changeLog, async () => {
-      await this.db.entries.put({ ...entry, deletedAt: at, updatedAt: at, revision: entry.revision + 1 });
-      await this.log('entry', entry.id, 'delete', entry.revision + 1, entry.householdId);
+    await this.db.transaction(
+      'rw',
+      this.db.entries,
+      this.db.receipts,
+      this.db.changeLog,
+      async () => {
+        await this.db.entries.put({
+          ...entry,
+          deletedAt: at,
+          updatedAt: at,
+          revision: entry.revision + 1,
+        });
+        await this.log('entry', entry.id, 'delete', entry.revision + 1, entry.householdId);
 
-      // Ein Beleg ohne Buchung belegt nichts mehr.
-      const receipts = (await this.db.receipts.where('entryId').equals(id).toArray()).filter(alive);
-      for (const receipt of receipts) {
-        await this.db.receipts.put({ ...receipt, deletedAt: at, updatedAt: at, revision: receipt.revision + 1 });
-        await this.log('receipt', receipt.id, 'delete', receipt.revision + 1, receipt.householdId);
-      }
-    });
+        // Ein Beleg ohne Buchung belegt nichts mehr.
+        const receipts = (await this.db.receipts.where('entryId').equals(id).toArray()).filter(
+          alive,
+        );
+        for (const receipt of receipts) {
+          await this.db.receipts.put({
+            ...receipt,
+            deletedAt: at,
+            updatedAt: at,
+            revision: receipt.revision + 1,
+          });
+          await this.log(
+            'receipt',
+            receipt.id,
+            'delete',
+            receipt.revision + 1,
+            receipt.householdId,
+          );
+        }
+      },
+    );
 
     await this.notify();
   }
@@ -552,7 +638,9 @@ export class DexieBudgetRepository implements BudgetRepository {
       ...rule,
       ...patch,
       amountCents:
-        patch.amountCents === undefined ? rule.amountCents : Math.round(Math.abs(patch.amountCents)),
+        patch.amountCents === undefined
+          ? rule.amountCents
+          : Math.round(Math.abs(patch.amountCents)),
       note: patch.note === undefined ? rule.note : patch.note?.trim() || null,
       updatedAt: nowIso(),
       revision: rule.revision + 1,
@@ -578,7 +666,12 @@ export class DexieBudgetRepository implements BudgetRepository {
 
     const at = nowIso();
     await this.db.transaction('rw', this.db.recurringRules, this.db.changeLog, async () => {
-      await this.db.recurringRules.put({ ...rule, deletedAt: at, updatedAt: at, revision: rule.revision + 1 });
+      await this.db.recurringRules.put({
+        ...rule,
+        deletedAt: at,
+        updatedAt: at,
+        revision: rule.revision + 1,
+      });
       await this.log('recurringRule', rule.id, 'delete', rule.revision + 1, rule.householdId);
     });
 
@@ -602,45 +695,57 @@ export class DexieBudgetRepository implements BudgetRepository {
     let created = 0;
     const at = nowIso();
 
-    await this.db.transaction('rw', this.db.entries, this.db.recurringRules, this.db.changeLog, async () => {
-      for (const rule of rules) {
-        const result = materializeRule(rule, today);
-        if (!result) continue;
+    await this.db.transaction(
+      'rw',
+      this.db.entries,
+      this.db.recurringRules,
+      this.db.changeLog,
+      async () => {
+        for (const rule of rules) {
+          const result = materializeRule(rule, today);
+          if (!result) continue;
 
-        const entries: Entry[] = result.entries.map((input) => ({
-          id: newId(),
-          householdId: household.id,
-          createdAt: at,
-          updatedAt: at,
-          revision: 1,
-          deletedAt: null,
-          potId: input.potId,
-          kind: input.kind,
-          amountCents: input.amountCents,
-          date: input.date,
-          note: input.note ?? null,
-          merchant: null,
-          recurringRuleId: rule.id,
-          createdBy: principal?.userId ?? rule.householdId,
-        }));
+          const entries: Entry[] = result.entries.map((input) => ({
+            id: newId(),
+            householdId: household.id,
+            createdAt: at,
+            updatedAt: at,
+            revision: 1,
+            deletedAt: null,
+            potId: input.potId,
+            kind: input.kind,
+            amountCents: input.amountCents,
+            date: input.date,
+            note: input.note ?? null,
+            merchant: null,
+            recurringRuleId: rule.id,
+            createdBy: principal?.userId ?? rule.householdId,
+          }));
 
-        await this.db.entries.bulkAdd(entries);
-        for (const entry of entries) {
-          await this.log('entry', entry.id, 'upsert', entry.revision, entry.householdId);
+          await this.db.entries.bulkAdd(entries);
+          for (const entry of entries) {
+            await this.log('entry', entry.id, 'upsert', entry.revision, entry.householdId);
+          }
+
+          const updatedRule: RecurringRule = {
+            ...rule,
+            lastMaterializedDate: result.lastMaterializedDate,
+            updatedAt: at,
+            revision: rule.revision + 1,
+          };
+          await this.db.recurringRules.put(updatedRule);
+          await this.log(
+            'recurringRule',
+            rule.id,
+            'upsert',
+            updatedRule.revision,
+            rule.householdId,
+          );
+
+          created += entries.length;
         }
-
-        const updatedRule: RecurringRule = {
-          ...rule,
-          lastMaterializedDate: result.lastMaterializedDate,
-          updatedAt: at,
-          revision: rule.revision + 1,
-        };
-        await this.db.recurringRules.put(updatedRule);
-        await this.log('recurringRule', rule.id, 'upsert', updatedRule.revision, rule.householdId);
-
-        created += entries.length;
-      }
-    });
+      },
+    );
 
     if (created > 0) await this.notify();
     return created;
@@ -758,73 +863,91 @@ export class DexieBudgetRepository implements BudgetRepository {
    */
   async importAll(file: ExportFile, mode: 'replace' | 'merge'): Promise<ImportResult> {
     this.assert('data.import');
-    const result: ImportResult = { mode, pots: 0, entries: 0, recurringRules: 0, receipts: 0, skipped: 0 };
+    return this.writeImport(file, mode);
+  }
+
+  /** Der eigentliche Schreibvorgang — von `importAll` und `restoreFromBackup` benutzt. */
+  private async writeImport(file: ExportFile, mode: 'replace' | 'merge'): Promise<ImportResult> {
+    const result: ImportResult = {
+      mode,
+      pots: 0,
+      entries: 0,
+      recurringRules: 0,
+      receipts: 0,
+      skipped: 0,
+    };
 
     await this.db.transaction('rw', this.allTables(), async () => {
-        if (mode === 'replace') {
-          await Promise.all([
-            this.db.households.clear(),
-            this.db.users.clear(),
-            this.db.pots.clear(),
-            this.db.entries.clear(),
-            this.db.recurringRules.clear(),
-            this.db.receipts.clear(),
-          ]);
+      if (mode === 'replace') {
+        await Promise.all([
+          this.db.households.clear(),
+          this.db.users.clear(),
+          this.db.pots.clear(),
+          this.db.entries.clear(),
+          this.db.recurringRules.clear(),
+          this.db.receipts.clear(),
+        ]);
+        await this.db.households.put(file.household);
+        await this.db.users.bulkPut(file.users);
+      } else {
+        const existingHousehold = await this.db.households.get(file.household.id);
+        if (!existingHousehold || existingHousehold.revision < file.household.revision) {
           await this.db.households.put(file.household);
-          await this.db.users.bulkPut(file.users);
+        }
+        for (const user of file.users) {
+          if (await this.shouldWrite(this.db.users, user)) await this.db.users.put(user);
+        }
+      }
+
+      for (const pot of file.pots) {
+        if (mode === 'replace' || (await this.shouldWrite(this.db.pots, pot))) {
+          await this.db.pots.put(pot);
+          result.pots += 1;
         } else {
-          const existingHousehold = await this.db.households.get(file.household.id);
-          if (!existingHousehold || existingHousehold.revision < file.household.revision) {
-            await this.db.households.put(file.household);
-          }
-          for (const user of file.users) {
-            if (await this.shouldWrite(this.db.users, user)) await this.db.users.put(user);
-          }
+          result.skipped += 1;
         }
+      }
 
-        for (const pot of file.pots) {
-          if (mode === 'replace' || (await this.shouldWrite(this.db.pots, pot))) {
-            await this.db.pots.put(pot);
-            result.pots += 1;
-          } else {
-            result.skipped += 1;
-          }
+      for (const entry of file.entries) {
+        if (mode === 'replace' || (await this.shouldWrite(this.db.entries, entry))) {
+          await this.db.entries.put(entry);
+          result.entries += 1;
+        } else {
+          result.skipped += 1;
         }
+      }
 
-        for (const entry of file.entries) {
-          if (mode === 'replace' || (await this.shouldWrite(this.db.entries, entry))) {
-            await this.db.entries.put(entry);
-            result.entries += 1;
-          } else {
-            result.skipped += 1;
-          }
+      for (const rule of file.recurringRules) {
+        if (mode === 'replace' || (await this.shouldWrite(this.db.recurringRules, rule))) {
+          await this.db.recurringRules.put(rule);
+          result.recurringRules += 1;
+        } else {
+          result.skipped += 1;
         }
+      }
 
-        for (const rule of file.recurringRules) {
-          if (mode === 'replace' || (await this.shouldWrite(this.db.recurringRules, rule))) {
-            await this.db.recurringRules.put(rule);
-            result.recurringRules += 1;
-          } else {
-            result.skipped += 1;
-          }
+      for (const receiptExport of file.receipts) {
+        const { dataBase64, thumbnailBase64, ...meta } = receiptExport;
+        const receipt: Receipt = {
+          ...meta,
+          blob: base64ToBlob(dataBase64, meta.mime),
+          thumbnail: thumbnailBase64 ? base64ToBlob(thumbnailBase64, meta.mime) : null,
+        };
+        if (mode === 'replace' || (await this.shouldWrite(this.db.receipts, receipt))) {
+          await this.db.receipts.put(receipt);
+          result.receipts += 1;
+        } else {
+          result.skipped += 1;
         }
+      }
 
-        for (const receiptExport of file.receipts) {
-          const { dataBase64, thumbnailBase64, ...meta } = receiptExport;
-          const receipt: Receipt = {
-            ...meta,
-            blob: base64ToBlob(dataBase64, meta.mime),
-            thumbnail: thumbnailBase64 ? base64ToBlob(thumbnailBase64, meta.mime) : null,
-          };
-          if (mode === 'replace' || (await this.shouldWrite(this.db.receipts, receipt))) {
-            await this.db.receipts.put(receipt);
-            result.receipts += 1;
-          } else {
-            result.skipped += 1;
-          }
-        }
-
-        await this.log('household', file.household.id, 'upsert', file.household.revision, file.household.id);
+      await this.log(
+        'household',
+        file.household.id,
+        'upsert',
+        file.household.revision,
+        file.household.id,
+      );
     });
 
     await this.notify();
@@ -853,7 +976,10 @@ export class DexieBudgetRepository implements BudgetRepository {
 
   // --------------------------------------------------------------- intern
 
-  private assert(permission: Parameters<typeof assertCan>[1], resource?: Parameters<typeof assertCan>[2]): void {
+  private assert(
+    permission: Parameters<typeof assertCan>[1],
+    resource?: Parameters<typeof assertCan>[2],
+  ): void {
     assertCan(this.principalResolver(), permission, resource);
   }
 

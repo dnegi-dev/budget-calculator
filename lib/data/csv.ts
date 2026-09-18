@@ -9,7 +9,16 @@
 import { formatCentsPlain } from '../domain/money';
 import type { Entry, Pot, ReceiptMeta } from '../domain/types';
 
-const HEADERS = ['Datum', 'Art', 'Topf', 'Betrag', 'Ort', 'Notiz', 'Belege', 'Wiederkehrend'] as const;
+const HEADERS = [
+  'Datum',
+  'Art',
+  'Topf',
+  'Betrag',
+  'Ort',
+  'Notiz',
+  'Belege',
+  'Wiederkehrend',
+] as const;
 
 export interface CsvOptions {
   locale: string;

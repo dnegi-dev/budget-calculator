@@ -12,10 +12,11 @@
  * Datenverlust.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { SUGGESTED_POTS } from './suggested-pots';
 import { useData } from '../../lib/data/provider';
 import { todayIso } from '../../lib/domain/dates';
+import { periodForDate } from '../../lib/domain/period';
 import { parseAmountToCents } from '../../lib/domain/money';
 import { nowIso } from '../../lib/domain/dates';
 import { Button } from '../../lib/ui/Button';
@@ -24,6 +25,7 @@ import { Field, inputClass, selectClass } from '../../lib/ui/Field';
 import { WizardSteps } from '../../lib/ui/WizardSteps';
 import { Banner } from '../../lib/ui/Banner';
 import { potColorVar } from '../../lib/ui/colors';
+import { exportFileSchema } from '../../lib/domain/schemas';
 
 const STEP_COUNT = 4;
 
@@ -48,6 +50,7 @@ export function OnboardingWizard() {
   const [incomeRaw, setIncomeRaw] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const backupRef = useRef<HTMLInputElement>(null);
 
   const nameValid = householdName.trim().length > 0;
   const incomeCents = parseAmountToCents(incomeRaw);
@@ -59,6 +62,35 @@ export function OnboardingWizard() {
       else next.add(key);
       return next;
     });
+  }
+
+  /**
+   * Sicherung einlesen, noch vor der Einrichtung.
+   *
+   * Ohne diesen Weg wäre ein neues Gerät eine Sackgasse: Der Import in den
+   * Einstellungen ist erst nach der Einrichtung erreichbar, und eine
+   * Einrichtung würde die Sicherung nur überflüssig machen.
+   */
+  async function restore(file: File) {
+    setSaving(true);
+    setError(null);
+    try {
+      const parsed: unknown = JSON.parse(await file.text());
+      const validation = exportFileSchema.safeParse(parsed);
+      if (!validation.success) {
+        const first = validation.error.issues[0];
+        setError(
+          `Die Datei passt nicht zum erwarteten Format${first ? `: ${first.path.join('.')} — ${first.message}` : ''}.`,
+        );
+        return;
+      }
+      await repository.restoreFromBackup(validation.data);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Die Datei konnte nicht gelesen werden.');
+    } finally {
+      setSaving(false);
+      if (backupRef.current) backupRef.current.value = '';
+    }
   }
 
   async function finish() {
@@ -87,6 +119,11 @@ export function OnboardingWizard() {
 
       // Ein Einkommen, das sich jeden Monat wiederholt, ist als Regel richtig
       // aufgehoben — nicht als einzelne Buchung.
+      //
+      // Beginn ist der Anfang der *laufenden* Periode, nicht heute: Sonst
+      // fällt der erste Termin in die nächste Periode, und die Auswertung
+      // zeigt direkt nach der Einrichtung „Einnahmen 0 €" — obwohl man das
+      // Einkommen gerade eingetragen hat.
       if (incomeCents !== null && incomeCents > 0) {
         await repository.createRecurringRule({
           potId: null,
@@ -95,7 +132,7 @@ export function OnboardingWizard() {
           freq: 'monthly',
           interval: 1,
           dayOfMonth: periodStartDay,
-          startDate: todayIso(),
+          startDate: periodForDate(todayIso(), periodStartDay).start,
           note: 'Einkommen',
         });
       }
@@ -147,6 +184,38 @@ export function OnboardingWizard() {
                 />
               )}
             </Field>
+
+            <div className="border-t border-line pt-5">
+              <p className="text-sm text-ink-muted">
+                Du hast schon einen Haushalt auf einem anderen Gerät? Dann lies hier die Sicherung
+                ein, statt neu anzufangen.
+              </p>
+              <input
+                ref={backupRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void restore(file);
+                }}
+              />
+              <Button
+                variant="secondary"
+                disabled={saving}
+                className="mt-3"
+                onClick={() => backupRef.current?.click()}
+              >
+                {saving ? 'Wird eingelesen …' : 'Sicherung einlesen'}
+              </Button>
+              {error && (
+                <div className="mt-3">
+                  <Banner tone="negative" icon="⚠">
+                    {error}
+                  </Banner>
+                </div>
+              )}
+            </div>
           </section>
         )}
 
@@ -226,7 +295,9 @@ export function OnboardingWizard() {
                       <span
                         aria-hidden
                         className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-lg"
-                        style={{ background: `color-mix(in oklch, ${potColorVar(suggestion.color)} 18%, transparent)` }}
+                        style={{
+                          background: `color-mix(in oklch, ${potColorVar(suggestion.color)} 18%, transparent)`,
+                        }}
                       >
                         {suggestion.icon}
                       </span>

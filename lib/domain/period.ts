@@ -46,7 +46,8 @@ export function periodForDate(date: IsoDate, periodStartDay: number): Period {
   const day = clampPeriodStartDay(periodStartDay);
   const { year, month } = toParts(date);
   const candidateStart = fromParts({ year, month, day });
-  const start = compareDates(date, candidateStart) >= 0 ? candidateStart : addMonths(candidateStart, -1);
+  const start =
+    compareDates(date, candidateStart) >= 0 ? candidateStart : addMonths(candidateStart, -1);
   const { year: startYear, month: startMonth } = toParts(start);
   return {
     key: periodKey(startYear, startMonth),
@@ -69,7 +70,7 @@ export function comparePeriodKeys(a: string, b: string): number {
 export function periodDistance(from: string, to: string): number {
   const a = toParts(`${from}-01`);
   const b = toParts(`${to}-01`);
-  return (b.year * 12 + b.month) - (a.year * 12 + a.month);
+  return b.year * 12 + b.month - (a.year * 12 + a.month);
 }
 
 /** Alle Schlüssel von `from` bis `to`, aufsteigend und inklusive. */
@@ -82,7 +83,9 @@ export function periodKeysBetween(from: string, to: string): string[] {
 /** Die letzten `count` Perioden bis einschließlich `key`, aufsteigend. */
 export function lastPeriodKeys(key: string, count: number): string[] {
   const safeCount = Math.max(1, Math.trunc(count));
-  return Array.from({ length: safeCount }, (_, index) => shiftPeriodKey(key, index - safeCount + 1));
+  return Array.from({ length: safeCount }, (_, index) =>
+    shiftPeriodKey(key, index - safeCount + 1),
+  );
 }
 
 export function containsDate(period: Period, date: IsoDate): boolean {
@@ -96,16 +99,24 @@ export function containsDate(period: Period, date: IsoDate): boolean {
  */
 export function formatPeriodLabel(period: Period, locale: string, periodStartDay: number): string {
   const { year, month, day } = toParts(period.start);
-  const monthName = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
-    new Date(Date.UTC(year, month - 1, 1)),
-  );
+  const monthName = new Intl.DateTimeFormat(locale, {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(year, month - 1, 1)));
   if (clampPeriodStartDay(periodStartDay) === 1) return monthName;
 
   const last = addDays(period.endExclusive, -1);
-  const rangeFormat = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const rangeFormat = new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  });
   const lastParts = toParts(last);
   const from = rangeFormat.format(new Date(Date.UTC(year, month - 1, day)));
-  const to = rangeFormat.format(new Date(Date.UTC(lastParts.year, lastParts.month - 1, lastParts.day)));
+  const to = rangeFormat.format(
+    new Date(Date.UTC(lastParts.year, lastParts.month - 1, lastParts.day)),
+  );
   return `${from} – ${to}`;
 }
 

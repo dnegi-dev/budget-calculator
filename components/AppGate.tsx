@@ -27,7 +27,8 @@ export function AppGate({ children }: { children: ReactNode }) {
   const { repository, snapshot, loading, error } = useData();
   const materializedRef = useRef(false);
 
-  const setupComplete = snapshot.household !== null && snapshot.household.onboardingCompletedAt !== null;
+  const setupComplete =
+    snapshot.household !== null && snapshot.household.onboardingCompletedAt !== null;
 
   useEffect(() => {
     if (!setupComplete || materializedRef.current) return;

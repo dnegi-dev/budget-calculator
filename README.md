@@ -17,16 +17,16 @@ npm run dev          # http://localhost:3000
 Beim ersten Aufruf führt ein Wizard durch die Einrichtung: Haushaltsname,
 Währung, Periodenstart, Töpfe, optional ein regelmäßiges Einkommen.
 
-| Befehl | Zweck |
-| --- | --- |
-| `npm run dev` | Entwicklungsserver |
-| `npm run build` | statisches Bundle nach `out/` |
-| `npm run serve` | `out/` lokal ausliefern |
-| `npm run typecheck` | TypeScript ohne Emit |
-| `npm run lint` | ESLint |
-| `npm test` | Vitest (Domänenlogik und Datenschicht) |
-| `npm run test:e2e` | Playwright-Smoke-Test |
-| `npm run format` | Prettier |
+| Befehl              | Zweck                                  |
+| ------------------- | -------------------------------------- |
+| `npm run dev`       | Entwicklungsserver                     |
+| `npm run build`     | statisches Bundle nach `out/`          |
+| `npm run serve`     | `out/` lokal ausliefern                |
+| `npm run typecheck` | TypeScript ohne Emit                   |
+| `npm run lint`      | ESLint                                 |
+| `npm test`          | Vitest (Domänenlogik und Datenschicht) |
+| `npm run test:e2e`  | Playwright-Smoke-Test                  |
+| `npm run format`    | Prettier                               |
 
 `npm run build` erzeugt ein rein statisches Bundle — es lässt sich von jedem
 Webserver und aus jedem Objektspeicher ausliefern.
@@ -34,12 +34,13 @@ Webserver und aus jedem Objektspeicher ausliefern.
 ## Funktionsumfang
 
 - **Töpfe** in drei Arten, pro Topf wählbar:
-  - *Monatsbudget* — fester Betrag pro Periode, Reste verfallen.
-  - *Budget mit Übertrag* — Restbeträge und Überziehungen wandern in die nächste Periode.
-  - *Nur Kategorie* — kein Limit, zeigt nur die tatsächlichen Ausgaben.
+  - _Monatsbudget_ — fester Betrag pro Periode, Reste verfallen.
+  - _Budget mit Übertrag_ — Restbeträge und Überziehungen wandern in die nächste Periode.
+  - _Nur Kategorie_ — kein Limit, zeigt nur die tatsächlichen Ausgaben.
 
   Die Art ist ein Preset über zwei Schaltern (`limitCents`, `carryOver`); im
   Topf-Detail lassen sich abweichende Kombinationen einstellen.
+
 - **Buchungen** als Ausgabe oder Einnahme, mit Datum, Ort und Notiz. Erfassung
   in drei Schritten, ab dem ersten speicherbar.
 - **Kassenzettel** als Nachweis zu einer Buchung — fotografieren oder Datei
@@ -104,10 +105,10 @@ niemand; ohne sie wäre eine nachträgliche Synchronisation nicht möglich.
 `.env.example` beschreibt alle Variablen. Für v1 ist keine nötig; die
 interessanten sind:
 
-| Variable | Bedeutung |
-| --- | --- |
-| `NEXT_PUBLIC_DATA_MODE` | `local` (Standard) oder `remote` |
-| `NEXT_PUBLIC_CHANGE_LOG` | `on` (Standard) oder `off` |
+| Variable                 | Bedeutung                        |
+| ------------------------ | -------------------------------- |
+| `NEXT_PUBLIC_DATA_MODE`  | `local` (Standard) oder `remote` |
+| `NEXT_PUBLIC_CHANGE_LOG` | `on` (Standard) oder `off`       |
 
 ## Tests
 

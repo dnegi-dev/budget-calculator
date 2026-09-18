@@ -63,7 +63,9 @@ describe('Ersteinrichtung', () => {
 
   it('erlaubt den Abschluss der Einrichtung ohne settings.manage', async () => {
     principal = { ...principal!, role: 'member' };
-    const updated = await repo.updateHousehold({ onboardingCompletedAt: '2026-09-18T00:00:00.000Z' });
+    const updated = await repo.updateHousehold({
+      onboardingCompletedAt: '2026-09-18T00:00:00.000Z',
+    });
     expect(updated.onboardingCompletedAt).not.toBeNull();
   });
 });
@@ -84,9 +86,16 @@ describe('Rechteprüfung im Adapter', () => {
   });
 
   it('lässt den Nutzer eigene Buchungen ändern, aber keine fremden', async () => {
-    const own = await repo.createEntry({ potId: null, kind: 'expense', amountCents: 1_000, date: '2026-09-18' });
+    const own = await repo.createEntry({
+      potId: null,
+      kind: 'expense',
+      amountCents: 1_000,
+      date: '2026-09-18',
+    });
     principal = { userId: 'jemand-anders', householdId: principal!.householdId, role: 'member' };
-    await expect(repo.updateEntry(own.id, { amountCents: 2_000 })).rejects.toThrow(PermissionDeniedError);
+    await expect(repo.updateEntry(own.id, { amountCents: 2_000 })).rejects.toThrow(
+      PermissionDeniedError,
+    );
 
     principal = { userId: own.createdBy, householdId: principal.householdId, role: 'member' };
     const updated = await repo.updateEntry(own.id, { amountCents: 2_000 });
@@ -96,20 +105,40 @@ describe('Rechteprüfung im Adapter', () => {
 
 describe('Töpfe', () => {
   it('wendet das Preset an und lässt Abweichungen zu', async () => {
-    const category = await repo.createPot({ name: 'Sonstiges', kind: 'category', limitCents: 9_999, carryOver: true });
+    const category = await repo.createPot({
+      name: 'Sonstiges',
+      kind: 'category',
+      limitCents: 9_999,
+      carryOver: true,
+    });
     expect(category.limitCents).toBeNull();
 
-    const envelope = await repo.createPot({ name: 'Sport', kind: 'envelope', limitCents: 5_000, carryOver: true });
+    const envelope = await repo.createPot({
+      name: 'Sport',
+      kind: 'envelope',
+      limitCents: 5_000,
+      carryOver: true,
+    });
     expect(envelope.carryOver).toBe(true);
 
     // Abweichung: Budget-Preset, aber Übertrag eingeschaltet.
-    const custom = await repo.createPot({ name: 'Urlaub', kind: 'budget', limitCents: 10_000, carryOver: true });
+    const custom = await repo.createPot({
+      name: 'Urlaub',
+      kind: 'budget',
+      limitCents: 10_000,
+      carryOver: true,
+    });
     expect(custom.kind).toBe('budget');
     expect(custom.carryOver).toBe(true);
   });
 
   it('erhöht revision bei jeder Änderung', async () => {
-    const pot = await repo.createPot({ name: 'Sport', kind: 'budget', limitCents: 5_000, carryOver: false });
+    const pot = await repo.createPot({
+      name: 'Sport',
+      kind: 'budget',
+      limitCents: 5_000,
+      carryOver: false,
+    });
     expect(pot.revision).toBe(1);
     const updated = await repo.updatePot(pot.id, { name: 'Sport & Fitness' });
     expect(updated.revision).toBe(2);
@@ -117,8 +146,18 @@ describe('Töpfe', () => {
   });
 
   it('archiviert, ohne Buchungen zu verlieren', async () => {
-    const pot = await repo.createPot({ name: 'Sport', kind: 'budget', limitCents: 5_000, carryOver: false });
-    await repo.createEntry({ potId: pot.id, kind: 'expense', amountCents: 1_000, date: '2026-09-18' });
+    const pot = await repo.createPot({
+      name: 'Sport',
+      kind: 'budget',
+      limitCents: 5_000,
+      carryOver: false,
+    });
+    await repo.createEntry({
+      potId: pot.id,
+      kind: 'expense',
+      amountCents: 1_000,
+      date: '2026-09-18',
+    });
     await repo.setPotArchived(pot.id, true);
 
     expect(await repo.listPots()).toHaveLength(0);
@@ -127,8 +166,18 @@ describe('Töpfe', () => {
   });
 
   it('löst beim Löschen die Zuordnung, behält aber die Buchung', async () => {
-    const pot = await repo.createPot({ name: 'Sport', kind: 'budget', limitCents: 5_000, carryOver: false });
-    await repo.createEntry({ potId: pot.id, kind: 'expense', amountCents: 1_000, date: '2026-09-18' });
+    const pot = await repo.createPot({
+      name: 'Sport',
+      kind: 'budget',
+      limitCents: 5_000,
+      carryOver: false,
+    });
+    await repo.createEntry({
+      potId: pot.id,
+      kind: 'expense',
+      amountCents: 1_000,
+      date: '2026-09-18',
+    });
     await repo.deletePot(pot.id);
 
     expect(await repo.getPot(pot.id)).toBeNull();
@@ -140,13 +189,30 @@ describe('Töpfe', () => {
 
 describe('Buchungen', () => {
   it('speichert Beträge immer positiv', async () => {
-    const entry = await repo.createEntry({ potId: null, kind: 'expense', amountCents: -1_250, date: '2026-09-18' });
+    const entry = await repo.createEntry({
+      potId: null,
+      kind: 'expense',
+      amountCents: -1_250,
+      date: '2026-09-18',
+    });
     expect(entry.amountCents).toBe(1_250);
   });
 
   it('filtert nach Zeitraum, Art und Freitext', async () => {
-    await repo.createEntry({ potId: null, kind: 'expense', amountCents: 100, date: '2026-08-01', merchant: 'Rewe' });
-    await repo.createEntry({ potId: null, kind: 'expense', amountCents: 200, date: '2026-09-01', note: 'Bäcker' });
+    await repo.createEntry({
+      potId: null,
+      kind: 'expense',
+      amountCents: 100,
+      date: '2026-08-01',
+      merchant: 'Rewe',
+    });
+    await repo.createEntry({
+      potId: null,
+      kind: 'expense',
+      amountCents: 200,
+      date: '2026-09-01',
+      note: 'Bäcker',
+    });
     await repo.createEntry({ potId: null, kind: 'income', amountCents: 300, date: '2026-09-02' });
 
     expect(await repo.listEntries({ fromDate: '2026-09-01' })).toHaveLength(2);
@@ -157,7 +223,12 @@ describe('Buchungen', () => {
   });
 
   it('löscht per Soft Delete und blendet die Buchung aus', async () => {
-    const entry = await repo.createEntry({ potId: null, kind: 'expense', amountCents: 100, date: '2026-09-18' });
+    const entry = await repo.createEntry({
+      potId: null,
+      kind: 'expense',
+      amountCents: 100,
+      date: '2026-09-18',
+    });
     await repo.deleteEntry(entry.id);
     expect(await repo.getEntry(entry.id)).toBeNull();
     expect(await repo.listEntries()).toHaveLength(0);
@@ -168,7 +239,12 @@ describe('Buchungen', () => {
 
 describe('Wiederkehrende Buchungen', () => {
   it('materialisiert fällige Termine genau einmal', async () => {
-    const pot = await repo.createPot({ name: 'Wohnen', kind: 'budget', limitCents: 100_000, carryOver: false });
+    const pot = await repo.createPot({
+      name: 'Wohnen',
+      kind: 'budget',
+      limitCents: 100_000,
+      carryOver: false,
+    });
     await repo.createRecurringRule({
       potId: pot.id,
       kind: 'expense',
@@ -205,7 +281,12 @@ describe('Wiederkehrende Buchungen', () => {
 
 describe('Belege', () => {
   it('speichert Blob getrennt von den Metadaten', async () => {
-    const entry = await repo.createEntry({ potId: null, kind: 'expense', amountCents: 1_250, date: '2026-09-18' });
+    const entry = await repo.createEntry({
+      potId: null,
+      kind: 'expense',
+      amountCents: 1_250,
+      date: '2026-09-18',
+    });
     const blob = new Blob(['kassenzettel'], { type: 'text/plain' });
     const meta = await repo.addReceipt(entry.id, {
       filename: 'zettel.txt',
@@ -226,7 +307,12 @@ describe('Belege', () => {
   });
 
   it('entfernt Belege mit der Buchung', async () => {
-    const entry = await repo.createEntry({ potId: null, kind: 'expense', amountCents: 1_250, date: '2026-09-18' });
+    const entry = await repo.createEntry({
+      potId: null,
+      kind: 'expense',
+      amountCents: 1_250,
+      date: '2026-09-18',
+    });
     await repo.addReceipt(entry.id, {
       filename: 'zettel.txt',
       mime: 'text/plain',
@@ -240,8 +326,18 @@ describe('Belege', () => {
 
 describe('Export und Import', () => {
   it('erzeugt eine Datei, die dem Schema entspricht', async () => {
-    const pot = await repo.createPot({ name: 'Lebensmittel', kind: 'budget', limitCents: 40_000, carryOver: false });
-    const entry = await repo.createEntry({ potId: pot.id, kind: 'expense', amountCents: 1_250, date: '2026-09-18' });
+    const pot = await repo.createPot({
+      name: 'Lebensmittel',
+      kind: 'budget',
+      limitCents: 40_000,
+      carryOver: false,
+    });
+    const entry = await repo.createEntry({
+      potId: pot.id,
+      kind: 'expense',
+      amountCents: 1_250,
+      date: '2026-09-18',
+    });
     await repo.addReceipt(entry.id, {
       filename: 'zettel.txt',
       mime: 'text/plain',
@@ -259,8 +355,18 @@ describe('Export und Import', () => {
   });
 
   it('stellt den Stand nach Wipe wieder her (replace)', async () => {
-    const pot = await repo.createPot({ name: 'Lebensmittel', kind: 'budget', limitCents: 40_000, carryOver: false });
-    await repo.createEntry({ potId: pot.id, kind: 'expense', amountCents: 1_250, date: '2026-09-18' });
+    const pot = await repo.createPot({
+      name: 'Lebensmittel',
+      kind: 'budget',
+      limitCents: 40_000,
+      carryOver: false,
+    });
+    await repo.createEntry({
+      potId: pot.id,
+      kind: 'expense',
+      amountCents: 1_250,
+      date: '2026-09-18',
+    });
     const file = await repo.exportAll({ includeReceipts: true });
 
     await repo.wipeAll();
@@ -276,7 +382,12 @@ describe('Export und Import', () => {
   });
 
   it('gewinnt beim Merge mit der höheren revision', async () => {
-    const pot = await repo.createPot({ name: 'Alt', kind: 'budget', limitCents: 10_000, carryOver: false });
+    const pot = await repo.createPot({
+      name: 'Alt',
+      kind: 'budget',
+      limitCents: 10_000,
+      carryOver: false,
+    });
     const file = await repo.exportAll({ includeReceipts: false });
 
     // Lokal weiter geändert -> revision 2, Importdatei hat revision 1.
@@ -304,8 +415,18 @@ describe('Export und Import', () => {
 describe('Outbox (changeLog)', () => {
   it('protokolliert jede Mutation', async () => {
     const before = await repo.pendingChangeCount();
-    const pot = await repo.createPot({ name: 'Sport', kind: 'budget', limitCents: 5_000, carryOver: false });
-    await repo.createEntry({ potId: pot.id, kind: 'expense', amountCents: 100, date: '2026-09-18' });
+    const pot = await repo.createPot({
+      name: 'Sport',
+      kind: 'budget',
+      limitCents: 5_000,
+      carryOver: false,
+    });
+    await repo.createEntry({
+      potId: pot.id,
+      kind: 'expense',
+      amountCents: 100,
+      date: '2026-09-18',
+    });
     expect(await repo.pendingChangeCount()).toBe(before + 2);
 
     const logged = await db.changeLog.toArray();
@@ -313,7 +434,12 @@ describe('Outbox (changeLog)', () => {
   });
 
   it('protokolliert Löschungen als delete', async () => {
-    const pot = await repo.createPot({ name: 'Sport', kind: 'budget', limitCents: 5_000, carryOver: false });
+    const pot = await repo.createPot({
+      name: 'Sport',
+      kind: 'budget',
+      limitCents: 5_000,
+      carryOver: false,
+    });
     await repo.deletePot(pot.id);
     const logged = await db.changeLog.toArray();
     expect(logged.some((change) => change.entity === 'pot' && change.op === 'delete')).toBe(true);
@@ -337,8 +463,18 @@ describe('subscribe', () => {
 
 describe('loadSnapshot', () => {
   it('liefert alles außer Beleg-Binärdaten', async () => {
-    const pot = await repo.createPot({ name: 'Lebensmittel', kind: 'budget', limitCents: 40_000, carryOver: false });
-    const entry = await repo.createEntry({ potId: pot.id, kind: 'expense', amountCents: 1_250, date: '2026-09-18' });
+    const pot = await repo.createPot({
+      name: 'Lebensmittel',
+      kind: 'budget',
+      limitCents: 40_000,
+      carryOver: false,
+    });
+    const entry = await repo.createEntry({
+      potId: pot.id,
+      kind: 'expense',
+      amountCents: 1_250,
+      date: '2026-09-18',
+    });
     await repo.addReceipt(entry.id, {
       filename: 'zettel.txt',
       mime: 'text/plain',
@@ -400,5 +536,38 @@ describe('Snapshot-Cache (Vertrag für useSyncExternalStore)', () => {
   it('enthält nach einer Mutation bereits den neuen Stand', async () => {
     await repo.createPot({ name: 'Urlaub', kind: 'budget', limitCents: 10_000, carryOver: false });
     expect(repo.getCachedSnapshot()?.pots.some((pot) => pot.name === 'Urlaub')).toBe(true);
+  });
+});
+
+describe('Wiederherstellung vor der Einrichtung', () => {
+  it('stellt eine Sicherung auf leerer Datenbank ohne Rechte her', async () => {
+    const pot = await repo.createPot({
+      name: 'Lebensmittel',
+      kind: 'budget',
+      limitCents: 40_000,
+      carryOver: false,
+    });
+    await repo.createEntry({
+      potId: pot.id,
+      kind: 'expense',
+      amountCents: 1_250,
+      date: '2026-09-18',
+    });
+    const file = await repo.exportAll({ includeReceipts: true });
+
+    await repo.wipeAll();
+    // Nach dem Wipe gibt es keinen Nutzer — genau der Fall „neues Gerät".
+    principal = null;
+    await expect(repo.importAll(file, 'replace')).rejects.toThrow(PermissionDeniedError);
+
+    const result = await repo.restoreFromBackup(file);
+    expect(result.entries).toBe(1);
+    expect((await repo.getHousehold())?.name).toBe('Testhaushalt');
+    expect((await repo.listPots())[0]?.name).toBe('Lebensmittel');
+  });
+
+  it('verweigert die Wiederherstellung, wenn schon ein Haushalt existiert', async () => {
+    const file = await repo.exportAll({ includeReceipts: false });
+    await expect(repo.restoreFromBackup(file)).rejects.toThrow(/schon einen Haushalt/);
   });
 });

@@ -7,13 +7,7 @@ import { useData } from '../../lib/data/provider';
 import { formatByteSize } from '../../lib/data/blobs';
 import type { ReceiptMeta } from '../../lib/domain/types';
 
-export function ReceiptViewer({
-  receipt,
-  onClose,
-}: {
-  receipt: ReceiptMeta;
-  onClose: () => void;
-}) {
+export function ReceiptViewer({ receipt, onClose }: { receipt: ReceiptMeta; onClose: () => void }) {
   const { repository } = useData();
   const [url, setUrl] = useState<string | null>(null);
 
@@ -49,7 +43,12 @@ export function ReceiptViewer({
           <p className="truncate text-sm font-medium">{receipt.filename}</p>
           <p className="text-xs text-white/60">{formatByteSize(receipt.byteSize)}</p>
         </div>
-        <button type="button" onClick={onClose} aria-label="Schließen" className="px-2 text-2xl leading-none">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Schließen"
+          className="px-2 text-2xl leading-none"
+        >
           ×
         </button>
       </div>
@@ -59,7 +58,11 @@ export function ReceiptViewer({
           <p className="text-sm text-white/70">Beleg wird geladen …</p>
         ) : isImage ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={url} alt={`Beleg ${receipt.filename}`} className="max-h-full max-w-full object-contain" />
+          <img
+            src={url}
+            alt={`Beleg ${receipt.filename}`}
+            className="max-h-full max-w-full object-contain"
+          />
         ) : (
           <a
             href={url}

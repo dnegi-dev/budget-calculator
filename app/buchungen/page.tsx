@@ -138,7 +138,9 @@ export default function EntriesPage() {
         <CardHeader
           title={`${visible.length} Buchung${visible.length === 1 ? '' : 'en'}`}
           action={
-            <span className={`tabular text-sm font-semibold ${total < 0 ? 'text-negative' : 'text-positive'}`}>
+            <span
+              className={`tabular text-sm font-semibold ${total < 0 ? 'text-negative' : 'text-positive'}`}
+            >
               {format.moneyCompact(total)}
             </span>
           }

@@ -84,13 +84,18 @@ export function EntryList({
 
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-medium">
-                          {entry.merchant || entry.note || pot?.name || (entry.kind === 'income' ? 'Einnahme' : 'Ausgabe')}
+                          {entry.merchant ||
+                            entry.note ||
+                            pot?.name ||
+                            (entry.kind === 'income' ? 'Einnahme' : 'Ausgabe')}
                         </span>
                         <span className="block truncate text-xs text-ink-muted">
                           {[
                             pot?.name ?? 'ohne Topf',
                             entry.recurringRuleId ? 'wiederkehrend' : null,
-                            receiptCount > 0 ? `${receiptCount} Beleg${receiptCount > 1 ? 'e' : ''}` : null,
+                            receiptCount > 0
+                              ? `${receiptCount} Beleg${receiptCount > 1 ? 'e' : ''}`
+                              : null,
                           ]
                             .filter(Boolean)
                             .join(' · ')}

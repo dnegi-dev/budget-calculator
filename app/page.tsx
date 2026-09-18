@@ -47,7 +47,8 @@ export default function HomePage() {
   );
 
   const summary = useMemo(
-    () => computeHouseholdSummary(snapshot.pots, snapshot.entries, periodKey, format.periodStartDay),
+    () =>
+      computeHouseholdSummary(snapshot.pots, snapshot.entries, periodKey, format.periodStartDay),
     [snapshot.pots, snapshot.entries, periodKey, format.periodStartDay],
   );
 
@@ -58,11 +59,15 @@ export default function HomePage() {
         <dl className="mt-4 grid grid-cols-3 gap-3 text-center">
           <div>
             <dt className="text-xs text-ink-muted">Ausgaben</dt>
-            <dd className="tabular mt-0.5 font-semibold">{format.moneyCompact(summary.expenseCents)}</dd>
+            <dd className="tabular mt-0.5 font-semibold">
+              {format.moneyCompact(summary.expenseCents)}
+            </dd>
           </div>
           <div>
             <dt className="text-xs text-ink-muted">Einnahmen</dt>
-            <dd className="tabular mt-0.5 font-semibold">{format.moneyCompact(summary.incomeCents)}</dd>
+            <dd className="tabular mt-0.5 font-semibold">
+              {format.moneyCompact(summary.incomeCents)}
+            </dd>
           </div>
           <div>
             <dt className="text-xs text-ink-muted">Saldo</dt>

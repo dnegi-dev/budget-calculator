@@ -139,7 +139,10 @@ export default function SettingsPage() {
             label="Belege"
             value={`${snapshot.receipts.length} · ${formatByteSize(receiptBytes, format.locale)}`}
           />
-          <Row label="Datenquelle" value={repository.mode === 'local' ? 'Dieses Gerät (IndexedDB)' : 'Zentrale API'} />
+          <Row
+            label="Datenquelle"
+            value={repository.mode === 'local' ? 'Dieses Gerät (IndexedDB)' : 'Zentrale API'}
+          />
         </dl>
       </Card>
 

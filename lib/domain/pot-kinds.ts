@@ -31,7 +31,8 @@ export const POT_KIND_PRESETS: Record<PotKind, PotKindPreset> = {
   envelope: {
     kind: 'envelope',
     label: 'Budget mit Übertrag',
-    explanation: 'Wie Monatsbudget, aber Restbetrag und Überziehung wandern in die nächste Periode.',
+    explanation:
+      'Wie Monatsbudget, aber Restbetrag und Überziehung wandern in die nächste Periode.',
     example: 'Sport: 50 € im Monat — nach drei sparsamen Monaten sind 150 € für Schuhe da.',
     requiresLimit: true,
     carryOver: true,

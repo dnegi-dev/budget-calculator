@@ -97,10 +97,7 @@ export function DataSection() {
     setBusy(true);
     setError(null);
     try {
-      const imported = await repository.importAll(
-        exportFileSchema.parse(pendingImport),
-        mode,
-      );
+      const imported = await repository.importAll(exportFileSchema.parse(pendingImport), mode);
       setResult(imported);
       setPendingImport(null);
     } catch (caught) {
@@ -139,7 +136,11 @@ export function DataSection() {
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <Button variant="primary" disabled={busy || !can('data.export')} onClick={() => void exportJson()}>
+          <Button
+            variant="primary"
+            disabled={busy || !can('data.export')}
+            onClick={() => void exportJson()}
+          >
             Als JSON sichern
           </Button>
           <Button variant="secondary" disabled={busy || !can('data.export')} onClick={exportCsv}>

@@ -135,7 +135,20 @@ export interface BudgetRepository {
   getHousehold(): Promise<Household | null>;
   /** Legt Haushalt und lokalen Gerätenutzer an. Nur erlaubt, solange kein Haushalt existiert. */
   setupHousehold(input: HouseholdSetupInput): Promise<{ household: Household; user: User }>;
-  updateHousehold(patch: Partial<Omit<Household, 'id' | 'createdAt' | 'revision'>>): Promise<Household>;
+
+  /**
+   * Stellt eine Sicherung wieder her, **bevor** ein Haushalt existiert.
+   *
+   * Nötig für den Fall, der sonst in einer Sackgasse endet: neues Gerät oder
+   * nach „Alles löschen". Der normale Import (`importAll`) verlangt das Recht
+   * `data.import` — das aber an einem Nutzer hängt, den es dann noch nicht
+   * gibt. Deshalb ein eigener Weg, der ausschließlich bei leerer Datenbank
+   * erlaubt ist.
+   */
+  restoreFromBackup(file: ExportFile): Promise<ImportResult>;
+  updateHousehold(
+    patch: Partial<Omit<Household, 'id' | 'createdAt' | 'revision'>>,
+  ): Promise<Household>;
 
   listUsers(): Promise<User[]>;
   getLocalDeviceUser(): Promise<User | null>;

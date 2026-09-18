@@ -13,7 +13,11 @@ export function WizardSteps({ total, current }: { total: number; current: number
           aria-hidden
           className={[
             'h-1.5 rounded-full transition-all',
-            index === current ? 'w-6 bg-accent' : index < current ? 'w-1.5 bg-accent' : 'w-1.5 bg-line-strong',
+            index === current
+              ? 'w-6 bg-accent'
+              : index < current
+                ? 'w-1.5 bg-accent'
+                : 'w-1.5 bg-line-strong',
           ].join(' ')}
         />
       ))}

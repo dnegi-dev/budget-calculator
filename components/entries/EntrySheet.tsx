@@ -127,11 +127,22 @@ function EntryForm({
     <Sheet
       open
       onClose={onClose}
-      title={editing ? 'Buchung bearbeiten' : kind === 'expense' ? 'Ausgabe erfassen' : 'Einnahme erfassen'}
+      title={
+        editing
+          ? 'Buchung bearbeiten'
+          : kind === 'expense'
+            ? 'Ausgabe erfassen'
+            : 'Einnahme erfassen'
+      }
       footer={
         <div className="flex gap-3">
           {step !== 'amount' && (
-            <Button variant="ghost" onClick={() => setStep(step === 'details' ? (kind === 'expense' ? 'pot' : 'amount') : 'amount')}>
+            <Button
+              variant="ghost"
+              onClick={() =>
+                setStep(step === 'details' ? (kind === 'expense' ? 'pot' : 'amount') : 'amount')
+              }
+            >
               Zurück
             </Button>
           )}
@@ -141,10 +152,19 @@ function EntryForm({
             </Button>
           ) : (
             <>
-              <Button variant="primary" block disabled={!amountValid || saving} onClick={() => void goToDetails()}>
+              <Button
+                variant="primary"
+                block
+                disabled={!amountValid || saving}
+                onClick={() => void goToDetails()}
+              >
                 Weiter
               </Button>
-              <Button variant="secondary" disabled={!amountValid || saving} onClick={() => void saveAndClose()}>
+              <Button
+                variant="secondary"
+                disabled={!amountValid || saving}
+                onClick={() => void saveAndClose()}
+              >
                 Speichern
               </Button>
             </>
@@ -201,7 +221,9 @@ function EntryForm({
                   <span
                     aria-hidden
                     className="grid h-9 w-9 place-items-center rounded-lg text-lg"
-                    style={{ background: `color-mix(in oklch, ${potColorVar(pot.color)} 18%, transparent)` }}
+                    style={{
+                      background: `color-mix(in oklch, ${potColorVar(pot.color)} 18%, transparent)`,
+                    }}
                   >
                     {pot.icon}
                   </span>
@@ -218,7 +240,10 @@ function EntryForm({
                 potId === null ? 'border-accent bg-accent-subtle' : 'border-line bg-surface',
               ].join(' ')}
             >
-              <span aria-hidden className="grid h-9 w-9 place-items-center rounded-lg bg-subtle text-lg">
+              <span
+                aria-hidden
+                className="grid h-9 w-9 place-items-center rounded-lg bg-subtle text-lg"
+              >
                 –
               </span>
               <span className="w-full truncate text-center text-xs">Kein Topf</span>

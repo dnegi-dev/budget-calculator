@@ -24,6 +24,22 @@ export function potColorVar(color: string): string {
 
 /** Vorschlagsliste für Topf-Symbole. Emoji statt Icon-Bibliothek: null Bytes Abhängigkeit. */
 export const POT_ICONS = [
-  '🧺', '🛒', '🏠', '🚗', '🏋️', '🍽️', '🎬', '💡', '👕', '💊',
-  '🎁', '✈️', '📚', '🐕', '☕', '📱', '🧾', '💰',
+  '🧺',
+  '🛒',
+  '🏠',
+  '🚗',
+  '🏋️',
+  '🍽️',
+  '🎬',
+  '💡',
+  '👕',
+  '💊',
+  '🎁',
+  '✈️',
+  '📚',
+  '🐕',
+  '☕',
+  '📱',
+  '🧾',
+  '💰',
 ] as const;

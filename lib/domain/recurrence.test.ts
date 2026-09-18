@@ -8,7 +8,9 @@ import {
 } from './recurrence';
 import type { Frequency, RecurringRule } from './types';
 
-function rule(overrides: Partial<RecurringRule> & { freq: Frequency; startDate: string }): RecurringRule {
+function rule(
+  overrides: Partial<RecurringRule> & { freq: Frequency; startDate: string },
+): RecurringRule {
   return {
     id: 'r1',
     householdId: 'h1',
@@ -74,7 +76,12 @@ describe('monatliche Regel', () => {
   });
 
   it('endet mit endDate', () => {
-    const r = rule({ freq: 'monthly', startDate: '2026-01-01', dayOfMonth: 1, endDate: '2026-03-15' });
+    const r = rule({
+      freq: 'monthly',
+      startDate: '2026-01-01',
+      dayOfMonth: 1,
+      endDate: '2026-03-15',
+    });
     expect(occurrencesBetween(r, '2026-01-01', '2026-12-31')).toEqual([
       '2026-01-01',
       '2026-02-01',
@@ -154,7 +161,9 @@ describe('dueOccurrences', () => {
 
   it('liefert nichts für pausierte oder gelöschte Regeln', () => {
     expect(dueOccurrences({ ...r, paused: true }, '2026-03-10')).toEqual([]);
-    expect(dueOccurrences({ ...r, deletedAt: '2026-02-01T00:00:00.000Z' }, '2026-03-10')).toEqual([]);
+    expect(dueOccurrences({ ...r, deletedAt: '2026-02-01T00:00:00.000Z' }, '2026-03-10')).toEqual(
+      [],
+    );
   });
 
   it('liefert nichts vor dem Startdatum', () => {
@@ -203,27 +212,36 @@ describe('nextOccurrenceAfter', () => {
   });
 
   it('gibt null nach dem Ende zurück', () => {
-    const r = rule({ freq: 'monthly', startDate: '2026-01-01', dayOfMonth: 1, endDate: '2026-02-28' });
+    const r = rule({
+      freq: 'monthly',
+      startDate: '2026-01-01',
+      dayOfMonth: 1,
+      endDate: '2026-02-28',
+    });
     expect(nextOccurrenceAfter(r, '2026-02-10')).toBeNull();
   });
 });
 
 describe('describeRecurrence', () => {
   it('beschreibt die Regel in einem Satz', () => {
-    expect(describeRecurrence(rule({ freq: 'monthly', startDate: '2026-01-01', dayOfMonth: 1 }))).toBe(
-      'monatlich am 1.',
-    );
     expect(
-      describeRecurrence(rule({ freq: 'weekly', startDate: '2026-01-05', weekday: 1, interval: 2 })),
+      describeRecurrence(rule({ freq: 'monthly', startDate: '2026-01-01', dayOfMonth: 1 })),
+    ).toBe('monatlich am 1.');
+    expect(
+      describeRecurrence(
+        rule({ freq: 'weekly', startDate: '2026-01-05', weekday: 1, interval: 2 }),
+      ),
     ).toBe('alle 2 Wochen am Montag');
     expect(
-      describeRecurrence(rule({ freq: 'yearly', startDate: '2026-03-15', month: 3, dayOfMonth: 15 })),
+      describeRecurrence(
+        rule({ freq: 'yearly', startDate: '2026-03-15', month: 3, dayOfMonth: 15 }),
+      ),
     ).toBe('jährlich am 15. März');
   });
 
   it('warnt beim 31., weil kurze Monate abweichen', () => {
-    expect(describeRecurrence(rule({ freq: 'monthly', startDate: '2026-01-31', dayOfMonth: 31 }))).toContain(
-      'letzten Tag',
-    );
+    expect(
+      describeRecurrence(rule({ freq: 'monthly', startDate: '2026-01-31', dayOfMonth: 31 })),
+    ).toContain('letzten Tag');
   });
 });

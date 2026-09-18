@@ -82,8 +82,7 @@
   --color-negative: var(--negative);
   --color-warning: var(--warning);
   --radius-card: var(--radius);
-  --font-sans:
-    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 * {

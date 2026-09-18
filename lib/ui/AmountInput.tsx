@@ -59,7 +59,10 @@ export function AmountInput({
           aria-invalid={invalid}
           aria-describedby={invalid ? `${id}-error` : undefined}
           className={[
-            'tabular min-w-0 flex-1 bg-transparent outline-none',
+            // Den Fokus zeigt die Hülle (focus-within:border-accent). Ohne
+            // focus-visible:outline-none läge zusätzlich der globale Fokusring
+            // im Feld — zwei Rahmen übereinander.
+            'tabular min-w-0 flex-1 bg-transparent outline-none focus-visible:outline-none',
             large ? 'text-4xl font-semibold' : 'text-lg',
           ].join(' ')}
         />

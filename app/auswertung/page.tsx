@@ -15,7 +15,12 @@ import { PeriodSwitcher } from '../../components/PeriodSwitcher';
 import { useSnapshot } from '../../lib/data/provider';
 import { todayIso } from '../../lib/domain/dates';
 import { computeHouseholdSummary, periodTotals, spendingByPot } from '../../lib/domain/ledger';
-import { formatPeriodLabel, lastPeriodKeys, periodForDate, periodFromKey } from '../../lib/domain/period';
+import {
+  formatPeriodLabel,
+  lastPeriodKeys,
+  periodForDate,
+  periodFromKey,
+} from '../../lib/domain/period';
 import { Card, CardHeader } from '../../lib/ui/Card';
 import { EmptyState } from '../../lib/ui/EmptyState';
 import { SegmentedControl } from '../../lib/ui/SegmentedControl';
@@ -24,18 +29,27 @@ import { useFormat } from '../../lib/ui/useFormat';
 
 // Recharts ist groß und wird nur hier gebraucht — daher erst beim Aufruf laden.
 const ChartPlaceholder = () => <div className="h-64 animate-pulse rounded-card bg-subtle" />;
-const PotBarChart = dynamic(() => import('../../components/analytics/Charts').then((m) => m.PotBarChart), {
-  ssr: false,
-  loading: ChartPlaceholder,
-});
-const PotShareChart = dynamic(() => import('../../components/analytics/Charts').then((m) => m.PotShareChart), {
-  ssr: false,
-  loading: ChartPlaceholder,
-});
-const TrendChart = dynamic(() => import('../../components/analytics/Charts').then((m) => m.TrendChart), {
-  ssr: false,
-  loading: ChartPlaceholder,
-});
+const PotBarChart = dynamic(
+  () => import('../../components/analytics/Charts').then((m) => m.PotBarChart),
+  {
+    ssr: false,
+    loading: ChartPlaceholder,
+  },
+);
+const PotShareChart = dynamic(
+  () => import('../../components/analytics/Charts').then((m) => m.PotShareChart),
+  {
+    ssr: false,
+    loading: ChartPlaceholder,
+  },
+);
+const TrendChart = dynamic(
+  () => import('../../components/analytics/Charts').then((m) => m.TrendChart),
+  {
+    ssr: false,
+    loading: ChartPlaceholder,
+  },
+);
 
 type Range = '6' | '12';
 
@@ -51,11 +65,15 @@ export default function AnalyticsPage() {
   const [range, setRange] = useState<Range>('6');
 
   const summary = useMemo(
-    () => computeHouseholdSummary(snapshot.pots, snapshot.entries, periodKey, format.periodStartDay),
+    () =>
+      computeHouseholdSummary(snapshot.pots, snapshot.entries, periodKey, format.periodStartDay),
     [snapshot.pots, snapshot.entries, periodKey, format.periodStartDay],
   );
 
-  const potsById = useMemo(() => new Map(snapshot.pots.map((pot) => [pot.id, pot])), [snapshot.pots]);
+  const potsById = useMemo(
+    () => new Map(snapshot.pots.map((pot) => [pot.id, pot])),
+    [snapshot.pots],
+  );
 
   const potData = useMemo(
     () =>
@@ -71,7 +89,12 @@ export default function AnalyticsPage() {
   );
 
   const trend = useMemo(
-    () => periodTotals(snapshot.entries, lastPeriodKeys(periodKey, Number(range)), format.periodStartDay),
+    () =>
+      periodTotals(
+        snapshot.entries,
+        lastPeriodKeys(periodKey, Number(range)),
+        format.periodStartDay,
+      ),
     [snapshot.entries, periodKey, range, format.periodStartDay],
   );
 
@@ -115,21 +138,28 @@ export default function AnalyticsPage() {
             <CardHeader
               title="Verlauf"
               action={
-                <div className="w-40">
-                  <SegmentedControl
-                    label="Zeitraum"
-                    value={range}
-                    onChange={setRange}
-                    options={[
-                      { value: '6', label: '6 Perioden' },
-                      { value: '12', label: '12' },
-                    ]}
-                  />
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-ink-muted">Perioden</span>
+                  <div className="w-24">
+                    <SegmentedControl
+                      label="Anzahl der Perioden im Verlauf"
+                      value={range}
+                      onChange={setRange}
+                      options={[
+                        { value: '6', label: '6' },
+                        { value: '12', label: '12' },
+                      ]}
+                    />
+                  </div>
                 </div>
               }
             />
             <div className="px-2 py-4">
-              <TrendChart data={trend} formatMoney={format.moneyCompact} formatPeriod={shortPeriodLabel} />
+              <TrendChart
+                data={trend}
+                formatMoney={format.moneyCompact}
+                formatPeriod={shortPeriodLabel}
+              />
             </div>
           </Card>
 

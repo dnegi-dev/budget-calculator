@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  formatCentsPlain,
-  parseAmountToCents,
-  signedCents,
-  sumCents,
-} from './money';
+import { formatCentsPlain, parseAmountToCents, signedCents, sumCents } from './money';
 
 describe('parseAmountToCents', () => {
   it('liest deutsche Schreibweise', () => {

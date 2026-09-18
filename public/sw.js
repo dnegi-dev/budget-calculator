@@ -17,14 +17,23 @@
  */
 
 const CACHE = 'haushalt-v1';
-const APP_SHELL = ['/', '/toepfe', '/buchungen', '/auswertung', '/einstellungen', '/manifest.webmanifest'];
+const APP_SHELL = [
+  '/',
+  '/toepfe',
+  '/buchungen',
+  '/auswertung',
+  '/einstellungen',
+  '/manifest.webmanifest',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE);
       // Einzeln, damit ein fehlender Pfad nicht die gesamte Installation kippt.
-      await Promise.allSettled(APP_SHELL.map((path) => cache.add(new Request(path, { cache: 'reload' }))));
+      await Promise.allSettled(
+        APP_SHELL.map((path) => cache.add(new Request(path, { cache: 'reload' }))),
+      );
       await self.skipWaiting();
     })(),
   );

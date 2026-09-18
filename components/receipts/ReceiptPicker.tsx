@@ -37,7 +37,9 @@ export function ReceiptPicker({ entryId }: { entryId: string }) {
     try {
       for (const file of Array.from(files)) {
         if (file.size > MAX_BYTES) {
-          setError(`„${file.name}“ ist größer als ${formatByteSize(MAX_BYTES)} und wurde übersprungen.`);
+          setError(
+            `„${file.name}“ ist größer als ${formatByteSize(MAX_BYTES)} und wurde übersprungen.`,
+          );
           continue;
         }
         await repository.addReceipt(entryId, {
@@ -80,8 +82,17 @@ export function ReceiptPicker({ entryId }: { entryId: string }) {
             className="hidden"
             onChange={(event) => void upload(event.target.files)}
           />
-          <Button variant="secondary" block disabled={busy} onClick={() => inputRef.current?.click()}>
-            {busy ? 'Wird gespeichert …' : receipts.length > 0 ? 'Weiteren Beleg hinzufügen' : 'Beleg fotografieren oder wählen'}
+          <Button
+            variant="secondary"
+            block
+            disabled={busy}
+            onClick={() => inputRef.current?.click()}
+          >
+            {busy
+              ? 'Wird gespeichert …'
+              : receipts.length > 0
+                ? 'Weiteren Beleg hinzufügen'
+                : 'Beleg fotografieren oder wählen'}
           </Button>
           <p className="mt-1.5 text-xs text-ink-muted">
             Bleibt auf dem Gerät. Wird nicht ausgelesen — dient nur als Nachweis.

@@ -132,7 +132,11 @@ export function computePotPeriodState(
   periodKey: string,
   periodStartDay: number,
 ): PotPeriodState {
-  const { spentCents, refundCents, netCents } = netForPeriod(entriesOfPot, periodKey, periodStartDay);
+  const { spentCents, refundCents, netCents } = netForPeriod(
+    entriesOfPot,
+    periodKey,
+    periodStartDay,
+  );
   const carriedInCents = computeCarryOverCents(pot, entriesOfPot, periodKey, periodStartDay);
 
   if (!hasLimit(pot)) {

@@ -145,7 +145,9 @@ function PotDetail() {
             <div>
               <dt className="text-ink-muted">{pot.carryOver ? 'Übertrag' : 'Limit'}</dt>
               <dd className="tabular mt-0.5 font-medium">
-                {pot.carryOver ? format.money(state.carriedInCents) : format.money(state.limitCents ?? 0)}
+                {pot.carryOver
+                  ? format.money(state.carriedInCents)
+                  : format.money(state.limitCents ?? 0)}
               </dd>
             </div>
           </dl>
@@ -196,8 +198,8 @@ function PotDetail() {
                 )}
               </div>
               <p className="px-4 pb-4 text-xs text-ink-muted">
-                Archivieren blendet den Topf aus, behält aber alle Zahlen. Löschen entfernt den Topf;
-                die Buchungen bleiben erhalten und stehen danach ohne Topf da.
+                Archivieren blendet den Topf aus, behält aber alle Zahlen. Löschen entfernt den
+                Topf; die Buchungen bleiben erhalten und stehen danach ohne Topf da.
               </p>
             </>
           )}
@@ -208,8 +210,8 @@ function PotDetail() {
         <Card className="border-[var(--negative)] px-4 py-4">
           <p className="font-medium">„{pot.name}“ wirklich löschen?</p>
           <p className="mt-1 text-sm text-ink-muted">
-            {potEntries.length} Buchung{potEntries.length === 1 ? '' : 'en'} bleibt erhalten, verliert
-            aber die Zuordnung. Das lässt sich nicht rückgängig machen.
+            {potEntries.length} Buchung{potEntries.length === 1 ? '' : 'en'} bleibt erhalten,
+            verliert aber die Zuordnung. Das lässt sich nicht rückgängig machen.
           </p>
           <div className="mt-3 flex gap-3">
             <Button variant="danger" onClick={() => void repository.deletePot(pot.id)}>
