@@ -3,21 +3,24 @@ import './globals.css';
 import { AppGate } from '../components/AppGate';
 import { AuthProvider } from '../lib/auth/provider';
 import { DataProvider } from '../lib/data/provider';
+import { withBasePath } from '../lib/base-path';
 import { ServiceWorkerRegistration } from '../components/ServiceWorkerRegistration';
 
 export const metadata: Metadata = {
   title: 'Haushalt',
   description: 'Haushaltsplanung mit Töpfen — Daten bleiben auf dem Gerät.',
   applicationName: 'Haushalt',
-  manifest: '/manifest.webmanifest',
+  // Absolut mit Präfix, nicht relativ: Ein relatives href im <head> würde je
+  // nach Routentiefe unterschiedlich auflösen.
+  manifest: withBasePath('/manifest.webmanifest'),
   appleWebApp: {
     capable: true,
     title: 'Haushalt',
     statusBarStyle: 'default',
   },
   icons: {
-    icon: [{ url: '/icons/icon.svg', type: 'image/svg+xml' }],
-    apple: [{ url: '/icons/icon-192.png', sizes: '192x192' }],
+    icon: [{ url: withBasePath('/icons/icon.svg'), type: 'image/svg+xml' }],
+    apple: [{ url: withBasePath('/icons/icon-192.png'), sizes: '192x192' }],
   },
 };
 

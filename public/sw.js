@@ -14,16 +14,26 @@
  * Kein Workbox, kein next-pwa: Das wären für zwei Regeln ein paar hundert
  * Kilobyte Abhängigkeit und eine Build-Integration, die bei jedem
  * Next-Update bricht.
+ *
+ * Der Unterpfad wird aus der eigenen Adresse abgeleitet statt eingebaut: Auf
+ * GitHub Pages liegt die App unter `/<repo>/`, lokal unter `/`. So passt
+ * dieselbe Datei auf beides, ohne sie beim Build zu erzeugen.
  */
 
 const CACHE = 'haushalt-v1';
+
+/** '/' lokal, '/budget-calculator/' auf GitHub Pages. */
+const SCOPE = new URL('./', self.location).pathname;
+
 const APP_SHELL = [
-  '/',
-  '/toepfe',
-  '/buchungen',
-  '/auswertung',
-  '/einstellungen',
-  '/manifest.webmanifest',
+  SCOPE,
+  `${SCOPE}toepfe/`,
+  `${SCOPE}buchungen/`,
+  `${SCOPE}auswertung/`,
+  `${SCOPE}einstellungen/`,
+  `${SCOPE}impressum/`,
+  `${SCOPE}datenschutz/`,
+  `${SCOPE}manifest.webmanifest`,
 ];
 
 self.addEventListener('install', (event) => {
@@ -67,7 +77,7 @@ self.addEventListener('fetch', (event) => {
         } catch {
           const cached = await caches.match(request);
           // Fällt auf die Startseite zurück: besser als die Fehlerseite des Browsers.
-          return cached ?? (await caches.match('/')) ?? Response.error();
+          return cached ?? (await caches.match(SCOPE)) ?? Response.error();
         }
       })(),
     );

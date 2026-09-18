@@ -9,6 +9,7 @@
  */
 
 import { useEffect } from 'react';
+import { withBasePath } from '../lib/base-path';
 
 export function ServiceWorkerRegistration() {
   useEffect(() => {
@@ -18,7 +19,8 @@ export function ServiceWorkerRegistration() {
     const timer = window.setTimeout(() => {
       // Erst nach dem ersten Rendern registrieren: Der Start der App soll nicht
       // mit dem Download des Workers konkurrieren.
-      void navigator.serviceWorker.register('/sw.js').catch(() => {
+      // Der Worker muss unterhalb des Präfixes liegen, sonst ist sein Scope zu weit.
+      void navigator.serviceWorker.register(withBasePath('/sw.js')).catch(() => {
         // Ein fehlgeschlagener Worker ist kein Grund, die App zu stören.
       });
     }, 1_200);

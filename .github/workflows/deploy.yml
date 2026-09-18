@@ -1,0 +1,71 @@
+# Baut die App und veröffentlicht sie auf GitHub Pages.
+#
+# Einmalig nötig: Settings → Pages → Source auf "GitHub Actions" stellen.
+# Ohne das läuft der Build, aber die Veröffentlichung schlägt fehl.
+name: Deploy auf GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Pages liefert ein Projekt-Repo unter /<repo>/ aus. Der Wert wird zur Bauzeit
+# in die Bundles eingebacken. Bei eigener Domain: auf "" setzen.
+env:
+  NEXT_PUBLIC_BASE_PATH: /budget-calculator
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Ein Deploy zur Zeit; laufende nicht abbrechen, damit keine halbe
+# Veröffentlichung stehen bleibt.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Vor dem Build, nicht danach: Ein kaputter Stand soll gar nicht erst
+      # veröffentlicht werden. Das ist zugleich die einzige CI des Projekts.
+      - name: Prüfen
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+
+      - name: Bauen
+        run: npm run build
+
+      # Ohne .nojekyll ignoriert Pages alles unter _next/, weil Jekyll
+      # Verzeichnisse mit führendem Unterstrich auslässt.
+      - name: Jekyll abschalten
+        run: touch out/.nojekyll
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

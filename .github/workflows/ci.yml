@@ -1,0 +1,39 @@
+# Prüft Pull Requests. Der Deploy-Workflow prüft denselben Stand noch einmal
+# vor der Veröffentlichung — hier geht es darum, Fehler vor dem Merge zu sehen.
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pruefen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+
+      # Einmal ohne und einmal mit Unterpfad bauen: Der Unterpfad-Build ist
+      # der, der veröffentlicht wird, und er kann an Stellen brechen, die der
+      # normale Build nicht berührt (Manifest, Icons, Service Worker).
+      - name: Bauen (ohne Unterpfad)
+        run: npm run build
+
+      - name: Bauen (mit Unterpfad)
+        run: npm run build
+        env:
+          NEXT_PUBLIC_BASE_PATH: /budget-calculator

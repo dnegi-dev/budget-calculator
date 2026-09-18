@@ -31,6 +31,34 @@ Währung, Periodenstart, Töpfe, optional ein regelmäßiges Einkommen.
 `npm run build` erzeugt ein rein statisches Bundle — es lässt sich von jedem
 Webserver und aus jedem Objektspeicher ausliefern.
 
+## Veröffentlichen
+
+Die App läuft auf GitHub Pages unter
+`https://dnegi-dev.github.io/budget-calculator/`. Jeder Push auf `main` baut
+und veröffentlicht sie über `.github/workflows/deploy.yml`; vorher laufen
+typecheck, lint und die Tests, damit ein kaputter Stand gar nicht erst
+hochgeht.
+
+**Einmalig nötig:** Settings → Pages → Source auf **GitHub Actions** stellen.
+
+Pages liefert ein Projekt-Repo unter einem Unterpfad aus. Der wird über
+`NEXT_PUBLIC_BASE_PATH` gesetzt (im Workflow auf `/budget-calculator`) und
+laut Next-Doku **zur Bauzeit** in die Bundles eingebacken. Lokal bleibt die
+Variable leer, sodass Entwicklung und Tests unter `/` laufen. Bei eigener
+Domain wird sie im Workflow auf `""` gesetzt.
+
+Den Unterpfad-Build lokal nachstellen:
+
+```bash
+NEXT_PUBLIC_BASE_PATH=/budget-calculator npm run build
+npx serve out -l 3100    # http://127.0.0.1:3100/budget-calculator/
+```
+
+Drei Dinge bekommen den Präfix nicht von allein und sind deshalb eigens
+gelöst: Metadata-URLs und die Service-Worker-Registrierung über
+`lib/base-path.ts`, `public/manifest.webmanifest` über relative URLs, und
+`public/sw.js` leitet ihn aus der eigenen Adresse ab.
+
 ## Funktionsumfang
 
 - **Töpfe** in drei Arten, pro Topf wählbar:
@@ -54,6 +82,9 @@ Webserver und aus jedem Objektspeicher ausliefern.
 - **Export/Import**: JSON als vollständige Sicherung (optional mit Belegen),
   CSV für Tabellenprogramme.
 - **Rollen** Admin / Nutzer / Nur Lesen — wirksam, nicht dekorativ.
+- **Impressum und Datenschutz** unter `/impressum` und `/datenschutz`, auch vor
+  der Ersteinrichtung erreichbar. Beide sind Gerüste mit Platzhaltern und
+  zeigen einen sichtbaren Warnhinweis, solange sie nicht ausgefüllt sind.
 
 ### Bedienung auf beiden Plattformen
 
@@ -124,3 +155,9 @@ vorinstalliertem Chromium:
 ```bash
 CHROMIUM_PATH=/opt/pw-browsers/chromium npm run test:e2e
 ```
+
+## Weiterlesen
+
+- `STATE.md` — aktueller Projektstand und offene Punkte
+- `AGENTS.md` — die Regeln, nach denen in diesem Projekt gearbeitet wird
+- `docs/roadmap-server.md` — Weg zu zentraler Datenbank und SSO

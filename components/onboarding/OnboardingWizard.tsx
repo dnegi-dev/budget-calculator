@@ -26,6 +26,7 @@ import { WizardSteps } from '../../lib/ui/WizardSteps';
 import { Banner } from '../../lib/ui/Banner';
 import { potColorVar } from '../../lib/ui/colors';
 import { exportFileSchema } from '../../lib/domain/schemas';
+import { LegalLinks } from '../AppShell';
 
 const STEP_COUNT = 4;
 
@@ -370,6 +371,11 @@ export function OnboardingWizard() {
           </Button>
         )}
       </footer>
+
+      {/* Auch vor der Einrichtung erreichbar — dafür lässt AppGate diese Routen durch. */}
+      <div className="mt-6 text-xs text-ink-muted">
+        <LegalLinks />
+      </div>
     </div>
   );
 }

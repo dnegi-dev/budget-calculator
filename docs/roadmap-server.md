@@ -18,7 +18,7 @@ bleibt.
 | Session-Abstraktion                                   | `lib/auth/`                          | Komponenten fragen `useSession()`, nicht „es gibt einen Admin".                                   |
 | Rechtematrix, im Adapter erzwungen                    | `lib/rbac/`                          | Die Prüfungen liegen an einer Stelle und wandern unverändert in den Server.                       |
 | `externalSubject` auf `User`                          | `lib/domain/types.ts`                | Platz für den OIDC-`sub`, ohne Migration.                                                         |
-| Middleware-Gerüst                                     | `middleware.ts`                      | Der Matcher für geschützte Pfade steht.                                                           |
+| Proxy-Gerüst                                          | `docs/proxy.example.ts`              | Der Matcher für geschützte Pfade steht.                                                           |
 | `.env.example`                                        | Projektwurzel                        | Alle nötigen Variablen sind benannt und kommentiert.                                              |
 
 ## Schritte
@@ -26,7 +26,7 @@ bleibt.
 ### 1. Serverbetrieb einschalten
 
 `output: 'export'` aus `next.config.ts` entfernen. Danach stehen Route
-Handlers, Server Actions und Middleware zur Verfügung.
+Handlers, Server Actions und Proxy zur Verfügung.
 
 Nebenwirkung: `app/toepfe/detail/page.tsx` liest die Topf-ID aus einem
 Query-Parameter, weil eine dynamische Route beim statischen Export alle IDs zur
@@ -59,7 +59,7 @@ Jeder Handler:
 Auth.js einrichten, OIDC-Provider konfigurieren (`AUTH_OIDC_*` in
 `.env.example`). Dann:
 
-- `middleware.ts`: Rumpf durch `export { auth as middleware } from '@/lib/auth/auth'` ersetzen, Matcher behalten.
+- `docs/proxy.example.ts` nach `proxy.ts` in die Projektwurzel verschieben und den Rumpf durch den Auth.js-Handler ersetzen, Matcher behalten. In Next 16 heißt die Datei `proxy.ts` und die Funktion `proxy` — `middleware` ist deprecated. Welchen Export Auth.js dafür anbietet, steht in dessen Doku zum Zeitpunkt des Einbaus.
 - `lib/auth/provider.tsx` gegen einen Provider tauschen, der die Auth.js-Session liest und über `externalSubject` den `User`-Record findet. Fehlt er, mit `AUTH_DEFAULT_ROLE` anlegen.
 - Nichts anderes anfassen: Komponenten benutzen bereits `useSession()` und `useCan()`.
 

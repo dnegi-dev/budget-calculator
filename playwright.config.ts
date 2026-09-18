@@ -38,7 +38,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run build && npx --yes serve out -l 3100 --single',
+    // Kein --single: Mit trailingSlash erzeugt der Build echte Verzeichnisse
+    // (out/impressum/index.html). --single würde jeden Pfad auf die Startseite
+    // umbiegen und damit genau das verdecken, was hier geprüft werden soll —
+    // GitHub Pages liefert ebenfalls die Verzeichnisse aus.
+    command: 'npm run build && npx --yes serve out -l 3100',
     url: 'http://127.0.0.1:3100',
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
