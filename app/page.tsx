@@ -3,9 +3,13 @@
 /**
  * Startseite „Heute“.
  *
- * Bewusst karg: Periode, ein Knopf, die Töpfe. Alles andere (Auswertung,
- * Verlauf, Einstellungen) hat eigene Seiten. Wer die App öffnet, will in der
- * Regel genau zwei Dinge — etwas eintragen oder sehen, was noch übrig ist.
+ * Eine Seite, eine Aufgabe: sehen, was in den Töpfen noch übrig ist. Sonst
+ * nichts.
+ *
+ * Die Kennzahlen Ausgaben/Einnahmen/Saldo standen hier früher als Karte —
+ * sie stehen identisch auf der Auswertungsseite, und wer sie sucht, geht
+ * ohnehin dorthin. Der Erfassen-Knopf ist mobil in den schwebenden Knopf
+ * gewandert; auf dem Desktop bleibt er, weil es dort keinen gibt.
  */
 
 import { useMemo, useState } from 'react';
@@ -16,7 +20,7 @@ import { PotWizard } from '../components/pots/PotWizard';
 import { useCan } from '../lib/auth/provider';
 import { useSnapshot } from '../lib/data/provider';
 import { todayIso } from '../lib/domain/dates';
-import { computeHouseholdSummary, computePotStates } from '../lib/domain/ledger';
+import { computePotStates } from '../lib/domain/ledger';
 import { periodForDate } from '../lib/domain/period';
 import { Button } from '../lib/ui/Button';
 import { Card } from '../lib/ui/Card';
@@ -46,47 +50,17 @@ export default function HomePage() {
     [activePots, snapshot.entries, periodKey, format.periodStartDay],
   );
 
-  const summary = useMemo(
-    () =>
-      computeHouseholdSummary(snapshot.pots, snapshot.entries, periodKey, format.periodStartDay),
-    [snapshot.pots, snapshot.entries, periodKey, format.periodStartDay],
-  );
-
   return (
-    <div className="flex flex-col gap-5">
-      <Card className="px-4 py-4">
-        <PeriodSwitcher periodKey={periodKey} onChange={setPeriodKey} currentKey={currentKey} />
-        <dl className="mt-4 grid grid-cols-3 gap-3 text-center">
-          <div>
-            <dt className="text-xs text-ink-muted">Ausgaben</dt>
-            <dd className="tabular mt-0.5 font-semibold">
-              {format.moneyCompact(summary.expenseCents)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink-muted">Einnahmen</dt>
-            <dd className="tabular mt-0.5 font-semibold">
-              {format.moneyCompact(summary.incomeCents)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink-muted">Saldo</dt>
-            <dd
-              className={[
-                'tabular mt-0.5 font-semibold',
-                summary.balanceCents < 0 ? 'text-negative' : 'text-positive',
-              ].join(' ')}
-            >
-              {format.moneyCompact(summary.balanceCents)}
-            </dd>
-          </div>
-        </dl>
-      </Card>
+    <div className="flex flex-col gap-4">
+      <PeriodSwitcher periodKey={periodKey} onChange={setPeriodKey} currentKey={currentKey} />
 
-      {can('entry.create') && (
-        <Button variant="primary" size="lg" block onClick={() => setEntryOpen(true)}>
-          Ausgabe erfassen
-        </Button>
+      {/* Der große Erfassen-Knopf nur ab md — mobil macht das der schwebende. */}
+      {can('entry.create') && activePots.length > 0 && (
+        <div className="hidden md:block">
+          <Button variant="primary" size="lg" block onClick={() => setEntryOpen(true)}>
+            Ausgabe erfassen
+          </Button>
+        </div>
       )}
 
       <Card>
@@ -104,17 +78,36 @@ export default function HomePage() {
             }
           />
         ) : (
-          <ul className="divide-y divide-[var(--border)]">
-            {activePots.map((pot, index) => {
-              const state = states[index];
-              if (!state) return null;
-              return (
-                <li key={pot.id}>
-                  <PotRow pot={pot} state={state} />
-                </li>
-              );
-            })}
-          </ul>
+          <>
+            <ul className="divide-y divide-[var(--border)]">
+              {activePots.map((pot, index) => {
+                const state = states[index];
+                if (!state) return null;
+                return (
+                  <li key={pot.id}>
+                    <PotRow pot={pot} state={state} />
+                  </li>
+                );
+              })}
+            </ul>
+            {/*
+              Der Weg zum nächsten Topf. Mobil führt kein Navigationseintrag
+              mehr auf die Topf-Seite — ohne diese Zeile ließe sich dort kein
+              zweiter Topf mehr anlegen.
+            */}
+            {can('pot.create') && (
+              <button
+                type="button"
+                onClick={() => setPotWizardOpen(true)}
+                className="flex w-full items-center gap-3 border-t border-line px-4 py-3 text-left text-ink-muted hover:bg-subtle hover:text-ink"
+              >
+                <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center text-lg">
+                  +
+                </span>
+                Neuer Topf
+              </button>
+            )}
+          </>
         )}
       </Card>
 

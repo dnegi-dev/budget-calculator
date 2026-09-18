@@ -9,11 +9,13 @@
  * unter Zeitdruck steht.
  */
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { DataSection } from '../../components/settings/DataSection';
 import { RolesSection } from '../../components/settings/RolesSection';
 import { RecurringSection } from '../../components/recurring/RecurringSection';
 import { useCan } from '../../lib/auth/provider';
+import { setUnlocked } from '../../lib/auth/local-credentials';
 import { useData, useSnapshot } from '../../lib/data/provider';
 import { formatByteSize } from '../../lib/data/blobs';
 import { Banner } from '../../lib/ui/Banner';
@@ -54,7 +56,7 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="text-xl font-semibold">Einstellungen</h1>
+      <h1 className="text-xl font-medium">Einstellungen</h1>
 
       <Card>
         <CardHeader title="Haushalt" />
@@ -126,6 +128,19 @@ export default function SettingsPage() {
         </div>
       </Card>
 
+      <Card>
+        <CardHeader title="Töpfe" />
+        <div className="px-4 pb-4">
+          {/*
+            Mobil führt kein Navigationseintrag mehr auf die Topf-Übersicht —
+            angelegt wird auf „Heute", verwaltet (archivieren, löschen) hier.
+          */}
+          <Link href="/toepfe" className="text-sm text-accent hover:underline">
+            Töpfe verwalten und archivieren →
+          </Link>
+        </div>
+      </Card>
+
       <RecurringSection />
       <DataSection />
       <RolesSection />
@@ -171,6 +186,22 @@ export default function SettingsPage() {
           </div>
         </Card>
       )}
+
+      <Card>
+        <CardHeader title="Anmeldung" />
+        <div className="flex flex-col gap-3 px-4 py-4">
+          <p className="text-sm text-ink-muted">
+            Die Anmeldung beim Öffnen hält Gelegenheitsbesucher ab. Sie ist kein Zugriffsschutz: Die
+            Seite wird öffentlich ausgeliefert, und die Zugangsdaten stehen im Quelltext. Deine
+            Daten liegen davon unberührt nur in diesem Browser.
+          </p>
+          <div>
+            <Button variant="secondary" onClick={() => setUnlocked(false)}>
+              Abmelden
+            </Button>
+          </div>
+        </div>
+      </Card>
 
       <Banner icon="ℹ">
         Version 1 arbeitet ohne Konto und ohne Server. Zentrale Speicherung und Anmeldung über SSO

@@ -14,8 +14,18 @@ npm install
 npm run dev          # http://localhost:3000
 ```
 
-Beim ersten Aufruf führt ein Wizard durch die Einrichtung: Haushaltsname,
-Währung, Periodenstart, Töpfe, optional ein regelmäßiges Einkommen.
+Vor der App steht eine Anmeldung: **`admin` / `admin`**, änderbar über
+`NEXT_PUBLIC_APP_USER` und `NEXT_PUBLIC_APP_PASSWORD`.
+
+> Diese Anmeldung hält Gelegenheitsbesucher ab. Sie ist **kein
+> Zugriffsschutz**: Die Seite wird als statisches Bundle öffentlich
+> ausgeliefert, und die Zugangsdaten stehen im ausgelieferten JavaScript.
+> Für die Daten spielt das keine Rolle — die liegen ausschließlich im Browser
+> des jeweiligen Besuchers. Wer echten Schutz braucht, braucht eine
+> serverseitige Abfrage und damit ein anderes Hosting (siehe `STATE.md`).
+
+Danach führt ein Wizard durch die Einrichtung: Haushaltsname, Währung,
+Periodenstart, Töpfe, optional ein regelmäßiges Einkommen.
 
 | Befehl              | Zweck                                  |
 | ------------------- | -------------------------------------- |
@@ -88,9 +98,16 @@ gelöst: Metadata-URLs und die Service-Worker-Registrierung über
 
 ### Bedienung auf beiden Plattformen
 
-Mobil steht die Navigation unten und die Erfassung als Bottom Sheet; ab
-Tablet-Breite gibt es eine Seitenleiste und mehrspaltige Auswertung. Die Routen
-und der Funktionsumfang sind identisch — nur die Anordnung unterscheidet sich.
+Mobil gibt es keine Kopfzeile: Die untere Leiste trägt Heute, Buchungen,
+Auswertung und Einstellungen, das Erfassen läuft über den schwebenden Knopf,
+der vorab nach Ausgabe oder Einnahme fragt. Töpfe werden über die Zeile „Neuer
+Topf" auf der Startseite angelegt und über den Link in den Einstellungen
+verwaltet.
+
+Ab Tablet-Breite gibt es eine Seitenleiste mit allen fünf Zielen, die Knöpfe
+zum Erfassen stehen auf den Seiten, und die Auswertung wird mehrspaltig. Die
+Routen und der Funktionsumfang sind identisch — nur die Anordnung
+unterscheidet sich.
 
 ## Daten und Sicherung
 

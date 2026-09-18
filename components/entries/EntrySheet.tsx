@@ -34,6 +34,11 @@ export interface EntrySheetProps {
   /** Vorbelegter Topf, wenn aus einem Topf-Detail heraus gebucht wird. */
   defaultPotId?: string | null;
   defaultKind?: EntryKind;
+  /**
+   * Die Art wurde schon außerhalb bestimmt (etwa im schwebenden Knopf) und
+   * wird im ersten Schritt nicht noch einmal abgefragt.
+   */
+  lockKind?: boolean;
   /** Gesetzt = Bearbeiten statt Neuanlage. */
   entry?: Entry | null;
 }
@@ -56,6 +61,7 @@ function EntryForm({
   pots,
   defaultPotId = null,
   defaultKind = 'expense',
+  lockKind = false,
   entry = null,
 }: Omit<EntrySheetProps, 'open'>) {
   const { repository } = useData();
@@ -174,7 +180,7 @@ function EntryForm({
     >
       {step === 'amount' && (
         <div className="flex flex-col gap-5">
-          {!editing && (
+          {!editing && !lockKind && (
             <SegmentedControl
               label="Art der Buchung"
               value={kind}

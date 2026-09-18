@@ -47,7 +47,7 @@ export default function PotsPage() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Töpfe</h1>
+        <h1 className="text-xl font-medium">Töpfe</h1>
         {can('pot.create') && (
           <Button variant="primary" size="sm" onClick={() => setWizardOpen(true)}>
             + Neuer Topf

@@ -48,8 +48,13 @@ Texterkennung auf Belegen, keine Bank-Anbindung, keine Mandantenverwaltung
 1. **Impressum und Datenschutz ausfüllen.** `app/impressum/page.tsx` und
    `app/datenschutz/page.tsx` enthalten Platzhalter und zeigen einen sichtbaren
    Warnhinweis. Solange der steht, erfüllt die Seite keine gesetzliche Pflicht.
-2. **GitHub Pages aktivieren.** Settings → Pages → Source auf „GitHub Actions".
-   Einmalig, kann nicht aus dem Repository heraus gesetzt werden.
+2. **Echter Zugriffsschutz, falls gewünscht.** Die Anmeldung beim Öffnen hält
+   nur Gelegenheitsbesucher ab: Das Bundle wird öffentlich ausgeliefert, und
+   die Zugangsdaten stehen im Quelltext. Wer die Seite wirklich nicht-öffentlich
+   braucht, kommt um eine serverseitige Abfrage vor der Auslieferung nicht
+   herum — etwa Basic Auth oder ein Zugangsdienst vor einer eigenen Domain.
+   GitHub Pages fällt dafür weg. Welche Variante im konkreten Fall passt, ist
+   nicht geprüft.
 3. **Limit-Historie für den Übertrag.** Der Übertrag rechnet vergangene
    Perioden mit dem _aktuellen_ Limit — wer das Limit ändert, ändert ihn
    rückwirkend. Dokumentiert in `lib/domain/ledger.ts`; ein Feld

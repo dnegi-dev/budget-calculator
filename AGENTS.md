@@ -81,6 +81,39 @@ Dev-Overlay fängt mobil die Klicks auf die untere Navigation ab):
 CHROMIUM_PATH=/opt/pw-browsers/chromium npm run test:e2e
 ```
 
+## Anmeldung vor der App
+
+`components/LoginGate.tsx` steht vor dem Inhalt und nimmt `admin`/`admin`
+(änderbar über `NEXT_PUBLIC_APP_USER`/`_PASSWORD`).
+
+**Das ist kein Zugriffsschutz** und darf im Code, in der Doku und gegenüber
+Nutzern auch nicht so genannt werden: Die Seite ist ein statisches Bundle,
+jede Datei wird an jeden ausgeliefert, und das Passwort steht im
+ausgelieferten JavaScript. Es hält Gelegenheitsbesucher ab, mehr nicht.
+Deshalb auch kein Hashing — das würde Sicherheit vortäuschen, wo der Klartext
+daneben steht.
+
+Echter Schutz wäre eine serverseitige Abfrage vor der Auslieferung und damit
+ein anderes Hosting; siehe `STATE.md`.
+
+Das Gate steht **hinter** der Ausnahme für die Rechtsseiten in
+`components/AppGate.tsx`: Ein Impressum hinter einer Anmeldung wäre nicht ohne
+Hürde erreichbar.
+
+## Mobile Oberfläche
+
+- **Keine Kopfzeile.** Die oberste Bildschirmzeile gehört dem Inhalt; `main`
+  trägt `pt-[max(…,env(safe-area-inset-top))]`, damit als installierte App
+  nichts unter der Statusleiste liegt.
+- **Vier Ziele in der unteren Leiste**: Heute, Buchungen, Auswertung,
+  Einstellungen. „Töpfe" steht bewusst nicht dort — angelegt wird über die
+  Zeile „Neuer Topf" auf „Heute", verwaltet über den Link in den
+  Einstellungen. Wer einen fünften Eintrag ergänzen will, prüft ihn vorher bei
+  320 px Breite.
+- **Erfassen läuft über den schwebenden Knopf** (`QuickEntryButton`), der die
+  Art vorab abfragt und `EntrySheet` mit `lockKind` öffnet. Seiten-Knöpfe zum
+  Erfassen gibt es nur noch ab `md`.
+
 ## Rechtsseiten
 
 `/impressum` und `/datenschutz` müssen **ohne** eingerichteten Haushalt
