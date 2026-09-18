@@ -3,12 +3,18 @@
 /**
  * Buchungsliste mit Filtern.
  *
- * Auf dem Telefon sind die Filter eingeklappt — dort will man scrollen, nicht
- * filtern. Ab Tablet-Breite stehen sie aufgeklappt daneben, weil dort der
- * Platz da ist und typischerweise die Auswertung gemacht wird.
+ * Mobil liegen Suche und Filter hinter je einem Symbol: Die oberste Zeile
+ * gehört der Liste, nicht der Bedienung. Ab Tablet-Breite stehen sie
+ * aufgeklappt in einer Karte, weil dort der Platz da ist und typischerweise
+ * die Auswertung gemacht wird.
+ *
+ * Eingeklappt und trotzdem wirksam wäre ein Filter, den niemand sieht.
+ * Deshalb räumt das Schließen der Suche den Suchbegriff weg, und ein aktiver
+ * Filter zeigt sich als Zeile mit „zurücksetzen“.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { EntryList } from '../../components/entries/EntryList';
 import { EntrySheet } from '../../components/entries/EntrySheet';
 import { PeriodSwitcher } from '../../components/PeriodSwitcher';
@@ -39,8 +45,15 @@ export default function EntriesPage() {
   const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const [potFilter, setPotFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [entryOpen, setEntryOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Wer die Lupe tippt, will tippen — nicht erst noch das Feld treffen.
+  useEffect(() => {
+    if (searchOpen) searchRef.current?.focus();
+  }, [searchOpen]);
 
   const activePots = useMemo(
     () => snapshot.pots.filter((pot) => pot.archivedAt === null),
@@ -73,7 +86,37 @@ export default function EntriesPage() {
     [visible],
   );
 
-  const filterControls = (
+  const filtersActive = kindFilter !== 'all' || potFilter !== 'all';
+
+  function closeSearch() {
+    setSearch('');
+    setSearchOpen(false);
+  }
+
+  function resetFilters() {
+    setKindFilter('all');
+    setPotFilter('all');
+  }
+
+  /**
+   * Zweimal im Baum, einmal sichtbar — mobil aufgeklappt, ab `md` in der
+   * Karte. Nur die mobile Fassung bekommt die Referenz: Sonst zeigte sie auf
+   * das per CSS verborgene Feld, und der Fokus nach dem Tippen auf die Lupe
+   * ginge ins Leere.
+   */
+  const searchField = (withRef: boolean) => (
+    <input
+      ref={withRef ? searchRef : undefined}
+      className={inputClass}
+      value={search}
+      onChange={(event) => setSearch(event.target.value)}
+      placeholder="In Notiz und Ort suchen"
+      type="search"
+      aria-label="Suche"
+    />
+  );
+
+  const filterFields = (
     <div className="flex flex-col gap-3">
       <SegmentedControl
         label="Art"
@@ -99,40 +142,82 @@ export default function EntriesPage() {
           </option>
         ))}
       </select>
-      <input
-        className={inputClass}
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        placeholder="In Notiz und Ort suchen"
-        type="search"
-        aria-label="Suche"
-      />
     </div>
   );
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-medium">Buchungen</h1>
-        {can('entry.create') && (
-          <Button variant="primary" size="sm" onClick={() => setEntryOpen(true)}>
-            + Erfassen
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="px-2.5 text-base md:hidden"
+            aria-label="Suchen"
+            aria-expanded={searchOpen}
+            onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
+          >
+            <span aria-hidden>🔍</span>
           </Button>
-        )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`px-2.5 text-base md:hidden ${filtersActive ? 'text-accent' : ''}`}
+            aria-label="Filter"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen((open) => !open)}
+          >
+            <span aria-hidden>⚙</span>
+          </Button>
+          {/*
+            Erfassen nur ab md: mobil macht das der schwebende Knopf.
+
+            Das `hidden` gehört an die Hülle, nicht an den Knopf: `Button`
+            bringt `inline-flex` als Grundklasse mit, und Tailwind gibt
+            `.inline-flex` **nach** `.hidden` aus — an der Klassenliste des
+            Knopfes gewinnt also `inline-flex`, und der Knopf wäre mobil
+            trotzdem da. (`md:hidden` funktioniert umgekehrt schon, weil es in
+            einer Media-Query steht.)
+          */}
+          {can('entry.create') && (
+            <span className="hidden md:inline-flex">
+              <Button variant="primary" size="sm" onClick={() => setEntryOpen(true)}>
+                + Erfassen
+              </Button>
+            </span>
+          )}
+        </div>
       </div>
 
       <Card className="px-4 py-3">
         <PeriodSwitcher periodKey={periodKey} onChange={setPeriodKey} currentKey={currentKey} />
       </Card>
 
-      {/* Mobil: Filter auf Wunsch. Desktop: immer sichtbar. */}
-      <div className="md:hidden">
-        <Button variant="secondary" block onClick={() => setFiltersOpen((open) => !open)}>
-          {filtersOpen ? 'Filter ausblenden' : 'Filtern und suchen'}
-        </Button>
-        {filtersOpen && <div className="mt-3">{filterControls}</div>}
+      {/* Mobil: Suche und Filter auf Wunsch. Desktop: eine Karte mit beidem. */}
+      <div className="flex flex-col gap-3 md:hidden">
+        {/*
+          Kein eigenes ✕ daneben: `type="search"` bringt schon eines zum Leeren
+          mit, und geschlossen wird über dieselbe Lupe, die geöffnet hat. Zwei
+          Kreuze nebeneinander haben bei 390 px nur Platz gekostet.
+        */}
+        {searchOpen && searchField(true)}
+        {filtersOpen && filterFields}
+        {!filtersOpen && filtersActive && (
+          <p className="text-sm text-ink-muted">
+            Filter aktiv ·{' '}
+            <button type="button" className="text-accent hover:underline" onClick={resetFilters}>
+              zurücksetzen
+            </button>
+          </p>
+        )}
       </div>
-      <Card className="hidden px-4 py-4 md:block">{filterControls}</Card>
+      <Card className="hidden px-4 py-4 md:block">
+        <div className="flex flex-col gap-3">
+          {filterFields}
+          {searchField(false)}
+        </div>
+      </Card>
 
       <Card>
         <CardHeader
@@ -150,6 +235,14 @@ export default function EntriesPage() {
           pots={snapshot.pots}
           emptyHint="In dieser Periode gibt es keine Buchungen, die zu den Filtern passen."
         />
+      </Card>
+
+      <Card>
+        <div className="px-4 py-3.5">
+          <Link href="/buchungen/wiederkehrend" className="text-sm text-accent hover:underline">
+            Wiederkehrende Buchungen →
+          </Link>
+        </div>
       </Card>
 
       <EntrySheet open={entryOpen} onClose={() => setEntryOpen(false)} pots={activePots} />

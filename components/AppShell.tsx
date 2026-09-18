@@ -99,9 +99,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/*
           pt: Ohne Kopfzeile beginnt der Inhalt ganz oben — auf Geräten mit
           Aussparung liefe er sonst als installierte App unter die Statusleiste.
-          pb-28: Platz für die untere Leiste und den schwebenden Knopf.
+          pb-36: Platz für die untere Leiste und den schwebenden Knopf. Der
+          endet 8,25 rem über dem unteren Rand — mit pb-28 (7 rem) lag die
+          letzte Zeile einer Liste dauerhaft darunter.
         */}
-        <main className="mx-auto w-full max-w-3xl flex-1 px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-28 md:max-w-4xl md:px-8 md:pt-8 md:pb-10">
+        <main className="mx-auto w-full max-w-3xl flex-1 px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-36 md:max-w-4xl md:px-8 md:pt-8 md:pb-10">
           {children}
           <footer className="mt-10 pt-4 text-xs text-ink-muted md:hidden">
             <LegalLinks />

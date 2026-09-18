@@ -20,9 +20,17 @@ export function ServiceWorkerRegistration() {
       // Erst nach dem ersten Rendern registrieren: Der Start der App soll nicht
       // mit dem Download des Workers konkurrieren.
       // Der Worker muss unterhalb des Präfixes liegen, sonst ist sein Scope zu weit.
-      void navigator.serviceWorker.register(withBasePath('/sw.js')).catch(() => {
-        // Ein fehlgeschlagener Worker ist kein Grund, die App zu stören.
-      });
+      void navigator.serviceWorker
+        .register(withBasePath('/sw.js'))
+        .then((registration) => {
+          // Einmal nachfragen, ob eine neuere Fassung des Workers bereitliegt.
+          // Der Browser prüft das sonst erst bei der nächsten Navigation — bei
+          // einer installierten App kann das Tage dauern.
+          void registration.update();
+        })
+        .catch(() => {
+          // Ein fehlgeschlagener Worker ist kein Grund, die App zu stören.
+        });
     }, 1_200);
 
     return () => window.clearTimeout(timer);

@@ -60,6 +60,16 @@ Die App läuft auf GitHub Pages unter einem **Unterpfad**
   Datei beim Build erzeugt werden muss.
 - Wer eine neue Route hinzufügt, die offline erreichbar sein soll, trägt sie in
   `APP_SHELL` in `public/sw.js` nach.
+- **Cache-first nur für Dateien mit Hash im Namen** (`_next/static/…`, Symbole).
+  Alles andere holt `public/sw.js` erst aus dem Netz. Der statische Export
+  enthält nicht gehashte RSC-Nutzlasten (`index.txt`, `__next.*.txt`), die der
+  Router bei jedem Wechsel innerhalb der App lädt — lagen die cache-first, war
+  nach einem Deploy die Hülle neu und jede Unterseite alt. Wer die Strategie
+  anfasst, prüft diesen Fall.
+- Der Deploy-Workflow setzt `NEXT_PUBLIC_BUILD_VERSION` auf den Commit und
+  schreibt dieselbe Kennung nach `out/version.json`. `components/UpdateNotice.tsx`
+  vergleicht beides und zeigt eine Hinweisleiste. Lokal ist die Variable leer,
+  dann ist die Prüfung aus — im E2E-Lauf darf keine Leiste Klicks abfangen.
 
 ## Vor jedem Push
 
@@ -112,7 +122,71 @@ Hürde erreichbar.
   320 px Breite.
 - **Erfassen läuft über den schwebenden Knopf** (`QuickEntryButton`), der die
   Art vorab abfragt und `EntrySheet` mit `lockKind` öffnet. Seiten-Knöpfe zum
-  Erfassen gibt es nur noch ab `md`.
+  Erfassen gibt es nur noch ab `md`. In den Einstellungen erscheint der Knopf
+  nicht: Dort erfasst niemand etwas, und er lag auf den Schaltern. Wer den
+  Knopf verschiebt, prüft das `pb-36` am `main` in `AppShell` mit — er endet
+  8,25 rem über dem unteren Rand, und darunter darf keine Listenzeile liegen
+  bleiben.
+- **Suche und Filter auf der Buchungsseite liegen hinter je einem Symbol.** Das
+  Schließen der Suche räumt den Begriff weg; ein aktiver Filter zeigt sich als
+  Zeile mit „zurücksetzen". Ein eingeklappter, still wirksamer Filter ist ein
+  Fehler, kein Feature.
+- **`hidden md:…` funktioniert an `Button` nicht.** `Button` bringt
+  `inline-flex` als Grundklasse mit, und Tailwind gibt `.inline-flex` **nach**
+  `.hidden` aus — an derselben Klassenliste gewinnt `inline-flex`. Wer einen
+  Knopf erst ab `md` zeigen will, hängt `hidden md:inline-flex` an eine Hülle.
+  Umgekehrt ist `md:hidden` am Knopf in Ordnung: Es steht in einer Media-Query
+  und kommt damit später.
+
+## Geräte-Einstellungen
+
+Darstellung (hell/dunkel/automatisch) und Art der Betragseingabe liegen im
+`localStorage`, nicht am Haushalt-Datensatz — `lib/prefs/device-prefs.ts`. Zwei
+Gründe, beide tragend:
+
+1. Das Thema muss **vor dem ersten Rendern** stehen. Der Snapshot lädt
+   asynchron unterhalb von `AppGate`; aus IndexedDB gelesen blitzte bei jedem
+   Start das helle Thema auf. Dafür gibt es das Inline-Skript in
+   `app/layout.tsx` (`THEME_BOOTSTRAP_SCRIPT`).
+2. Es sind Vorlieben _dieses Geräts_. In der Sicherung und im späteren Sync
+   haben sie nichts zu suchen, sonst stellt ein Import vom Telefon den
+   Dunkelmodus am Desktop um.
+
+Wer eine Einstellung ergänzt, die den Haushalt betrifft (Währung, Periode),
+nimmt weiter `updateHousehold` — und trägt das Feld in `householdSchema` nach,
+sonst scheitert der Import.
+
+`app/globals.css` wertet `[data-theme='light'|'dark']` aus; `theme-color` kommt
+aus dem `viewport`-Export und hängt an `prefers-color-scheme`, muss bei
+ausdrücklicher Wahl also zur Laufzeit nachgezogen werden (`applyTheme`).
+
+## Overlays
+
+Jedes Overlay nimmt `useScrollLock` aus `lib/ui/useScrollLock.ts` — `Sheet`
+tut das für alle Sheets, `ReceiptViewer` ist das einzige handgebaute.
+
+`body { overflow: hidden }` allein genügt **nicht**: `app/globals.css` setzt
+`html { overflow-x: hidden }`, und ist eine Achse `hidden`, rechnet CSS die
+andere von `visible` auf `auto`. Damit ist `html` der Scrollcontainer, und das
+`overflow` des Body wird nicht mehr auf den Viewport übertragen. Der Haken
+sperrt beides und hält die Position über `position: fixed; top: -y` fest — das
+ist zugleich der Weg, der auf iOS Safari hält. Er zählt mit, weil
+`QuickEntryButton` zwei Sheets in einem Commit übergibt.
+
+Was Overlays weiter **nicht** haben: Fokusfalle, `inert`, Fokus-Rückgabe beim
+Schließen. Offen und bekannt, kein Versehen.
+
+## Textlängen
+
+`TEXT_LIMITS` in `lib/domain/schemas.ts` ist die einzige Quelle: Schema,
+`maxLength` am Eingabefeld und `clampText` auf dem Schreibweg im Adapter.
+
+Der Grund steht dort im Kommentar und ist teuer bezahlt: Vorher stand das Limit
+nur im Schema, und weil das Schema ausschließlich beim Import läuft, ließ sich
+eine zu lange Notiz speichern, exportieren — und dann nicht mehr einlesen. Die
+Sicherung war unbrauchbar. Neu ist außerdem `clampBackupText`
+(`lib/domain/backup.ts`): Der Import kürzt und meldet, statt die ganze Datei
+abzulehnen. Das Schema selbst bleibt streng, es ist die künftige API-Grenze.
 
 ## Rechtsseiten
 

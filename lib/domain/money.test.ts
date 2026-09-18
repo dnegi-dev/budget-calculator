@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { formatCentsPlain, parseAmountToCents, signedCents, sumCents } from './money';
+import {
+  formatCentsPlain,
+  formatDigitsAsAmount,
+  parseAmountToCents,
+  signedCents,
+  sumCents,
+} from './money';
 
 describe('parseAmountToCents', () => {
   it('liest deutsche Schreibweise', () => {
@@ -69,5 +75,44 @@ describe('Summen', () => {
   it('setzt Vorzeichen nach Buchungsart', () => {
     expect(signedCents('expense', 1250)).toBe(-1250);
     expect(signedCents('income', 1250)).toBe(1250);
+  });
+});
+
+describe('formatDigitsAsAmount', () => {
+  it('liest die letzten zwei Ziffern als Cent', () => {
+    expect(formatDigitsAsAmount('')).toBe('');
+    expect(formatDigitsAsAmount('1')).toBe('0,01');
+    expect(formatDigitsAsAmount('12')).toBe('0,12');
+    expect(formatDigitsAsAmount('125')).toBe('1,25');
+    expect(formatDigitsAsAmount('1250')).toBe('12,50');
+  });
+
+  it('wirft alles weg, was keine Ziffer ist', () => {
+    expect(formatDigitsAsAmount('12,50')).toBe('12,50');
+    expect(formatDigitsAsAmount('12.50 €')).toBe('12,50');
+    expect(formatDigitsAsAmount('abc')).toBe('');
+    expect(formatDigitsAsAmount('-5')).toBe('0,05');
+  });
+
+  it('lässt keine führenden Nullen stehen', () => {
+    expect(formatDigitsAsAmount('000125')).toBe('1,25');
+    expect(formatDigitsAsAmount('0')).toBe('0,00');
+  });
+
+  it('begrenzt die Länge', () => {
+    expect(formatDigitsAsAmount('1234567890123')).toBe('1234567,89');
+  });
+
+  it('bleibt nach dem Löschen einer Ziffer gültig', () => {
+    // Was beim Drücken von Rücktaste passiert: '12,50' → '12,5' → nur Ziffern.
+    expect(formatDigitsAsAmount('12,5')).toBe('1,25');
+    expect(formatDigitsAsAmount('1,2')).toBe('0,12');
+  });
+
+  it('passt zum Parser — jede Anzeige ist wieder einlesbar', () => {
+    for (const digits of ['1', '99', '1250', '123456789']) {
+      const shown = formatDigitsAsAmount(digits);
+      expect(parseAmountToCents(shown)).toBe(Number(digits));
+    }
   });
 });

@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useRef, type ReactNode } from 'react';
+import { useScrollLock } from './useScrollLock';
 
 export interface SheetProps {
   open: boolean;
@@ -22,6 +23,9 @@ export interface SheetProps {
 export function Sheet({ open, onClose, title, description, children, footer }: SheetProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Hintergrund nicht mitscrollen lassen, solange das Sheet offen ist.
+  useScrollLock(open);
+
   useEffect(() => {
     if (!open) return;
 
@@ -30,16 +34,11 @@ export function Sheet({ open, onClose, title, description, children, footer }: S
     }
     document.addEventListener('keydown', onKeyDown);
 
-    // Hintergrund nicht mitscrollen lassen, solange das Sheet offen ist.
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
     // Fokus in den Dialog holen, sonst liest ein Screenreader weiter den Hintergrund.
     panelRef.current?.focus();
 
     return () => {
       document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = previousOverflow;
     };
   }, [open, onClose]);
 
@@ -80,7 +79,9 @@ export function Sheet({ open, onClose, title, description, children, footer }: S
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
+        {/* overscroll-contain: Am Ende des Sheets soll die Seite dahinter
+            nicht weiterscrollen. */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-5">{children}</div>
 
         {footer && (
           <footer className="border-t border-line px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
