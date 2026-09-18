@@ -14,6 +14,12 @@
  * `bon-ekabs.pdf` ist derselbe Bon plus `ekabs.json` als angehängte Datei —
  * der Weg, auf dem nichts geraten werden muss.
  *
+ * `bon-drogerie.pdf` hat den Aufbau eines zweiten Händlers, und der druckt
+ * anders: die Steuerklasse als **Ziffer** statt als Buchstabe (`2,75 1`), und
+ * Menge samt Einzelpreis **vor** der Bezeichnung (`2x 1,55 Apfelsaft 3,10 1`).
+ * An beidem ist der Parser einmal gescheitert — zusammen mit einer
+ * Zwischensumme, einer Coupon-Zeile davor und einer Punkte-Fußzeile.
+ *
  * `bon-supermarkt.pdf` hat den Aufbau, den ein echter Supermarkt-Bon hat, und
  * genau die Stellen, an denen der Parser einmal gescheitert ist: gesperrt
  * gesetzter Kopf („K A U F L A D E N"), Steuerklassen-Buchstaben hinter den
@@ -103,6 +109,42 @@ const SUPERMARKT = [
   ['Aktuelles Guthaben: 18,30 EUR', null],
   ['****************************************', null],
   ['Kaufladen GmbH', null],
+];
+
+/**
+ * Ein Bon in Drogerie-Schreibweise.
+ *
+ * 8 Artikel ergeben 24,15 € Zwischensumme, ein Coupon zieht 0,95 € ab, es
+ * bleiben 23,20 € als SUMME. Die Beträge der Punkte-Fußzeile (39,15 / 0,35)
+ * dürfen nicht mitzählen.
+ */
+const DROGERIE = [
+  ['18.09.2026 20:00 A1BC/1 123456/2 4711', null],
+  ['Sanft Toilettenpapier 3lg', '2,75 1'],
+  ['Spuelmittel Multi-Power', '1,25 1'],
+  ['2x 1,55 Bio Apfelsaft 1L', '3,10 1'],
+  ['Bio Pistazien Cups 2x13g*', '1,15 2'],
+  ['Bio Sternkeks Orange 40g*', '0,85 2'],
+  ['2x 1,75 Bio Paprika edelsuess', '3,50 2'],
+  ['Haar Vital Kompl. Kaps', '2,95 2'],
+  ['Thermostrumpfhose 130den', '8,60 1'],
+  ['4711123 5', null],
+  ['Zwischensumme', '24,15'],
+  ['Rabatte auf rabattfaehige Artikel', null],
+  ['Coupon Deospray', '-0,95'],
+  ['SUMME EUR', '23,20'],
+  ['VISA EUR', '-23,20'],
+  ['MwSt-Satz Brutto Netto MwSt', null],
+  ['1=19,00% 15,70 13,19 2,51', null],
+  ['2=7,00% 7,50 7,01 0,49', null],
+  ['******************************************', null],
+  ['Deine Kartennr.: XXXXXXXXX1234', null],
+  ['Punktestand vor Einkauf: 3.915', null],
+  ['Dieser Punktestand entspricht: 39,15 EUR', null],
+  ['Punkte fuer diesen Einkauf 35 P', null],
+  ['Dies entspricht 0,35 EUR.', null],
+  ['******************************************', null],
+  ['Oeffnungszeiten auf example.de', null],
 ];
 
 function escapeText(text) {
@@ -208,4 +250,19 @@ writeFileSync(
   ),
 );
 
-console.log('bon-textschicht.pdf, bon-ekabs.pdf und bon-supermarkt.pdf geschrieben');
+// --- Drogerie-Schreibweise ------------------------------------------------
+writeFileSync(
+  join(HIER, 'bon-drogerie.pdf'),
+  buildPdf(
+    [
+      '<< /Type /Catalog /Pages 2 0 R >>',
+      '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+      '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 320 560] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+      stream(contentStream(DROGERIE, 540)),
+      schrift,
+    ],
+    1,
+  ),
+);
+
+console.log('vier Muster geschrieben');

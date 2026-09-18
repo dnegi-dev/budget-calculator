@@ -24,8 +24,44 @@ async function topfWaehlen(page: Page, feld: string, topf: string): Promise<void
  * arbeiten.
  */
 
+/**
+ * Meldungen, die nichts über die App sagen.
+ *
+ * Bewusst kurz gehalten: Jeder Eintrag hier ist ein Loch im Wächter. Kommt
+ * eine neue Meldung dazu, ist erst zu prüfen, ob sie harmlos ist — nicht sie
+ * zuerst wegzufiltern.
+ */
+const HARMLOS = [/React DevTools/i, /favicon/i];
+
+/**
+ * Konsolenfehler sind hier ein Testfehler — und das ist der Kern.
+ *
+ * Der Fehler, der diesen Wächter nötig gemacht hat, war **still**: Das
+ * Standard-Bundle von pdf.js 6 rief `Map.prototype.getOrInsertComputed`, der
+ * XRef-Cache warf, pdf.js fiel auf „Indexing all PDF objects" zurück — und die
+ * handgebauten Muster kamen trotzdem durch. Ein echter Bon nicht. Kein
+ * `expect` konnte das sehen, in der Konsole stand es die ganze Zeit.
+ *
+ * Nur der E2E-Lauf lädt pdf.js wirklich im Browser; im Unit-Test wäre dieser
+ * Wächter an der falschen Stelle.
+ */
+let konsole: string[] = [];
+
 test.beforeEach(async ({ page }) => {
+  konsole = [];
+  const merken = (text: string) => {
+    if (!HARMLOS.some((muster) => muster.test(text))) konsole.push(text);
+  };
+  page.on('console', (nachricht) => {
+    if (nachricht.type() === 'error') merken(nachricht.text());
+  });
+  page.on('pageerror', (fehler) => merken(fehler.message));
+
   await entsperren(page);
+});
+
+test.afterEach(() => {
+  expect(konsole, `Fehler in der Browser-Konsole:\n${konsole.join('\n')}`).toEqual([]);
 });
 
 test.describe('Bon einlesen', () => {

@@ -11,15 +11,18 @@
 
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { extractPdf, type PdfjsLoader } from './extract';
+import { defaultLoader, extractPdf } from './extract';
 import { parseEkabs, parseTextLines } from '../domain/receipt-parse';
 
-/** Legacy-Build und kein Worker: läuft in Node ohne DOM und ohne `public/`. */
-const inNode = {
-  load: (() =>
-    import('pdfjs-dist/legacy/build/pdf.mjs') as ReturnType<PdfjsLoader>) satisfies PdfjsLoader,
-  workerSrc: null,
-};
+/**
+ * Derselbe Build wie im Browser, nur ohne Worker: den gibt es in Node nicht,
+ * weil `public/` dort nicht ausgeliefert wird.
+ *
+ * Bewusst `defaultLoader` und kein eigener Import. Vorher stand hier der
+ * Legacy-Build, während der Browser das Standard-Bundle nahm — in dieser Lücke
+ * saß ein Fehler, den kein Test sehen konnte.
+ */
+const inNode = { load: defaultLoader, workerSrc: null };
 
 function fixture(name: string): Blob {
   return new Blob([readFileSync(`e2e/fixtures/${name}`)], { type: 'application/pdf' });
@@ -112,5 +115,41 @@ describe('Supermarkt-Aufbau', () => {
     expect(labels).not.toContain('2 Stk x');
     // Der Rabatt bleibt negativ, sonst ginge die Summe nicht auf.
     expect(parsed.items.find((item) => item.label === 'Treuerabatt')?.amountCents).toBe(-90);
+  });
+});
+
+describe('Drogerie-Schreibweise', () => {
+  /**
+   * Ein zweiter Händler druckt anders — und genau daran ist der Parser
+   * gescheitert: Steuerklasse als Ziffer statt als Buchstabe, und Menge samt
+   * Einzelpreis vor der Bezeichnung. Vorher passte keine einzige Zeile, und
+   * als Händler landete der erste Artikel.
+   */
+  it('versteht Steuerklasse als Ziffer und Menge mit Einzelpreis', async () => {
+    const { lines } = await extractPdf(fixture('bon-drogerie.pdf'), inNode);
+    const parsed = parseTextLines(lines);
+
+    expect(parsed.quality).toBe('geprüft');
+    expect(parsed.totalCents).toBe(2320);
+    expect(parsed.date).toBe('2026-09-18');
+
+    const items = parsed.items.map((item) => [item.label, item.amountCents, item.quantity]);
+    expect(items).toEqual([
+      ['Sanft Toilettenpapier 3lg', 275, null],
+      ['Spuelmittel Multi-Power', 125, null],
+      // '2x 1,55 Bio Apfelsaft 1L 3,10 1': Menge 2, Einzelpreis verschluckt,
+      // Zeilensumme 3,10 — nicht 1,55 und nicht „1,55 Bio Apfelsaft".
+      ['Bio Apfelsaft 1L', 310, 2],
+      ['Bio Pistazien Cups 2x13g*', 115, null],
+      ['Bio Sternkeks Orange 40g*', 85, null],
+      ['Bio Paprika edelsuess', 350, 2],
+      ['Haar Vital Kompl. Kaps', 295, null],
+      ['Thermostrumpfhose 130den', 860, null],
+      ['Coupon Deospray', -95, null],
+    ]);
+
+    // Zwischensumme, Punktestand und „entspricht 0,35 EUR" sind keine Posten.
+    const labels = parsed.items.map((item) => item.label);
+    expect(labels.some((label) => /summe|Punkte|entspricht|MwSt|VISA/i.test(label))).toBe(false);
   });
 });

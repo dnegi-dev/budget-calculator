@@ -88,10 +88,12 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
         setManuell(ergebnis.items.map(() => false));
       } catch (caught) {
         if (cancelled) return;
+        // Der Grund gehört in die Meldung. Eine Sammelmeldung ohne Ursache
+        // kostet bei jedem Bericht eine Rückfrage — und „ein Foto lässt sich
+        // nicht auswerten" war bei einem PDF schlicht irreführend.
+        const grund = caught instanceof Error ? caught.message : String(caught);
         setFehler(
-          caught instanceof PdfReadError
-            ? caught.message
-            : 'Das PDF ließ sich nicht lesen. Ein Foto lässt sich noch nicht auswerten.',
+          caught instanceof PdfReadError ? grund : `Das PDF ließ sich nicht lesen: ${grund}`,
         );
       }
     })();

@@ -91,6 +91,43 @@ Die App läuft auf GitHub Pages unter einem **Unterpfad**
   vergleicht beides und zeigt eine Hinweisleiste. Lokal ist die Variable leer,
   dann ist die Prüfung aus — im E2E-Lauf darf keine Leiste Klicks abfangen.
 
+## Was Claude Code nicht lesen soll
+
+`.claude/settings.json` liegt im Repository und sperrt per `permissions.deny`
+die Dateien, deren Inhalt niemandem hilft und die viel Kontext kosten:
+`package-lock.json`, die PDF-Muster, Build-Ausgaben (`.next/`, `out/_next/`),
+Testartefakte und die Karten- bzw. wasm-Dateien in `node_modules`.
+
+Drei Dinge dazu, die beim Anlegen geprüft wurden:
+
+- **Es gibt kein `.claudeignore`.** Der Feature-Wunsch dafür ist geschlossen,
+  und eine Datei mit dem Namen verhindert nachweislich keine Lesezugriffe.
+  `permissions.deny` ist der Weg
+  ([Doku](https://code.claude.com/docs/en/permissions)).
+- **`node_modules` ist absichtlich nicht als Ganzes gesperrt.** Die Regel ganz
+  oben in dieser Datei verlangt, vor Next-Code die Anleitung in
+  `node_modules/next/dist/docs/` zu lesen, und die Typen einer Bibliothek
+  nachzusehen ist oft der kürzeste Weg zur Wahrheit. Eine Sperre auf das ganze
+  Verzeichnis ließe sich auch nicht aufbohren: Eine `allow`-Regel kann aus
+  einer `deny`-Regel keine Ausnahme schneiden, und eine
+  `!`-Ausnahme greift nicht in ein Verzeichnis, das als Ganzes gesperrt ist.
+- **Eine `Read`-Sperre wirkt weiter als die Doku sagt.** Sie sperrt `Edit` und
+  `Write` auf demselben Pfad — das ist dokumentiert. Sie sperrt aber auch
+  **Bash-Befehle, deren Argumente auf einen gesperrten Pfad zeigen**: In der
+  Sitzung, die diese Liste angelegt hat, wurden ein `grep` auf
+  `node_modules/**/*.min.mjs` und das `cp` des pdf.js-Workers nach
+  `public/vendor/` abgelehnt. Genau deshalb stehen diese beiden Muster **nicht**
+  in der Liste: Sie blockierten die Pflege, die `lib/pdf/extract.ts` als Befehl
+  dokumentiert. Wer eine Regel ergänzt, prüft, ob ein Wartungsbefehl über
+  denselben Pfad läuft — die PDF-Muster etwa erzeugt
+  `node e2e/fixtures/build.mjs`, das schreibt nach `e2e/fixtures/`, nicht in die
+  gesperrten `*.pdf` hinein.
+
+Was die Sperre **nicht** leistet: `Grep` hält sich schon über `.gitignore` von
+`node_modules` fern, `Glob` liefert dort weiter Pfade (billig, es sind nur
+Namen), und der große Kostenpunkt bleibt, was bewusst gelesen wird. Die Liste
+verhindert Versehen, keine Arbeit.
+
 ## Vor jedem Push
 
 ```bash
@@ -219,12 +256,22 @@ abzulehnen. Das Schema selbst bleibt streng, es ist die künftige API-Grenze.
   wurde — einen Vorschlag zu bestätigen ist keine neue Information. Löschbar
   über Einstellungen → „Zuordnungen"; ohne diese Liste wäre eine falsch
   gelernte Regel nicht mehr loszuwerden.
-- **pdf.js liegt nicht im Startbundle.** `await import('pdfjs-dist')` erst beim
-  ersten Einlesen. Der Worker steht als Datei mit Version im Namen unter
+- **pdf.js liegt nicht im Startbundle.** `await import(…)` erst beim ersten
+  Einlesen. Der Worker steht als Datei mit Version im Namen unter
   `public/vendor/` — nicht als CDN-Adresse, weil die Datenschutzerklärung
   zusagt, dass alle Dateien vom selben Server kommen. Bei einem Update von
-  `pdfjs-dist`: Datei neu kopieren und `PDFJS_VERSION` in
-  `lib/pdf/extract.ts` nachziehen.
+  `pdfjs-dist`: Datei neu kopieren (**aus `legacy/`**, Befehl steht in
+  `lib/pdf/extract.ts`) und `PDFJS_VERSION` nachziehen.
+- **Es ist der Legacy-Build, und das ist keine Bequemlichkeit.** Das
+  Standard-Bundle von pdf.js 6 ruft `Map.prototype.getOrInsertComputed`. Fehlt
+  die Methode im Browser, wirft der XRef-Cache, pdf.js fällt auf „Indexing all
+  PDF objects" zurück — und ein echter Bon kommt als Unsinn oder gar nicht
+  zurück. Die handgebauten Muster überlebten diesen Rückfall, ein REWE-Beleg
+  nicht. Deshalb nehmen Browser **und** Unit-Test denselben Build über
+  `defaultLoader`; lief der Test gegen `legacy/` und der Browser gegen das
+  Standard-Bundle, saß der Fehler in der Lücke und kein Test konnte ihn sehen.
+  Aus demselben Grund achtet `e2e/bon-import.spec.ts` auf Konsolenfehler: Der
+  Rückfall war still.
 - **Posten stehen vor der Summe.** Was nach der Summenzeile kommt, ist
   Fußzeile und wird nicht gelesen. Klingt nach einer Feinheit, ist aber der
   Unterschied zwischen funktionierend und nutzlos: Ein echter Bon trug dort
