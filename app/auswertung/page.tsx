@@ -14,17 +14,23 @@ import { useMemo, useState } from 'react';
 import { PeriodSwitcher } from '../../components/PeriodSwitcher';
 import { useSnapshot } from '../../lib/data/provider';
 import { todayIso } from '../../lib/domain/dates';
-import { computeHouseholdSummary, periodTotals, spendingByPot } from '../../lib/domain/ledger';
+import {
+  computeHouseholdSummary,
+  entriesInPeriod,
+  periodTotals,
+  spendingByPot,
+} from '../../lib/domain/ledger';
 import {
   formatPeriodLabel,
   lastPeriodKeys,
   periodForDate,
   periodFromKey,
 } from '../../lib/domain/period';
+import { summarizeTags } from '../../lib/domain/tags';
 import { Card, CardHeader } from '../../lib/ui/Card';
 import { EmptyState } from '../../lib/ui/EmptyState';
 import { SegmentedControl } from '../../lib/ui/SegmentedControl';
-import { potColorVar } from '../../lib/ui/colors';
+import { POT_COLORS, potColorVar } from '../../lib/ui/colors';
 import { useFormat } from '../../lib/ui/useFormat';
 
 // Recharts ist groß und wird nur hier gebraucht — daher erst beim Aufruf laden.
@@ -96,6 +102,31 @@ export default function AnalyticsPage() {
         format.periodStartDay,
       ),
     [snapshot.entries, periodKey, range, format.periodStartDay],
+  );
+
+  const tagsEnabled = snapshot.household?.tagsEnabled ?? false;
+
+  /**
+   * Summen je Tag für die gewählte Periode.
+   *
+   * Eigene Farbreihe statt Topffarben: Ein Tag hat keine, und dieselbe Farbe
+   * wie ein Topf würde eine Verwandtschaft behaupten, die es nicht gibt.
+   */
+  const tagSummary = useMemo(
+    () => summarizeTags(entriesInPeriod(snapshot.entries, periodKey, format.periodStartDay)),
+    [snapshot.entries, periodKey, format.periodStartDay],
+  );
+
+  const tagData = useMemo(
+    () =>
+      tagSummary.tags
+        .filter((sum) => sum.expenseCents > 0)
+        .map((sum, index) => ({
+          name: sum.tag,
+          value: sum.expenseCents,
+          color: `var(${POT_COLORS[index % POT_COLORS.length]!.cssVar})`,
+        })),
+    [tagSummary],
   );
 
   const shortPeriodLabel = (key: string) =>
@@ -176,6 +207,49 @@ export default function AnalyticsPage() {
               <PotShareChart data={potData} formatMoney={format.moneyCompact} />
             </div>
           </Card>
+
+          {tagsEnabled && tagData.length > 0 && (
+            <Card className="lg:col-span-2">
+              <CardHeader title="Nach Tag" />
+              <div className="px-2 py-4">
+                <PotBarChart data={tagData} formatMoney={format.moneyCompact} />
+              </div>
+              <ul className="divide-y divide-[var(--border)]">
+                {tagData.map((datum) => (
+                  <li key={datum.name} className="flex items-center gap-3 px-4 py-2.5">
+                    <span
+                      aria-hidden
+                      className="h-3 w-3 shrink-0 rounded-full"
+                      style={{ background: datum.color }}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm">{datum.name}</span>
+                    <span className="tabular shrink-0 text-sm font-medium">
+                      {format.money(datum.value)}
+                    </span>
+                  </li>
+                ))}
+                {tagSummary.untaggedExpenseCents > 0 && (
+                  <li className="flex items-center gap-3 px-4 py-2.5 text-ink-muted">
+                    <span aria-hidden className="h-3 w-3 shrink-0 rounded-full bg-subtle" />
+                    <span className="min-w-0 flex-1 truncate text-sm">Ohne Tag</span>
+                    <span className="tabular shrink-0 text-sm font-medium">
+                      {format.money(tagSummary.untaggedExpenseCents)}
+                    </span>
+                  </li>
+                )}
+              </ul>
+              {/*
+                Der Hinweis ist nicht Kosmetik: Eine Buchung mit zwei Tags
+                zählt in beiden, die Spalte summiert sich also über die
+                Gesamtausgaben hinaus. Ohne diesen Satz wären die Zahlen nicht
+                erklärbar.
+              */}
+              <p className="px-4 py-3 text-xs text-ink-muted">
+                Eine Buchung kann mehrere Tags tragen und zählt dann in jedem mit — die Summen
+                ergeben zusammen mehr als die Ausgaben der Periode.
+              </p>
+            </Card>
+          )}
 
           <Card className="lg:col-span-2">
             <CardHeader title="Töpfe im Detail" />

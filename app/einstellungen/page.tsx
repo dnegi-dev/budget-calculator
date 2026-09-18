@@ -11,10 +11,12 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { CaptureSection } from '../../components/settings/CaptureSection';
 import { DataSection } from '../../components/settings/DataSection';
 import { DeviceSection } from '../../components/settings/DeviceSection';
 import { ItemRulesSection } from '../../components/settings/ItemRulesSection';
 import { RolesSection } from '../../components/settings/RolesSection';
+import { TagsSection } from '../../components/settings/TagsSection';
 import { useCan } from '../../lib/auth/provider';
 import { setUnlocked } from '../../lib/auth/local-credentials';
 import { useData, useSnapshot } from '../../lib/data/provider';
@@ -129,6 +131,7 @@ export default function SettingsPage() {
         </div>
       </Card>
 
+      <CaptureSection />
       <DeviceSection />
 
       <Card>
@@ -144,6 +147,7 @@ export default function SettingsPage() {
         </div>
       </Card>
 
+      <TagsSection />
       <ItemRulesSection />
       <DataSection />
       <RolesSection />

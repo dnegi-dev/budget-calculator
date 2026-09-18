@@ -6,14 +6,22 @@ export function SegmentedControl<T extends string>({
   options,
   onChange,
   label,
+  disabled = false,
 }: {
   value: T;
   options: readonly { value: T; label: string }[];
   onChange: (value: T) => void;
   label: string;
+  /** Für Einstellungen, die eine Rolle nicht ändern darf. */
+  disabled?: boolean;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex gap-1 rounded-xl bg-subtle p-1">
+    <div
+      role="radiogroup"
+      aria-label={label}
+      aria-disabled={disabled || undefined}
+      className={`flex gap-1 rounded-xl bg-subtle p-1 ${disabled ? 'opacity-50' : ''}`}
+    >
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -22,6 +30,7 @@ export function SegmentedControl<T extends string>({
             type="button"
             role="radio"
             aria-checked={active}
+            disabled={disabled}
             onClick={() => onChange(option.value)}
             className={[
               'h-10 flex-1 rounded-lg text-sm font-medium transition-colors',
