@@ -115,6 +115,36 @@ test.describe('Bon einlesen', () => {
     await expect(page.getByLabel('Topf für Kaffee to go')).toHaveValue(/.+/);
   });
 
+  /**
+   * Safari hat `ReadableStream[Symbol.asyncIterator]` nicht — nur Chromium und
+   * Firefox können `for await (const x of stream)`. `page.getTextContent()` von
+   * pdf.js tut genau das und wirft dort „undefined is not a function", und zwar
+   * erst nach dem Laden des Dokuments: Für den Nutzer sah es aus wie ein
+   * unlesbares PDF.
+   *
+   * Der Test nimmt dem Browser diese Methode weg. Das ist die Nachbildung von
+   * Safari, die in Chromium läuft — ein WebKit im Testlauf wäre eine zweite
+   * Browser-Abhängigkeit für genau eine Zeile.
+   */
+  test('liest den Bon auch ohne Stream-Iteration am Browser (Safari)', async ({ page }) => {
+    await page.addInitScript(() => {
+      const proto = ReadableStream.prototype as unknown as Record<symbol, unknown>;
+      delete proto[Symbol.asyncIterator];
+    });
+
+    await einrichten(page);
+
+    await erfassenOeffnen(page, 'Ausgabe');
+    await page.getByRole('button', { name: /Aus PDF-Bon einlesen/ }).click();
+    await page.setInputFiles(
+      'input[type="file"][accept="application/pdf"]',
+      'e2e/fixtures/bon-textschicht.pdf',
+    );
+
+    await expect(page.getByText('Erkannt — die Posten gehen auf die Endsumme auf.')).toBeVisible();
+    await expect(page.getByLabel('Topf für Brötchen')).toBeVisible();
+  });
+
   test('liest einen Bon ohne Anhang aus der Textschicht', async ({ page }) => {
     await einrichten(page);
 

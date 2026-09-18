@@ -23,6 +23,10 @@
  * REWE-Beleg nicht — der Fehler war also mit den Mustern allein nicht zu
  * sehen. Der Legacy-Build ist transpiliert und genau für solche Browser da.
  *
+ * Aus demselben Grund liest diese Hülle die Textschicht selbst über
+ * `streamTextContent().getReader()` statt über `page.getTextContent()`: siehe
+ * `readTextChunks()`.
+ *
  * Bei einem Update von `pdfjs-dist` muss die Datei neu kopiert und hier die
  * Version nachgezogen werden — **aus `legacy/`**:
  *
@@ -35,6 +39,17 @@ import { withBasePath } from '../base-path';
 import { groupIntoLines, type TextChunk } from './lines';
 
 type Pdfjs = typeof PdfjsModule;
+type PdfPage = PdfjsModule.PDFPageProxy;
+
+/**
+ * Ein Stück der Textschicht, wie es aus `streamTextContent()` kommt.
+ *
+ * pdf.js typisiert den Stream nur als `ReadableStream` ohne Elementtyp; die
+ * Posten werden hier sowieso einzeln über `isTextItem` geprüft.
+ */
+interface TextContentChunk {
+  items?: unknown[];
+}
 
 /** Muss zur Datei in `public/vendor/` und zu `package.json` passen. */
 export const PDFJS_VERSION = '6.3.289';
@@ -90,6 +105,40 @@ export interface ExtractOptions {
 export const defaultLoader: PdfjsLoader = () =>
   import('pdfjs-dist/legacy/build/pdf.mjs') as Promise<Pdfjs>;
 
+/**
+ * Holt die Textstücke einer Seite über den Reader des Streams.
+ *
+ * `page.getTextContent()` wäre eine Zeile, tut intern aber
+ * `for await (const value of stream)` — und **Safari hat
+ * `ReadableStream[Symbol.asyncIterator]` nicht**, nur Chromium und Firefox.
+ * Dort wirft pdf.js deshalb „undefined is not a function", erst nach dem Laden
+ * des Dokuments; für den Nutzer sah das aus wie ein unlesbares PDF.
+ *
+ * `getReader()` gibt es überall. `streamTextContent()` ist dieselbe öffentliche
+ * Schnittstelle, die `getTextContent()` selbst benutzt — hier wird nur die
+ * Schleife von Hand geschrieben. `e2e/bon-import.spec.ts` nimmt dem Browser den
+ * Symbol.asyncIterator weg und prüft genau diesen Weg.
+ */
+async function readTextChunks(page: PdfPage): Promise<TextChunk[]> {
+  const reader = (page.streamTextContent() as ReadableStream<TextContentChunk>).getReader();
+  const chunks: TextChunk[] = [];
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      for (const item of value?.items ?? []) {
+        if (!isTextItem(item)) continue;
+        chunks.push({ str: item.str, x: item.transform[4] ?? 0, y: item.transform[5] ?? 0 });
+      }
+    }
+  } finally {
+    // Ohne das bleibt der Stream gesperrt; pdf.js bricht ihn beim Abräumen des
+    // Dokuments dann mit einer Warnung ab.
+    reader.releaseLock();
+  }
+  return chunks;
+}
+
 export async function extractPdf(blob: Blob, options: ExtractOptions = {}): Promise<PdfContent> {
   const pdfjs = await (options.load ?? defaultLoader)();
   const workerSrc =
@@ -131,15 +180,9 @@ export async function extractPdf(blob: Blob, options: ExtractOptions = {}): Prom
     const lines: string[] = [];
     for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
       const page = await doc.getPage(pageNumber);
-      const content = await page.getTextContent();
-      const chunks: TextChunk[] = [];
-      for (const item of content.items) {
-        if (!isTextItem(item)) continue;
-        chunks.push({ str: item.str, x: item.transform[4] ?? 0, y: item.transform[5] ?? 0 });
-      }
       // Seitenweise gruppieren: Die y-Koordinaten beginnen auf jeder Seite
       // wieder oben, quer über Seiten gruppiert würde alles verschmelzen.
-      lines.push(...groupIntoLines(chunks));
+      lines.push(...groupIntoLines(await readTextChunks(page)));
     }
 
     return { attachments, lines };
