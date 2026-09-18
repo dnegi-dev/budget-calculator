@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { entsperren, erfassenOeffnen } from './helpers';
 
 /**
  * Ein Durchlauf des Alltagswegs.
@@ -7,6 +8,12 @@ import { expect, test } from '@playwright/test';
  * Zahl dasteht: 400 € Limit minus 12,50 € Ausgabe ergibt 387,50 € — über
  * Wizard, Bottom Sheet, IndexedDB und Restbetragsrechnung hinweg.
  */
+
+// Die Anmeldung selbst prüft login.spec.ts — hier soll der Alltag geprüft
+// werden, nicht jedes Mal dieselbe Tür.
+test.beforeEach(async ({ page }) => {
+  await entsperren(page);
+});
 
 test.describe('Haushalt einrichten und buchen', () => {
   test('Ersteinrichtung, Topf, Ausgabe, Beleg, Sicherung', async ({ page }) => {
@@ -30,11 +37,13 @@ test.describe('Haushalt einrichten und buchen', () => {
     await page.getByRole('button', { name: /Los geht/ }).click();
 
     // --- Startseite ------------------------------------------------------
-    await expect(page.getByRole('button', { name: 'Ausgabe erfassen' })).toBeVisible();
+    // Die im Wizard gewählten Töpfe stehen jetzt hier.
+    await expect(page.getByRole('link', { name: /Wohnen/ })).toBeVisible();
 
     // --- Topf anlegen ----------------------------------------------------
-    await page.getByRole('link', { name: 'Töpfe' }).first().click();
-    await page.getByRole('button', { name: '+ Neuer Topf' }).click();
+    // Über die Zeile unter der Liste — der Weg, den es mobil wie auf dem
+    // Desktop gibt, seit „Töpfe" nicht mehr in der unteren Leiste steht.
+    await page.getByRole('button', { name: 'Neuer Topf' }).click();
 
     await page.getByLabel('Wofür ist der Topf?').fill('Lebensmittel');
     await page.getByRole('button', { name: 'Weiter' }).click();
@@ -50,7 +59,9 @@ test.describe('Haushalt einrichten und buchen', () => {
 
     // --- Ausgabe buchen --------------------------------------------------
     await page.getByRole('link', { name: 'Heute' }).first().click();
-    await page.getByRole('button', { name: 'Ausgabe erfassen' }).click();
+    // Mobil über den schwebenden Knopf, auf dem Desktop über den Knopf auf der
+    // Seite — beides führt in dasselbe Sheet.
+    await erfassenOeffnen(page, 'Ausgabe');
 
     await page.getByLabel('Betrag').fill('12,50');
     await page.getByRole('button', { name: 'Weiter' }).click();
@@ -114,7 +125,7 @@ test.describe('Haushalt einrichten und buchen', () => {
     await page.getByRole('button', { name: 'Weiter' }).click();
     await page.getByRole('button', { name: /Los geht/ }).click();
 
-    await page.getByRole('button', { name: 'Ausgabe erfassen' }).click();
+    await erfassenOeffnen(page, 'Ausgabe');
     await page.getByLabel('Betrag').fill('33,33');
     await page.getByRole('button', { name: 'Speichern' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();

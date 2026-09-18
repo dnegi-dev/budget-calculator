@@ -9,8 +9,8 @@
   --bg: oklch(99% 0.004 240);
   --bg-elevated: oklch(100% 0 0);
   --bg-subtle: oklch(96.5% 0.005 240);
-  --border: oklch(91% 0.007 240);
-  --border-strong: oklch(84% 0.01 240);
+  --border: oklch(93.5% 0.006 240);
+  --border-strong: oklch(86% 0.009 240);
   --text: oklch(24% 0.02 250);
   --text-muted: oklch(52% 0.015 250);
   --accent: oklch(52% 0.13 250);
@@ -28,7 +28,12 @@
   --pot-slate: oklch(56% 0.02 250);
 
   --radius: 0.75rem;
-  --shadow-card: 0 1px 2px oklch(24% 0.02 250 / 0.06), 0 1px 12px oklch(24% 0.02 250 / 0.04);
+  /*
+   * Kein Schatten. Bei dieser Dichte trennt er nichts, was Abstand nicht
+   * besser trennt — er macht die Listen nur unruhig. Der Token bleibt, damit
+   * einzelne Stellen (schwebender Knopf, Sheet) ihn setzen können.
+   */
+  --shadow-card: none;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -36,8 +41,8 @@
     --bg: oklch(17% 0.012 255);
     --bg-elevated: oklch(21% 0.014 255);
     --bg-subtle: oklch(24% 0.014 255);
-    --border: oklch(29% 0.016 255);
-    --border-strong: oklch(38% 0.02 255);
+    --border: oklch(27% 0.015 255);
+    --border-strong: oklch(36% 0.019 255);
     --text: oklch(95% 0.008 250);
     --text-muted: oklch(70% 0.014 250);
     --accent: oklch(70% 0.12 250);
@@ -46,7 +51,7 @@
     --positive: oklch(72% 0.14 155);
     --negative: oklch(70% 0.16 22);
     --warning: oklch(78% 0.13 75);
-    --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.3);
+    --shadow-card: none;
   }
 }
 
@@ -54,8 +59,8 @@
   --bg: oklch(17% 0.012 255);
   --bg-elevated: oklch(21% 0.014 255);
   --bg-subtle: oklch(24% 0.014 255);
-  --border: oklch(29% 0.016 255);
-  --border-strong: oklch(38% 0.02 255);
+  --border: oklch(27% 0.015 255);
+  --border-strong: oklch(36% 0.019 255);
   --text: oklch(95% 0.008 250);
   --text-muted: oklch(70% 0.014 250);
   --accent: oklch(70% 0.12 250);
@@ -64,7 +69,7 @@
   --positive: oklch(72% 0.14 155);
   --negative: oklch(70% 0.16 22);
   --warning: oklch(78% 0.13 75);
-  --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.3);
+  --shadow-card: none;
 }
 
 @theme inline {

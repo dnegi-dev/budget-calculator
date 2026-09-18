@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { entsperren } from './helpers';
 
 /**
  * Impressum und Datenschutz müssen erreichbar sein, **bevor** ein Haushalt
@@ -22,6 +23,7 @@ test.describe('Rechtsseiten', () => {
   });
 
   test('sind aus dem Onboarding heraus verlinkt', async ({ page }) => {
+    await entsperren(page);
     await page.goto('/');
     await expect(page.getByRole('heading', { name: /Wie soll dein Haushalt hei/ })).toBeVisible();
 
@@ -34,13 +36,14 @@ test.describe('Rechtsseiten', () => {
   });
 
   test('sind aus der eingerichteten App heraus verlinkt', async ({ page }) => {
+    await entsperren(page);
     await page.goto('/');
     await page.getByLabel('Name des Haushalts').fill('Rechtstest');
     await page.getByRole('button', { name: 'Weiter' }).click();
     await page.getByRole('button', { name: 'Weiter' }).click();
     await page.getByRole('button', { name: 'Weiter' }).click();
     await page.getByRole('button', { name: /Los geht/ }).click();
-    await expect(page.getByRole('button', { name: 'Ausgabe erfassen' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Vorige Periode' })).toBeVisible();
 
     await page.getByRole('link', { name: 'Datenschutz' }).first().click();
     await expect(

@@ -70,7 +70,7 @@ export function ReceiptThumbnail({
             type="button"
             onClick={() => void repository.deleteReceipt(receipt.id)}
             aria-label={`Beleg ${receipt.filename} löschen`}
-            className="absolute -top-1.5 -right-1.5 grid h-6 w-6 place-items-center rounded-full border border-line bg-surface text-xs shadow-[var(--shadow-card)]"
+            className="absolute -top-1.5 -right-1.5 grid h-6 w-6 place-items-center rounded-full border border-line bg-surface text-xs shadow-sm"
           >
             ×
           </button>

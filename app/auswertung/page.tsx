@@ -108,7 +108,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="text-xl font-semibold">Auswertung</h1>
+      <h1 className="text-xl font-medium">Auswertung</h1>
 
       <Card className="px-4 py-3">
         <PeriodSwitcher periodKey={periodKey} onChange={setPeriodKey} currentKey={currentKey} />

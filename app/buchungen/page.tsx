@@ -113,7 +113,7 @@ export default function EntriesPage() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Buchungen</h1>
+        <h1 className="text-xl font-medium">Buchungen</h1>
         {can('entry.create') && (
           <Button variant="primary" size="sm" onClick={() => setEntryOpen(true)}>
             + Erfassen

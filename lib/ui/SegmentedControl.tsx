@@ -25,7 +25,8 @@ export function SegmentedControl<T extends string>({
             onClick={() => onChange(option.value)}
             className={[
               'h-10 flex-1 rounded-lg text-sm font-medium transition-colors',
-              active ? 'bg-surface text-ink shadow-[var(--shadow-card)]' : 'text-ink-muted',
+              // Ohne Schatten trägt die Fläche allein — dafür etwas kräftiger.
+              active ? 'bg-surface text-ink' : 'text-ink-muted',
             ].join(' ')}
           >
             {option.label}
