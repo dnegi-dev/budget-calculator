@@ -70,3 +70,47 @@ describe('extractPdf', () => {
     await expect(extractPdf(kein, inNode)).rejects.toThrow(/nicht als PDF lesen/);
   });
 });
+
+describe('Supermarkt-Aufbau', () => {
+  /**
+   * Das Muster hat den Aufbau eines echten Bons — und genau die Stellen, an
+   * denen der Parser einmal gescheitert ist. Ohne den Schnitt an der
+   * Summenzeile zählten die Bonus-Beträge der Fußzeile mit, die Summenprobe
+   * riss, und die Aufteilung fiel ganz aus.
+   */
+  it('liest die Posten und lässt die Fußzeile draußen', async () => {
+    const { lines } = await extractPdf(fixture('bon-supermarkt.pdf'), inNode);
+    const parsed = parseTextLines(lines);
+
+    expect(parsed.quality).toBe('geprüft');
+    expect(parsed.totalCents).toBe(2417);
+    // Gesperrt gesetzter Kopf: „K A U F L A D E N" ist der Händler, nicht die
+    // Straße darunter.
+    expect(parsed.merchant).toBe('KAUFLADEN');
+    expect(parsed.date).toBe('2026-09-18');
+
+    const labels = parsed.items.map((item) => item.label);
+    expect(labels).toEqual([
+      'HAFERDRINK',
+      'Treuerabatt',
+      'VOLLKORNBROT',
+      'TOMATEN RISPE',
+      'KAESE GOUDA',
+      'NUDELN PENNE',
+      'OLIVENOEL',
+      'APFELSAFT',
+      'SPUELMITTEL',
+      'ZAHNPASTA',
+      'BANANEN BIO',
+    ]);
+
+    // Nichts aus der Fußzeile, nichts aus der Steuertabelle.
+    expect(labels.some((label) => /Guthaben|Eigenmarke|Einkauf|Gesamtbetrag/.test(label))).toBe(
+      false,
+    );
+    // Die Mengenzeile „2 Stk x 1,99" ist kein eigener Posten.
+    expect(labels).not.toContain('2 Stk x');
+    // Der Rabatt bleibt negativ, sonst ginge die Summe nicht auf.
+    expect(parsed.items.find((item) => item.label === 'Treuerabatt')?.amountCents).toBe(-90);
+  });
+});

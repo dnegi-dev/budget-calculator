@@ -225,10 +225,17 @@ abzulehnen. Das Schema selbst bleibt streng, es ist die künftige API-Grenze.
   zusagt, dass alle Dateien vom selben Server kommen. Bei einem Update von
   `pdfjs-dist`: Datei neu kopieren und `PDFJS_VERSION` in
   `lib/pdf/extract.ts` nachziehen.
+- **Posten stehen vor der Summe.** Was nach der Summenzeile kommt, ist
+  Fußzeile und wird nicht gelesen. Klingt nach einer Feinheit, ist aber der
+  Unterschied zwischen funktionierend und nutzlos: Ein echter Bon trug dort
+  22,24 € an Bonus-Guthaben und Coupons, die als Posten mitgezählt wurden — die
+  Summenprobe riss, und die Aufteilung fiel ganz aus.
 - **Muster statt echter Bons im Test.** `e2e/fixtures/*.pdf` sind von Hand
-  gebaut (`build.mjs`), einmal mit und einmal ohne `ekabs.json`. Wie die Bons
-  echter Händler aussehen, ist damit **nicht** geprüft — dafür zeigt die
-  Vorschau Zeile für Zeile, was erkannt wurde.
+  gebaut (`build.mjs`): mit `ekabs.json`, ohne, und einer mit dem Aufbau eines
+  Supermarkt-Ausdrucks samt gesperrtem Kopf, Rabatt-, Mengen- und
+  Bonuszeilen. Ein echter Bon gehört ins Muster nur als **Struktur**, nie als
+  Datei: Da stehen Einkauf, Filiale und Signatur drin, und das Repository ist
+  öffentlich.
 
 ## Rechtsseiten
 

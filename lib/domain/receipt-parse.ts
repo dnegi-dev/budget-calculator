@@ -125,16 +125,27 @@ export function splitItemLine(line: string): ParsedItem | null {
   };
 }
 
-function findTotal(lines: readonly string[]): number | null {
-  // Von unten, weil die Endsumme am Ende steht und weiter oben eine
-  // Zwischensumme stehen kann.
-  for (let index = lines.length - 1; index >= 0; index -= 1) {
-    const line = lines[index] ?? '';
+interface TotalHit {
+  cents: number;
+  /** Zeilennummer — dort endet die Postenliste. */
+  index: number;
+}
+
+/**
+ * Findet die Endsumme und damit das Ende der Postenliste.
+ *
+ * Von **oben**, nicht von unten: Auf einem echten Bon folgt der Summe eine
+ * Fußzeile, und die kann weitere Beträge tragen — Bonus-Guthaben, Coupons,
+ * Rückgeld. Die erste ernst zu nehmende Summenzeile ist die richtige; eine
+ * Zwischensumme wird dabei ausdrücklich übersprungen.
+ */
+function findTotal(lines: readonly string[]): TotalHit | null {
+  for (const [index, line] of lines.entries()) {
     if (!/\b(summe|gesamt|total|zu\s*zahlen|endbetrag)\b/i.test(line)) continue;
     if (/\b(zwischensumme|mwst|ust|steuer|netto)\b/i.test(line)) continue;
     const match = TRAILING_AMOUNT.exec(line);
     const cents = match ? parseAmountToCents(match[1] ?? '') : null;
-    if (cents !== null) return cents;
+    if (cents !== null) return { cents, index };
   }
   return null;
 }
@@ -156,10 +167,21 @@ function findDate(lines: readonly string[]): IsoDate | null {
   return null;
 }
 
+/**
+ * Gesperrt gesetzte Kopfzeilen zusammenziehen: „R E W E" → „REWE".
+ *
+ * Kassen setzen den Namen des Händlers gern mit Leerzeichen zwischen den
+ * Buchstaben. Ohne diese Zeile fällt er durch jede Prüfung auf
+ * zusammenhängende Buchstaben — und als Händler landet die Straße darunter.
+ */
+function unspace(line: string): string {
+  return /^(?:\p{L}\s+){2,}\p{L}\.?$/u.test(line) ? line.replace(/\s+/g, '') : line;
+}
+
 function findMerchant(lines: readonly string[]): string | null {
   // Der Händler steht im Kopf: die erste Zeile mit Buchstaben und ohne Betrag.
   for (const line of lines.slice(0, 6)) {
-    const trimmed = line.trim();
+    const trimmed = unspace(line.trim());
     if (trimmed === '' || TRAILING_AMOUNT.test(trimmed)) continue;
     if (!/\p{L}{3}/u.test(trimmed)) continue;
     if (isNonItem(trimmed)) continue;
@@ -175,12 +197,19 @@ function findMerchant(lines: readonly string[]): string | null {
  * Postenliste und `quality: 'unsicher'`.
  */
 export function parseTextLines(lines: readonly string[]): ParsedReceipt {
-  const totalCents = findTotal(lines);
+  const total = findTotal(lines);
+  const totalCents = total?.cents ?? null;
   const date = findDate(lines);
   const merchant = findMerchant(lines);
 
+  // Posten stehen **vor** der Summe. Was danach kommt, ist Fußzeile — und die
+  // trägt Beträge: Bonus-Guthaben, Coupons, Rückgeld, Steuertabelle. Sie
+  // mitzulesen war der Grund, warum ein echter REWE-Bon die Summenprobe
+  // gerissen hat (22,24 € Bonus-Zeilen über der Endsumme).
+  const itemLines = total ? lines.slice(0, total.index) : lines;
+
   const items: ParsedItem[] = [];
-  for (const line of lines) {
+  for (const line of itemLines) {
     if (isNonItem(line)) continue;
     const item = splitItemLine(line);
     if (item && item.amountCents !== 0) items.push(item);
