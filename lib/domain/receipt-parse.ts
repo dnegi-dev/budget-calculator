@@ -440,6 +440,14 @@ export interface SplitGroup {
   kind: 'expense' | 'income';
   /** Die Posten, die in diese Buchung eingegangen sind. */
   labels: string[];
+  /**
+   * Die Plätze dieser Posten in der übergebenen Liste.
+   *
+   * Nötig, damit die Oberfläche Angaben je Posten — heute die Tags — der
+   * richtigen Buchung zuordnen kann, ohne die Gruppierung nachzubauen. Eine
+   * zweite Gruppierung wäre eine zweite Wahrheit.
+   */
+  indices: number[];
 }
 
 /**
@@ -460,18 +468,22 @@ export function groupItemsByPot(
   potIds: readonly (string | null)[],
 ): SplitGroup[] {
   const order: (string | null)[] = [];
-  const byPot = new Map<string | null, { amountCents: number; labels: string[] }>();
+  const byPot = new Map<
+    string | null,
+    { amountCents: number; labels: string[]; indices: number[] }
+  >();
 
   items.forEach((item, index) => {
     const potId = potIds[index] ?? null;
     let group = byPot.get(potId);
     if (!group) {
-      group = { amountCents: 0, labels: [] };
+      group = { amountCents: 0, labels: [], indices: [] };
       byPot.set(potId, group);
       order.push(potId);
     }
     group.amountCents += item.amountCents;
     group.labels.push(item.label);
+    group.indices.push(index);
   });
 
   const groups: SplitGroup[] = [];
@@ -483,6 +495,7 @@ export function groupItemsByPot(
       amountCents: Math.abs(group.amountCents),
       kind: group.amountCents < 0 ? 'income' : 'expense',
       labels: group.labels,
+      indices: group.indices,
     });
   }
   return groups;

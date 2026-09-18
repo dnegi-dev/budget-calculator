@@ -9,6 +9,7 @@
 import { z } from 'zod';
 import { isIsoDate } from './dates';
 import { isPeriodKey } from './period';
+import { TAG_LIMITS } from './tags';
 
 export const isoDateSchema = z.string().refine(isIsoDate, 'Kein gültiges Datum (YYYY-MM-DD)');
 export const isoDateTimeSchema = z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
@@ -52,6 +53,14 @@ export const potKindSchema = z.enum(['budget', 'envelope', 'category']);
 export const entryKindSchema = z.enum(['expense', 'income']);
 export const frequencySchema = z.enum(['weekly', 'monthly', 'yearly']);
 
+export const tagSchema = z.string().min(1).max(TAG_LIMITS.length);
+/**
+ * Tags einer Buchung. Mit Standardwert, damit Sicherungen von vor den Tags
+ * weiter einlesbar bleiben — und mit Obergrenze, weil eine eingefügte Zeile
+ * sonst dreißig Marken an eine Buchung hängt.
+ */
+export const tagsSchema = z.array(tagSchema).max(TAG_LIMITS.perEntry).default([]);
+
 /** Beträge: nicht negativ, ganzzahlig, unter einer Milliarde Cent. */
 export const amountCentsSchema = z
   .number()
@@ -74,6 +83,12 @@ export const householdSchema = z.object({
   currency: z.string().length(3, 'Währung als ISO-Code, z. B. EUR'),
   locale: z.string().min(2).max(35),
   periodStartDay: z.number().int().min(1).max(28),
+  // Drei Felder, die es in Version 1 noch nicht gab. Standardwerte, damit
+  // ältere Sicherungen einlesbar bleiben: kein Standardtopf, Topf abfragen
+  // wie bisher, Tags aus.
+  defaultPotId: idSchema.nullable().default(null),
+  askForPot: z.boolean().default(true),
+  tagsEnabled: z.boolean().default(false),
   onboardingCompletedAt: isoDateTimeSchema.nullable(),
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
@@ -112,6 +127,7 @@ export const entrySchema = z.object({
   // Ältere Sicherungen kennen das Feld nicht — ohne den Standardwert
   // ließe sich keine davon mehr einlesen.
   splitGroupId: idSchema.nullable().default(null),
+  tags: tagsSchema,
   createdBy: idSchema,
 });
 
