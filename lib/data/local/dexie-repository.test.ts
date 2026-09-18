@@ -715,3 +715,204 @@ describe('Wiederherstellung vor der Einrichtung', () => {
     await expect(repo.restoreFromBackup(file)).rejects.toThrow(/schon einen Haushalt/);
   });
 });
+
+describe('Standardtopf als Auffangnetz', () => {
+  it('bucht eine Ausgabe ohne Topf in den Standardtopf, eine Einnahme nicht', async () => {
+    const pot = await repo.createPot({
+      name: 'Sonstiges',
+      kind: 'category',
+      limitCents: null,
+      carryOver: false,
+    });
+    await repo.updateHousehold({ defaultPotId: pot.id });
+
+    const ausgabe = await repo.createEntry({
+      potId: null,
+      kind: 'expense',
+      amountCents: 1_000,
+      date: '2026-09-18',
+    });
+    const einnahme = await repo.createEntry({
+      potId: null,
+      kind: 'income',
+      amountCents: 200_000,
+      date: '2026-09-18',
+    });
+
+    expect(ausgabe.potId).toBe(pot.id);
+    // Einnahmen laufen auf den Haushalt — deshalb überspringt das Erfassen bei
+    // ihnen auch den Topf-Schritt.
+    expect(einnahme.potId).toBeNull();
+  });
+
+  it('lässt einen ausdrücklich gewählten Topf unberührt', async () => {
+    const standard = await repo.createPot({
+      name: 'Sonstiges',
+      kind: 'category',
+      limitCents: null,
+      carryOver: false,
+    });
+    const sport = await repo.createPot({
+      name: 'Sport',
+      kind: 'budget',
+      limitCents: 5_000,
+      carryOver: false,
+    });
+    await repo.updateHousehold({ defaultPotId: standard.id });
+
+    const entry = await repo.createEntry({
+      potId: sport.id,
+      kind: 'expense',
+      amountCents: 1_000,
+      date: '2026-09-18',
+    });
+    expect(entry.potId).toBe(sport.id);
+  });
+
+  it('greift auch bei wiederkehrenden Ausgaben ohne Topf', async () => {
+    const pot = await repo.createPot({
+      name: 'Sonstiges',
+      kind: 'category',
+      limitCents: null,
+      carryOver: false,
+    });
+    await repo.updateHousehold({ defaultPotId: pot.id });
+    await repo.createRecurringRule({
+      potId: null,
+      kind: 'expense',
+      amountCents: 4_500,
+      freq: 'monthly',
+      interval: 1,
+      dayOfMonth: 1,
+      startDate: '2026-09-01',
+    });
+
+    const created = await repo.materializeRecurringRules('2026-09-18');
+    expect(created).toBeGreaterThan(0);
+    const entries = await repo.listEntries();
+    expect(entries.every((entry) => entry.potId === pot.id)).toBe(true);
+  });
+
+  it('räumt den Standardtopf, wenn der Topf gelöscht oder archiviert wird', async () => {
+    const geloescht = await repo.createPot({
+      name: 'Weg',
+      kind: 'category',
+      limitCents: null,
+      carryOver: false,
+    });
+    await repo.updateHousehold({ defaultPotId: geloescht.id });
+    await repo.deletePot(geloescht.id);
+    expect((await repo.getHousehold())?.defaultPotId).toBeNull();
+
+    const archiviert = await repo.createPot({
+      name: 'Ruht',
+      kind: 'category',
+      limitCents: null,
+      carryOver: false,
+    });
+    await repo.updateHousehold({ defaultPotId: archiviert.id });
+    await repo.setPotArchived(archiviert.id, true);
+    // Ein Standardtopf, der in keiner Liste mehr steht, wäre ein unsichtbares
+    // Ziel für jede Ausgabe ohne Zuordnung.
+    expect((await repo.getHousehold())?.defaultPotId).toBeNull();
+  });
+
+  it('füllt die Felder auf, die ältere Installationen nicht haben', async () => {
+    const stored = await db.households.toArray();
+    const raw = { ...stored[0]! } as Record<string, unknown>;
+    delete raw.defaultPotId;
+    delete raw.askForPot;
+    delete raw.tagsEnabled;
+    await db.households.put(raw as never);
+
+    const household = await repo.getHousehold();
+    // `undefined` wäre unwahr — der Topf würde stumm nicht mehr abgefragt.
+    expect(household?.askForPot).toBe(true);
+    expect(household?.tagsEnabled).toBe(false);
+    expect(household?.defaultPotId).toBeNull();
+  });
+});
+
+describe('Tags an Buchungen', () => {
+  async function bucheMitTags(tags: string[], amountCents = 1_000) {
+    return repo.createEntry({
+      potId: null,
+      kind: 'expense',
+      amountCents,
+      date: '2026-09-18',
+      tags,
+    });
+  }
+
+  it('räumt die Liste beim Anlegen auf', async () => {
+    const entry = await bucheMitTags(['  Urlaub ', 'urlaub', '#auto', '']);
+    expect(entry.tags).toEqual(['Urlaub', 'auto']);
+  });
+
+  it('filtert unabhängig von der Schreibweise', async () => {
+    await bucheMitTags(['Urlaub']);
+    await bucheMitTags(['Auto']);
+
+    const gefiltert = await repo.listEntries({ tag: 'urlaub' });
+    expect(gefiltert).toHaveLength(1);
+    expect(gefiltert[0]?.tags).toEqual(['Urlaub']);
+  });
+
+  it('benennt in allen Buchungen um und zählt die geänderten', async () => {
+    await bucheMitTags(['Urlaub', 'auto']);
+    await bucheMitTags(['urlaub']);
+    await bucheMitTags(['bahn']);
+
+    const touched = await repo.renameTag('urlaub', 'Norwegen');
+    expect(touched).toBe(2);
+
+    const entries = await repo.listEntries();
+    expect(entries.filter((entry) => entry.tags.includes('Norwegen'))).toHaveLength(2);
+    expect(entries.some((entry) => entry.tags.some((tag) => /urlaub/i.test(tag)))).toBe(false);
+  });
+
+  it('macht aus Quell- und Zieltag an derselben Buchung einen', async () => {
+    const entry = await bucheMitTags(['urlaub', 'norwegen']);
+    await repo.renameTag('urlaub', 'Norwegen');
+
+    const aktualisiert = await repo.getEntry(entry.id);
+    expect(aktualisiert?.tags).toEqual(['Norwegen']);
+  });
+
+  it('erhöht die Revision jeder berührten Buchung — sonst fehlt sie beim Sync', async () => {
+    const entry = await bucheMitTags(['urlaub']);
+    await repo.renameTag('urlaub', 'reise');
+
+    const aktualisiert = await repo.getEntry(entry.id);
+    expect(aktualisiert?.revision).toBe(entry.revision + 1);
+    const log = await db.changeLog.where('entity').equals('entry').toArray();
+    expect(log.filter((row) => row.entityId === entry.id)).toHaveLength(2);
+  });
+
+  it('nimmt einen Tag heraus und lässt die Buchung stehen', async () => {
+    const entry = await bucheMitTags(['urlaub', 'auto']);
+    const touched = await repo.deleteTag('URLAUB');
+
+    expect(touched).toBe(1);
+    const aktualisiert = await repo.getEntry(entry.id);
+    expect(aktualisiert?.tags).toEqual(['auto']);
+    expect(aktualisiert?.amountCents).toBe(1_000);
+  });
+
+  it('tut beim Umbenennen auf denselben Namen nichts', async () => {
+    await bucheMitTags(['Urlaub']);
+    expect(await repo.renameTag('urlaub', 'URLAUB')).toBe(0);
+  });
+
+  it('lehnt einen leeren neuen Namen ab', async () => {
+    await bucheMitTags(['urlaub']);
+    await expect(repo.renameTag('urlaub', '  #  ')).rejects.toThrow(/leer/);
+  });
+
+  it('verlangt das Recht auf fremde Buchungen', async () => {
+    await bucheMitTags(['urlaub']);
+    principal = { ...principal!, role: 'member' };
+    await expect(repo.renameTag('urlaub', 'reise')).rejects.toThrow(PermissionDeniedError);
+    await expect(repo.deleteTag('urlaub')).rejects.toThrow(PermissionDeniedError);
+  });
+});
