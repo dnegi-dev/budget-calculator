@@ -272,6 +272,17 @@ abzulehnen. Das Schema selbst bleibt streng, es ist die künftige API-Grenze.
   Standard-Bundle, saß der Fehler in der Lücke und kein Test konnte ihn sehen.
   Aus demselben Grund achtet `e2e/bon-import.spec.ts` auf Konsolenfehler: Der
   Rückfall war still.
+- **Die Textschicht wird über `getReader()` gelesen, nicht über
+  `page.getTextContent()`.** Letzteres tut intern
+  `for await (const value of stream)`, und **Safari hat
+  `ReadableStream[Symbol.asyncIterator]` nicht** — nur Chromium und Firefox.
+  Auf dem iPhone kam deshalb „undefined is not a function", erst nach dem Laden
+  des Dokuments, und für den Nutzer sah es aus wie ein unlesbares PDF. Der Test
+  nimmt dem Browser genau diese Methode weg („Safari"-Fall in
+  `e2e/bon-import.spec.ts`); ein WebKit im Testlauf wäre eine zweite
+  Browser-Abhängigkeit für eine Zeile. Wer hier neue pdf.js-Aufrufe ergänzt,
+  prüft sie auf `for await` über einen Stream — im Worker ist eine solche
+  Schleife abgesichert, im Hauptthread nicht.
 - **Posten stehen vor der Summe.** Was nach der Summenzeile kommt, ist
   Fußzeile und wird nicht gelesen. Klingt nach einer Feinheit, ist aber der
   Unterschied zwischen funktionierend und nutzlos: Ein echter Bon trug dort
