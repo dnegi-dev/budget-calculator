@@ -1,0 +1,45 @@
+{
+  "name": "budget-calculator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Haushaltsplanung als lokale-first PWA",
+  "license": "BSD-3-Clause",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "serve": "npx --yes serve out -l 3000",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "dexie": "^4.4.6",
+    "dexie-react-hooks": "^4.4.0",
+    "next": "^16.3.5",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "recharts": "^3.10.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22.20.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^9.39.0",
+    "eslint-config-next": "^16.3.5",
+    "fake-indexeddb": "^6.2.5",
+    "prettier": "^3.9.8",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.0",
+    "vitest": "^5.0.1"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  }
+}
