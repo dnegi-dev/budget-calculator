@@ -3,7 +3,7 @@
 Kurzer, pflegbarer Überblick: was steht, was bewusst fehlt, was als Nächstes
 ansteht. Bei größeren Änderungen mitführen.
 
-**Stand:** 18.09.2026 · **Version:** 0.1.0 · **Zweig:** `main`
+**Stand:** 19.09.2026 · **Version:** 0.1.0 · **Zweig:** `main`
 
 ## Wo das Projekt steht
 
@@ -25,13 +25,15 @@ Konto und keine Übertragung.
 | Rollen Admin/Nutzer/Nur Lesen                    | wirksam, im Repository erzwungen                             |
 | Anmeldung (`admin`/`admin`)                      | vorhanden — **Abschreckung, kein Zugriffsschutz**            |
 | Darstellung hell/dunkel/automatisch              | fertig, pro Gerät im `localStorage`                          |
+| Themes, Akzentfarbe, Symbolstil, echtes Schwarz  | fertig; jede Kombination auf Kontrast geprüft (Test)         |
+| Einstellungen als Unterseiten mit Gefahrenzone   | fertig                                                       |
 | Update-Hinweis bei neuer Fassung                 | fertig, Leiste mit „Neu laden“ — kein automatischer Reload   |
 | PWA (Manifest, Icons, Offline-Start)             | fertig                                                       |
 | Impressum, Datenschutz                           | **Gerüst mit Platzhaltern — vor Veröffentlichung ausfüllen** |
 | Zentrale Datenbank, SSO                          | vorbereitet, nicht eingeschaltet                             |
 
-**Prüfstand:** 181 Unit-Tests (`npm test`), 17 E2E-Tests auf zwei Viewports
-(`npm run test:e2e`, 34 Läufe), typecheck und lint grün, statischer Build
+**Prüfstand:** 591 Unit-Tests (`npm test`), 27 E2E-Tests auf zwei Viewports
+(`npm run test:e2e`, 54 Läufe), typecheck und lint grün, statischer Build
 erzeugt.
 CI prüft jeden Pull Request, der Deploy-Workflow prüft erneut vor der
 Veröffentlichung.
@@ -106,7 +108,7 @@ lib/data/         BudgetRepository + Dexie-Adapter + HTTP-Adapter (Stub)
 lib/auth/         Session-Abstraktion (v1: lokaler Gerätenutzer)
 lib/rbac/         Rechtematrix und Prüfung
 lib/ui/           Primitive: Sheet, Button, AmountInput, Progress …
-lib/prefs/        Einstellungen dieses Geräts (Darstellung, Betragseingabe)
+lib/prefs/        Einstellungen dieses Geräts (Darstellung, Themes, Betragseingabe)
 lib/pdf/          pdf.js-Hülle für den Bon-Import (nachgeladen, nicht im Bundle)
 docs/             Server-Roadmap und Proxy-Vorlage für SSO
 ```

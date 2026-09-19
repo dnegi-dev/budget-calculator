@@ -255,9 +255,83 @@ Wer eine Einstellung ergänzt, die den Haushalt betrifft (Währung, Periode),
 nimmt weiter `updateHousehold` — und trägt das Feld in `householdSchema` nach,
 sonst scheitert der Import.
 
-`app/globals.css` wertet `[data-theme='light'|'dark']` aus; `theme-color` kommt
-aus dem `viewport`-Export und hängt an `prefers-color-scheme`, muss bei
-ausdrücklicher Wahl also zur Laufzeit nachgezogen werden (`applyTheme`).
+Eine neue Gerätevorliebe braucht vier Zeilen: Typ und Schlüssel in
+`device-prefs.ts`, den Schlüssel in `ALL_KEYS` (sonst merkt ein zweiter Tab
+nichts davon), einen Haken in `useDevicePref.ts` und — wenn sie vor dem ersten
+Malen sichtbar ist — einen Eintrag im Bootstrap-Skript.
+
+## Darstellung und Themes
+
+Fünf Themes (`classic`, `pastel`, `nerd`, `contrast`, `cyberpunk`), jedes hell
+und dunkel, dazu ein Schalter für echtes Schwarz und ein Vorrat an
+Akzentfarben. Die Werte stehen in `app/themes.css`, die Liste für die
+Oberfläche in `lib/ui/themes.ts`.
+
+**Der Modus wird in JavaScript aufgelöst, nicht in CSS.** Am Wurzelelement
+stehen vier Attribute: `data-mode` (`light`/`dark`, aufgelöst), `data-theme`,
+`data-accent` und `data-amoled`. Vorher hing alles an `data-theme` und am
+_Fehlen_ des Attributs, und jeder Dunkelwert stand doppelt — einmal im
+`@media (prefers-color-scheme: dark)` für „Automatisch“, einmal unter
+`[data-theme='dark']` für die ausdrückliche Wahl. Bei fünf Themes wären das
+zehn doppelte Blöcke. Übrig bleibt **ein** `@media`-Block in `globals.css` für
+den Fall, dass JavaScript nicht läuft.
+
+Daraus folgt:
+
+- **Das Bootstrap-Skript setzt alle vier Attribute**, nicht mehr nur eines,
+  und prüft die gelesenen Werte gegen die erlaubten. Es erzeugt seine Tabellen
+  aus `lib/ui/themes.ts` — eine neue Palette ist damit an genau zwei Stellen
+  nachzutragen (CSS und Liste), nicht an dreien.
+- **Die Akzent-Prüfung läuft im Skript je Theme**, genau wie `resolveAccent`.
+  Zwei verschiedene Regeln wären ein Farbwechsel beim Hydrieren.
+- **Die Vorschaukacheln tragen die Attribute selbst.** Die Selektoren hängen
+  nicht am Wurzelelement, also gilt innerhalb einer Kachel deren Palette. Die
+  Vorschau ist die Palette, keine nachgebaute Behauptung.
+
+**„Geprüft auf Lesbarkeit“ ist ein Test, keine Zusage.**
+`lib/ui/themes.test.ts` liest `app/themes.css`, baut die Kaskade nach und
+rechnet für **jede** Kombination aus Theme, Modus, Akzent und AMOLED die
+Kontrastverhältnisse: Text 7:1, gedämpfter Text und Akzent 4,5:1, Topffarben
+3:1, dazu die Prüfung, ob eine Farbe außerhalb von sRGB liegt. Die Mathematik
+steht in `lib/ui/contrast.ts`. Wer einen Farbwert nachjustiert, bekommt vom
+Test gesagt, ob er noch lesbar ist — deshalb darf in `themes.css` **kein**
+`var()` und keine Verschachtelung stehen, sonst läuft der Nachbau der Kaskade
+daran vorbei.
+
+`--pot-*` darf ein Theme mitüberschreiben; „Hoher Kontrast“ und „Cyberpunk“ tun
+es. Die sechs gedeckten Topffarben wären dort nicht unterscheidbar.
+
+## Symbole
+
+Bediensymbole kommen aus `lucide-react` und laufen über `lib/ui/Icon.tsx` —
+dort wird die eingestellte Strichstärke gesetzt und `aria-hidden` vergeben. Der
+Name steht am Knopf, nicht am Symbol.
+
+**Einzeln importieren** (`import { Search } from 'lucide-react'`): Der
+Sammelimport zieht rund 1500 Module in den Entwicklungs-Build.
+
+Emoji bleiben, wo der Nutzer sie wählt: `POT_ICONS` in `lib/ui/colors.ts`. Ein
+Icon-Satz kann „🥑“ nicht abbilden.
+
+## Einstellungen
+
+Eine Übersicht mit sieben Unterseiten (`app/einstellungen/*`), nicht mehr eine
+Seite mit zwölf Karten. `isActive` in `AppShell` arbeitet mit `startsWith`,
+also bleibt „Einstellungen“ markiert und die untere Leiste behält ihre vier
+Einträge. Jede neue Unterseite gehört in `APP_SHELL` in `public/sw.js`, sonst
+ist sie offline nicht erreichbar.
+
+**Die Gefahrenzone ist kein Stilmittel.** Dort steht, was sich nicht rückgängig
+machen lässt: `wipeAll` und das ersetzende Einlesen einer Sicherung. Letzteres
+lag vorher als danger-Knopf direkt neben „Zusammenführen“ — ein Fehlgriff dort
+verwarf den ganzen Haushalt. Beide Wege teilen sich `useBackupImport`, das
+Dateifeld steckt in `BackupFilePicker` (eine Referenz im Rückgabewert eines
+Hooks liest sonst jede Karte beim Rendern, und `react-hooks/refs` hält das zu
+Recht an).
+
+Nicht in die Gefahrenzone gehören umkehrbare Dinge: Topf archivieren, Tag
+umbenennen, `resetLocalDeviceRole`. Einen Topf zu löschen bleibt auf seiner
+Detailseite, wo der Kontext steht.
 
 ## Overlays
 

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { entsperren, erfassenOeffnen } from './helpers';
+import { entsperren, erfassenOeffnen, einstellungOeffnen } from './helpers';
 
 /**
  * Ein Durchlauf des Alltagswegs.
@@ -155,7 +155,7 @@ test.describe('Haushalt einrichten und buchen', () => {
     await page.getByRole('button', { name: 'Speichern' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
 
-    await page.getByRole('link', { name: 'Einstellungen' }).first().click();
+    await einstellungOeffnen(page, 'Sicherung');
 
     const download = await Promise.all([
       page.waitForEvent('download'),
@@ -164,14 +164,19 @@ test.describe('Haushalt einrichten und buchen', () => {
     const backupPath = await download.path();
     expect(backupPath).toBeTruthy();
 
+    await page.getByRole('link', { name: '← Einstellungen' }).click();
+    await page.getByRole('link', { name: /^Gefahrenzone/ }).click();
     await page.getByRole('button', { name: 'Daten löschen' }).click();
     await page.getByRole('button', { name: 'Ja, alles löschen' }).click();
     await expect(page.getByRole('heading', { name: /Wie soll dein Haushalt hei/ })).toBeVisible();
 
     // Wiederherstellen aus der eben erzeugten Datei. Die Anwendung erscheint
-    // danach auf der Route, auf der man stand — hier also den Einstellungen.
+    // danach auf der Route, auf der man stand — hier also der Gefahrenzone.
     await page.setInputFiles('input[type="file"]', backupPath!);
-    await expect(page.getByRole('heading', { name: 'Einstellungen', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Gefahrenzone', level: 1 })).toBeVisible();
+
+    await page.getByRole('link', { name: '← Einstellungen' }).click();
+    await page.getByRole('link', { name: /^Haushalt/ }).click();
     await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Sicherungstest');
 
     await page.getByRole('link', { name: 'Buchungen' }).first().click();
