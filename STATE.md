@@ -27,13 +27,16 @@ Konto und keine Übertragung.
 | Darstellung hell/dunkel/automatisch              | fertig, pro Gerät im `localStorage`                          |
 | Themes, Akzentfarbe, Symbolstil, echtes Schwarz  | fertig; jede Kombination auf Kontrast geprüft (Test)         |
 | Einstellungen als Unterseiten mit Gefahrenzone   | fertig                                                       |
+| Schwebender Knopf mit Standardaktion             | fertig; allgemein und je Bereich, langes Drücken für die Art |
+| Klebende Leiste je Liste (Titel, Suche, Filter)  | fertig auf Heute, Buchungen, Wiederkehrend, Töpfe, Ordnen    |
 | Update-Hinweis bei neuer Fassung                 | fertig, Leiste mit „Neu laden“ — kein automatischer Reload   |
 | PWA (Manifest, Icons, Offline-Start)             | fertig                                                       |
 | Impressum, Datenschutz                           | **Gerüst mit Platzhaltern — vor Veröffentlichung ausfüllen** |
 | Zentrale Datenbank, SSO                          | vorbereitet, nicht eingeschaltet                             |
 
-**Prüfstand:** 591 Unit-Tests (`npm test`), 27 E2E-Tests auf zwei Viewports
-(`npm run test:e2e`, 54 Läufe), typecheck und lint grün, statischer Build
+**Prüfstand:** 601 Unit-Tests (`npm test`), 34 E2E-Tests auf zwei Viewports
+(`npm run test:e2e`, 63 Läufe und 5 bewusste Auslassungen — den schwebenden
+Knopf gibt es ab `md` nicht), typecheck und lint grün, statischer Build
 erzeugt.
 CI prüft jeden Pull Request, der Deploy-Workflow prüft erneut vor der
 Veröffentlichung.
