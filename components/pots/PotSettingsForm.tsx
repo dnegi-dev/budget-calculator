@@ -15,7 +15,9 @@ import { parseAmountToCents } from '../../lib/domain/money';
 import { POT_KINDS, matchesPreset, potKindPreset } from '../../lib/domain/pot-kinds';
 import type { Pot, PotKind } from '../../lib/domain/types';
 import { AmountInput } from '../../lib/ui/AmountInput';
+import { Pencil } from 'lucide-react';
 import { Banner } from '../../lib/ui/Banner';
+import { Icon } from '../../lib/ui/Icon';
 import { Button } from '../../lib/ui/Button';
 import { Field, inputClass, selectClass } from '../../lib/ui/Field';
 import { POT_COLORS, POT_ICONS, potColorVar } from '../../lib/ui/colors';
@@ -137,7 +139,7 @@ function PotFields({ pot }: { pot: Pot }) {
       )}
 
       {deviates && (
-        <Banner icon="✎">
+        <Banner icon={<Icon icon={Pencil} size={18} />}>
           Diese Kombination weicht von „{potKindPreset(kind).label}“ ab. Das ist erlaubt — der Topf
           wird in Listen als angepasst geführt.
         </Banner>

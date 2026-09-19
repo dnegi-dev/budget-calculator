@@ -28,6 +28,8 @@ import {
 } from '../../lib/domain/period';
 import { summarizeTags } from '../../lib/domain/tags';
 import { Card, CardHeader } from '../../lib/ui/Card';
+import { ChartPie } from 'lucide-react';
+import { Icon } from '../../lib/ui/Icon';
 import { EmptyState } from '../../lib/ui/EmptyState';
 import { SegmentedControl } from '../../lib/ui/SegmentedControl';
 import { POT_COLORS, potColorVar } from '../../lib/ui/colors';
@@ -158,7 +160,7 @@ export default function AnalyticsPage() {
       {!hasData ? (
         <Card>
           <EmptyState
-            icon="◔"
+            icon={<Icon icon={ChartPie} size={30} />}
             title="Noch keine Zahlen"
             hint="In dieser Periode gibt es keine Buchungen. Erfasse eine Ausgabe, dann erscheinen hier die Diagramme."
           />

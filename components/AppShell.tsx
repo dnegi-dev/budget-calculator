@@ -17,12 +17,15 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import { ChartPie, House, ListOrdered, Settings, Wallet } from 'lucide-react';
+import { Icon } from '../lib/ui/Icon';
 import { QuickEntryButton } from './QuickEntryButton';
 
 interface NavItem {
   href: string;
   label: string;
-  icon: string;
+  icon: LucideIcon;
   /**
    * In der unteren Leiste ist Platz für vier Ziele. „Töpfe" fehlt dort
    * bewusst: Die Startseite listet dieselben Töpfe mit denselben
@@ -33,11 +36,11 @@ interface NavItem {
 }
 
 const NAV: readonly NavItem[] = [
-  { href: '/', label: 'Heute', icon: '⌂', primary: true },
-  { href: '/toepfe', label: 'Töpfe', icon: '◫', primary: false },
-  { href: '/buchungen', label: 'Buchungen', icon: '≡', primary: true },
-  { href: '/auswertung', label: 'Auswertung', icon: '◔', primary: true },
-  { href: '/einstellungen', label: 'Einstellungen', icon: '⚙', primary: true },
+  { href: '/', label: 'Heute', icon: House, primary: true },
+  { href: '/toepfe', label: 'Töpfe', icon: Wallet, primary: false },
+  { href: '/buchungen', label: 'Buchungen', icon: ListOrdered, primary: true },
+  { href: '/auswertung', label: 'Auswertung', icon: ChartPie, primary: true },
+  { href: '/einstellungen', label: 'Einstellungen', icon: Settings, primary: true },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -82,9 +85,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   : 'text-ink-muted hover:bg-subtle hover:text-ink',
               ].join(' ')}
             >
-              <span aria-hidden className="w-5 text-center text-lg">
-                {item.icon}
-              </span>
+              <Icon icon={item.icon} size={20} />
               {item.label}
             </Link>
           ))}
@@ -135,9 +136,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 isActive(pathname, item.href) ? 'text-accent' : 'text-ink-muted',
               ].join(' ')}
             >
-              <span aria-hidden className="text-lg leading-none">
-                {item.icon}
-              </span>
+              <Icon icon={item.icon} size={22} />
               {item.label}
             </Link>
           ))}

@@ -8,14 +8,21 @@ const TONES: Record<Tone, string> = {
   negative: 'border-[var(--negative)] bg-subtle text-ink',
 };
 
-/** Kurzer Hinweis im Inhaltsfluss — für Dinge, die man wissen, aber nicht wegklicken muss. */
+/**
+ * Kurzer Hinweis im Inhaltsfluss — für Dinge, die man wissen, aber nicht
+ * wegklicken muss.
+ *
+ * `icon` nimmt einen Knoten, nicht mehr eine Zeichenkette: Seit es
+ * `lib/ui/Icon.tsx` gibt, steht dort meist ein Lucide-Symbol. Ein Emoji als
+ * Text funktioniert weiter — beides ist ein `ReactNode`.
+ */
 export function Banner({
   tone = 'info',
   icon,
   children,
 }: {
   tone?: Tone;
-  icon?: string;
+  icon?: ReactNode;
   children: ReactNode;
 }) {
   return (

@@ -12,14 +12,15 @@ export function EmptyState({
   hint,
   action,
 }: {
-  icon: string;
+  icon: ReactNode;
   title: string;
   hint: string;
   action?: ReactNode;
 }) {
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
-      <span aria-hidden className="text-3xl opacity-70">
+      {/* Groß und blass: Der Blick soll auf dem Text landen, nicht am Symbol. */}
+      <span aria-hidden className="text-3xl text-ink-muted opacity-70">
         {icon}
       </span>
       <p className="font-medium">{title}</p>
