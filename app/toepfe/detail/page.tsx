@@ -17,6 +17,8 @@ import { EntryList } from '../../../components/entries/EntryList';
 import { EntrySheet } from '../../../components/entries/EntrySheet';
 import { EntryFilterFields } from '../../../components/lists/EntryFilterFields';
 import { ListToolbar } from '../../../components/lists/ListToolbar';
+import { ToolbarButton } from '../../../components/lists/ToolbarLink';
+import { RecurringSection } from '../../../components/recurring/RecurringSection';
 import { useEntryFilters } from '../../../components/lists/useEntryFilters';
 import { PeriodSwitcher } from '../../../components/PeriodSwitcher';
 import { PotSettingsForm } from '../../../components/pots/PotSettingsForm';
@@ -27,12 +29,13 @@ import { computePotPeriodState, entriesInPeriod } from '../../../lib/domain/ledg
 import { periodForDate } from '../../../lib/domain/period';
 import { describePotConfig, matchesPreset } from '../../../lib/domain/pot-kinds';
 import { collectTags } from '../../../lib/domain/tags';
-import { CircleHelp } from 'lucide-react';
+import { CircleHelp, Settings } from 'lucide-react';
 import { Icon } from '../../../lib/ui/Icon';
 import { Banner } from '../../../lib/ui/Banner';
 import { Button } from '../../../lib/ui/Button';
 import { Card, CardHeader } from '../../../lib/ui/Card';
 import { ProgressBar } from '../../../lib/ui/ProgressBar';
+import { Sheet } from '../../../lib/ui/Sheet';
 import { potColorVar } from '../../../lib/ui/colors';
 import { useFormat } from '../../../lib/ui/useFormat';
 
@@ -108,6 +111,13 @@ function PotDetail() {
 
   const tagsEnabled = snapshot.household?.tagsEnabled ?? false;
 
+  /**
+   * Die wiederkehrenden Regeln **dieses** Topfes. Regeln ohne Topf (Gehalt
+   * auf den Haushalt) stehen weiter nur unter Einstellungen →
+   * „Wiederkehrende Buchungen" — hier wären sie fehl am Platz.
+   */
+  const regeln = snapshot.recurringRules.filter((rule) => rule.potId === pot.id);
+
   return (
     <div className="flex flex-col gap-5">
       {/*
@@ -134,6 +144,22 @@ function PotDetail() {
         }
         filtersActive={filters.active}
         onResetFilters={filters.reset}
+        links={
+          /*
+            Die Einstellungen lagen vorher als Karte unter der Buchungsliste
+            — man musste an allen Buchungen vorbeiscrollen, um das Limit zu
+            ändern. Jetzt hängen sie am Zahnrad in der Leiste, die ohnehin
+            klebt, und damit auf jeder Höhe der Seite.
+          */
+          can('pot.edit') ? (
+            <ToolbarButton
+              icon={Settings}
+              label="Einstellungen dieses Topfes"
+              expanded={settingsOpen}
+              onClick={() => setSettingsOpen(true)}
+            />
+          ) : undefined
+        }
       />
 
       <Card className="px-4 py-4">
@@ -227,40 +253,48 @@ function PotDetail() {
         />
       </Card>
 
-      {can('pot.edit') && (
-        <Card>
-          <CardHeader
-            title="Einstellungen"
-            action={
-              <Button variant="ghost" size="sm" onClick={() => setSettingsOpen((open) => !open)}>
-                {settingsOpen ? 'Zuklappen' : 'Bearbeiten'}
+      <Sheet
+        open={settingsOpen && can('pot.edit')}
+        onClose={() => setSettingsOpen(false)}
+        title={`„${pot.name}“ einstellen`}
+      >
+        <div className="flex flex-col gap-5">
+          <PotSettingsForm pot={pot} />
+
+          {/*
+            Die Regeln dieses Topfes stehen hier und nicht auf einer eigenen
+            Seite: „Miete" gehört zu „Wohnen", und wer den Topf offen hat,
+            sucht sie dort. Der Topf ist beim Anlegen vorbelegt — nach dem
+            zu fragen, den man gerade offen hat, wäre eine Frage ohne
+            Antwortmöglichkeit.
+          */}
+          <RecurringSection rules={regeln} defaultPotId={pot.id} />
+
+          <div className="flex flex-wrap gap-3 border-t border-line pt-4">
+            <Button
+              variant="secondary"
+              onClick={() => void repository.setPotArchived(pot.id, pot.archivedAt === null)}
+            >
+              {pot.archivedAt === null ? 'Archivieren' : 'Wieder aktivieren'}
+            </Button>
+            {can('pot.delete') && (
+              <Button
+                variant="danger"
+                onClick={() => {
+                  setSettingsOpen(false);
+                  setConfirmDelete(true);
+                }}
+              >
+                Topf löschen
               </Button>
-            }
-          />
-          {settingsOpen && (
-            <>
-              <PotSettingsForm pot={pot} />
-              <div className="flex flex-wrap gap-3 border-t border-line px-4 py-4">
-                <Button
-                  variant="secondary"
-                  onClick={() => void repository.setPotArchived(pot.id, pot.archivedAt === null)}
-                >
-                  {pot.archivedAt === null ? 'Archivieren' : 'Wieder aktivieren'}
-                </Button>
-                {can('pot.delete') && (
-                  <Button variant="danger" onClick={() => setConfirmDelete(true)}>
-                    Topf löschen
-                  </Button>
-                )}
-              </div>
-              <p className="px-4 pb-4 text-xs text-ink-muted">
-                Archivieren blendet den Topf aus, behält aber alle Zahlen. Löschen entfernt den
-                Topf; die Buchungen bleiben erhalten und stehen danach ohne Topf da.
-              </p>
-            </>
-          )}
-        </Card>
-      )}
+            )}
+          </div>
+          <p className="text-xs text-ink-muted">
+            Archivieren blendet den Topf aus, behält aber alle Zahlen. Löschen entfernt den Topf;
+            die Buchungen bleiben erhalten und stehen danach ohne Topf da.
+          </p>
+        </div>
+      </Sheet>
 
       {confirmDelete && (
         <Card className="border-[var(--negative)] px-4 py-4">

@@ -51,23 +51,26 @@ test.describe('Buchungen', () => {
     await expect(suchfeld).toHaveCount(0);
     await expect(page.getByText('1 Buchung', { exact: false })).toBeVisible();
 
-    // Wiederkehrende Buchungen stehen jetzt in der klebenden Leiste, nicht
-    // mehr in einer Karte unter der Liste — und schon gar nicht in den
-    // Einstellungen.
-    await page.getByRole('link', { name: 'Wiederkehrende Buchungen' }).click();
+    // Das Symbol zu den wiederkehrenden Buchungen ist aus der Leiste
+    // verschwunden: Eine Regel legt man einmal an und sieht sie jahrelang
+    // nicht wieder — der Platz dort gehört dem Täglichen.
+    await expect(page.getByRole('link', { name: 'Wiederkehrende Buchungen' })).toHaveCount(0);
+  });
+
+  test('Wiederkehrende Buchungen stehen in den Einstellungen', async ({ page }) => {
+    await einrichten(page);
+    await page.getByRole('link', { name: 'Einstellungen' }).first().click();
+    await expect(page.getByRole('heading', { name: 'Einstellungen', level: 1 })).toBeVisible();
+
+    /*
+      Der Eintrag ist nicht Bequemlichkeit: Regeln **ohne** Topf (Gehalt
+      läuft auf den Haushalt) sind nur hier verwaltbar. Ohne ihn liefen sie
+      still weiter und wären nicht mehr erreichbar.
+    */
+    await page.getByRole('link', { name: /^Wiederkehrende Buchungen/ }).click();
     await expect(
       page.getByRole('heading', { name: 'Wiederkehrende Buchungen', level: 1 }),
     ).toBeVisible();
     await expect(page.getByRole('button', { name: '+ Regel' })).toBeVisible();
-
-    await page.getByRole('link', { name: 'Buchungen' }).first().click();
-    await expect(page.getByRole('heading', { name: 'Buchungen', level: 1 })).toBeVisible();
-  });
-
-  test('Einstellungen führen nicht mehr zu den Regeln', async ({ page }) => {
-    await einrichten(page);
-    await page.getByRole('link', { name: 'Einstellungen' }).first().click();
-    await expect(page.getByRole('heading', { name: 'Einstellungen', level: 1 })).toBeVisible();
-    await expect(page.getByText('Wiederkehrende Buchungen')).toHaveCount(0);
   });
 });

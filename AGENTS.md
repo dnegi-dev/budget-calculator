@@ -446,13 +446,27 @@ Icon-Satz kann „🥑“ nicht abbilden.
 
 ## Einstellungen
 
-Eine Übersicht mit sieben Unterseiten (`app/einstellungen/*`), nicht mehr eine
+Eine Übersicht mit acht Unterseiten (`app/einstellungen/*`), nicht mehr eine
 Seite mit zwölf Karten. Kopfzeile und Titel jeder Unterseite kommen aus
 `SettingsPage` und damit aus `ListToolbar` — dieselbe klebende Leiste wie über
 den Listen, und auf „Ordnen" trägt sie die Suche über Tags und Zuordnungen. `isActive` in `AppShell` arbeitet mit `startsWith`,
 also bleibt „Einstellungen“ markiert und die untere Leiste behält ihre vier
 Einträge. Jede neue Unterseite gehört in `APP_SHELL` in `public/sw.js`, sonst
 ist sie offline nicht erreichbar.
+
+**Die Einstellungen eines Topfes hängen am Zahnrad in seiner Leiste**, nicht
+in einer Karte unter der Buchungsliste. Vorher musste man an allen Buchungen
+des Topfes vorbeiscrollen, um ein Limit zu ändern. Im selben Sheet stehen die
+**wiederkehrenden Regeln dieses Topfes** — „Miete" gehört zu „Wohnen" — mit
+dem Topf vorbelegt; nach dem zu fragen, den man gerade offen hat, wäre eine
+Frage ohne Antwortmöglichkeit.
+
+**`/buchungen/wiederkehrend` bleibt und steht in den Einstellungen.** Das
+Symbol über der Buchungsliste ist weg (eine Regel legt man einmal an und sieht
+sie jahrelang nicht wieder), aber die Seite selbst ist der **einzige** Ort, an
+dem Regeln **ohne** Topf verwaltbar sind — Gehalt läuft auf den Haushalt.
+Fiele sie weg, liefen solche Regeln still weiter und wären nicht mehr
+erreichbar.
 
 **Die Gefahrenzone ist kein Stilmittel.** Dort steht, was sich nicht rückgängig
 machen lässt: `wipeAll` und das ersetzende Einlesen einer Sicherung. Letzteres

@@ -2,16 +2,18 @@
 
 /**
  * Tags und gelernte Zuordnungen — beides Listen, die mit der Zeit wachsen und
- * gepflegt werden wollen. Der Link auf die Topf-Verwaltung steht dazu, weil
- * „ordnen“ dort weitergeht.
+ * gepflegt werden wollen.
+ *
+ * Die Töpfe standen hier früher als Link mit dazu. Sie haben jetzt eine
+ * eigene Unterseite: Ein Verweis auf die Alltagsansicht war keine
+ * Verwaltung, und wer in den Einstellungen nach Töpfen sucht, will
+ * umbenennen und archivieren.
  */
 
-import Link from 'next/link';
 import { useState } from 'react';
 import { ItemRulesSection } from '../../../components/settings/ItemRulesSection';
 import { SettingsPage } from '../../../components/settings/SettingsPage';
 import { TagsSection } from '../../../components/settings/TagsSection';
-import { Card, CardHeader } from '../../../lib/ui/Card';
 
 export default function OrganiseSettingsPage() {
   /**
@@ -28,14 +30,6 @@ export default function OrganiseSettingsPage() {
     >
       <TagsSection search={suche} />
       <ItemRulesSection search={suche} />
-      <Card>
-        <CardHeader title="Töpfe" />
-        <div className="px-4 pb-4">
-          <Link href="/toepfe" className="text-sm text-accent hover:underline">
-            Töpfe verwalten und archivieren →
-          </Link>
-        </div>
-      </Card>
     </SettingsPage>
   );
 }

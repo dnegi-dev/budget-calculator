@@ -48,10 +48,17 @@ import { useFormat } from '../../lib/ui/useFormat';
 export function RecurringSection({
   rules,
   filtering = false,
+  defaultPotId = null,
 }: {
   rules?: readonly RecurringRule[];
   /** Ob gerade gesucht oder gefiltert wird — dann lautet der leere Zustand anders. */
   filtering?: boolean;
+  /**
+   * Vorbelegter Topf beim Anlegen — gesetzt, wenn die Liste in den
+   * Einstellungen **eines** Topfes steht. Dort nach dem Topf zu fragen, den
+   * man gerade offen hat, wäre eine Frage ohne Antwortmöglichkeit.
+   */
+  defaultPotId?: string | null;
 } = {}) {
   const snapshot = useSnapshot();
   const { repository } = useData();
@@ -140,6 +147,7 @@ export function RecurringSection({
       {(creating || editing) && (
         <RecurringSheet
           rule={editing}
+          defaultPotId={defaultPotId}
           onClose={() => {
             setCreating(false);
             setEditing(null);
@@ -160,10 +168,12 @@ export function RecurringSection({
 
 function RecurringSheet({
   rule,
+  defaultPotId = null,
   onClose,
   onDelete,
 }: {
   rule: RecurringRule | null;
+  defaultPotId?: string | null;
   onClose: () => void;
   onDelete?: () => Promise<void>;
 }) {
@@ -172,7 +182,8 @@ function RecurringSheet({
 
   const [kind, setKind] = useState<EntryKind>(rule?.kind ?? 'expense');
   const [amountRaw, setAmountRaw] = useState(rule ? format.moneyPlain(rule.amountCents) : '');
-  const [potId, setPotId] = useState<string>(rule?.potId ?? '');
+  // Beim Bearbeiten gewinnt die Regel, beim Anlegen der Topf der Seite.
+  const [potId, setPotId] = useState<string>(rule?.potId ?? defaultPotId ?? '');
   const [note, setNote] = useState(rule?.note ?? '');
   const [freq, setFreq] = useState<Frequency>(rule?.freq ?? 'monthly');
   const [interval, setInterval] = useState(rule?.interval ?? 1);
