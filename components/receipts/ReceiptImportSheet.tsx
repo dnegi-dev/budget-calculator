@@ -34,6 +34,9 @@ import {
   type ParsedReceipt,
 } from '../../lib/domain/receipt-parse';
 import { collectTags } from '../../lib/domain/tags';
+import { CHAIN_PROFILES } from '../../lib/domain/receipt/chains';
+import { matchProfile, suggestFromProfile } from '../../lib/domain/receipt/profile';
+import { resolveCategoryPot } from '../../lib/domain/pot-categories';
 import type { Pot } from '../../lib/domain/types';
 import { extractPdf, PdfReadError } from '../../lib/pdf/extract';
 import { Banner } from '../../lib/ui/Banner';
@@ -105,11 +108,38 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
         ergebnis ??= parseTextLines(lines);
         if (cancelled) return;
 
-        const vorschlag = ergebnis.items.map((item) => suggestPot(item.label, snapshot.itemRules));
+        /*
+          Zwei Quellen für die Vorbelegung, und die Reihenfolge ist die
+          Aussage: Was der Nutzer selbst zugeordnet hat (`itemRules`), schlägt
+          immer die mitgelieferte Tabelle des Profils. Andersherum würde eine
+          Tabelle im Code eine Entscheidung des Nutzers überstimmen.
+
+          Das Profil erkennt das Bonformat am Layout (`matchProfile`); trifft
+          keines, bleibt alles wie vorher. Sichtbar ist davon nichts — nur
+          dass Topf und Tags schon ausgefüllt sind.
+        */
+        const profil = matchProfile(lines, CHAIN_PROFILES)?.profile ?? null;
+        const aktivePots = snapshot.pots.filter((pot) => pot.archivedAt === null);
+
+        const vorschlag = ergebnis.items.map((item) => {
+          const gelernt = suggestPot(item.label, snapshot.itemRules);
+          if (gelernt !== null) return gelernt;
+          if (!profil) return null;
+          const treffer = suggestFromProfile(item.label, profil.products);
+          return treffer ? resolveCategoryPot(treffer.kategorie, aktivePots) : null;
+        });
+
+        const profilTags = ergebnis.items.map((item) => {
+          if (!profil || !tagsEnabled) return [];
+          // Tags aus dem Profil auch dann, wenn der Topf aus einer gelernten
+          // Regel kommt: Das eine sagt nichts über das andere.
+          return [...(suggestFromProfile(item.label, profil.products)?.tags ?? [])];
+        });
+
         setParsed(ergebnis);
         setPotIds(vorschlag);
         setManuell(ergebnis.items.map(() => false));
-        setPostenTags(ergebnis.items.map(() => []));
+        setPostenTags(profilTags);
       } catch (caught) {
         if (cancelled) return;
         // Der Grund gehört in die Meldung. Eine Sammelmeldung ohne Ursache
@@ -125,8 +155,10 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
     return () => {
       cancelled = true;
     };
-    // snapshot.itemRules absichtlich nicht in den Abhängigkeiten: Die
-    // Vorschläge sollen sich nicht ändern, während man zuordnet.
+    // `snapshot` und `tagsEnabled` absichtlich nicht in den Abhängigkeiten:
+    // Die Vorbelegung wird **einmal** beim Einlesen gerechnet. Stünden sie
+    // drin, sprängen Topf und Tags zurück, sobald der Nutzer nebenbei etwas
+    // ändert — er ordnet ja gerade zu.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file]);
 
@@ -214,7 +246,10 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
       }
 
       // Nur von Hand gesetzte Zuordnungen werden gelernt. Einen Vorschlag zu
-      // bestätigen ist keine neue Information.
+      // bestätigen ist keine neue Information — das gilt auch für die
+      // Vorschläge aus einem Profil: Würden sie gelernt, stände die Liste
+      // unter „Ordnen" nach einem Einkauf voller Einträge, die der Nutzer
+      // nie angelegt hat. `manuell` bleibt für sie deshalb `false`.
       for (const [index, item] of parsed.items.entries()) {
         const potId = potIds[index];
         if (!manuell[index] || !potId) continue;
