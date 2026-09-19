@@ -15,6 +15,9 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useMemo, useState } from 'react';
 import { EntryList } from '../../../components/entries/EntryList';
 import { EntrySheet } from '../../../components/entries/EntrySheet';
+import { EntryFilterFields } from '../../../components/lists/EntryFilterFields';
+import { ListToolbar } from '../../../components/lists/ListToolbar';
+import { useEntryFilters } from '../../../components/lists/useEntryFilters';
 import { PeriodSwitcher } from '../../../components/PeriodSwitcher';
 import { PotSettingsForm } from '../../../components/pots/PotSettingsForm';
 import { useCan } from '../../../lib/auth/provider';
@@ -23,6 +26,7 @@ import { todayIso } from '../../../lib/domain/dates';
 import { computePotPeriodState, entriesInPeriod } from '../../../lib/domain/ledger';
 import { periodForDate } from '../../../lib/domain/period';
 import { describePotConfig, matchesPreset } from '../../../lib/domain/pot-kinds';
+import { collectTags } from '../../../lib/domain/tags';
 import { CircleHelp } from 'lucide-react';
 import { Icon } from '../../../lib/ui/Icon';
 import { Banner } from '../../../lib/ui/Banner';
@@ -74,6 +78,17 @@ function PotDetail() {
     [potEntries, periodKey, format.periodStartDay],
   );
 
+  /**
+   * Vor dem Ausstieg unten: Ein Haken darf nicht hinter einem `return`
+   * stehen. Der Topf kann verschwunden sein, die Liste ist dann leer — das
+   * kostet nichts.
+   */
+  const filters = useEntryFilters(entriesOfPeriod);
+  const alleTags = useMemo(
+    () => collectTags(snapshot.entries).map((usage) => usage.tag),
+    [snapshot.entries],
+  );
+
   if (!pot || !state) {
     return (
       <div className="flex flex-col gap-4">
@@ -91,11 +106,35 @@ function PotDetail() {
   const hasLimit = state.availableCents !== null;
   const activePots = snapshot.pots.filter((candidate) => candidate.archivedAt === null);
 
+  const tagsEnabled = snapshot.household?.tagsEnabled ?? false;
+
   return (
     <div className="flex flex-col gap-5">
-      <Link href="/toepfe" className="text-sm text-ink-muted hover:text-ink">
-        ‹ Töpfe
-      </Link>
+      {/*
+        Die Überschrift trägt die klebende Leiste, samt Suche und Filter für
+        die Buchungsliste weiter unten. Der Topf steht fest, deshalb ohne
+        Topf-Feld: Ein Filter, der nur einen Wert kennt, ist kein Filter.
+      */}
+      <ListToolbar
+        title={pot.name}
+        back={{ href: '/toepfe', label: 'Töpfe' }}
+        search={{
+          value: filters.search,
+          onChange: filters.setSearch,
+          placeholder: 'In Notiz und Ort suchen',
+        }}
+        filters={
+          <EntryFilterFields
+            filters={filters}
+            pots={snapshot.pots}
+            tags={alleTags}
+            tagsEnabled={tagsEnabled}
+            withPot={false}
+          />
+        }
+        filtersActive={filters.active}
+        onResetFilters={filters.reset}
+      />
 
       <Card className="px-4 py-4">
         <div className="flex items-center gap-3">
@@ -107,7 +146,7 @@ function PotDetail() {
             {pot.icon}
           </span>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-semibold">{pot.name}</h1>
+            <p className="truncate font-medium">{pot.name}</p>
             <p className="text-sm text-ink-muted">
               {describePotConfig(pot, format.money)}
               {!matchesPreset(pot) ? ' · angepasst' : ''}
@@ -155,8 +194,17 @@ function PotDetail() {
           </dl>
         </div>
 
+        {/*
+          Nur ab `md`. Mobil macht das der schwebende Knopf, und der weiß,
+          welcher Topf gemeint ist: Er liest `?pot=` aus derselben Adresse, die
+          diese Seite öffnet. Ein zweiter Knopf mit demselben Ziel war eine
+          Dopplung — und stand genau da, wo die Zahlen stehen sollen.
+
+          Das `hidden` gehört an die Hülle: `Button` bringt `inline-flex` mit,
+          und Tailwind gibt `.inline-flex` nach `.hidden` aus.
+        */}
         {can('entry.create') && pot.archivedAt === null && (
-          <div className="mt-4">
+          <div className="mt-4 hidden md:block">
             <Button variant="primary" block onClick={() => setEntryOpen(true)}>
               Auf „{pot.name}“ buchen
             </Button>
@@ -165,11 +213,17 @@ function PotDetail() {
       </Card>
 
       <Card>
-        <CardHeader title="Buchungen dieser Periode" />
+        <CardHeader
+          title={`${filters.visible.length} Buchung${filters.visible.length === 1 ? '' : 'en'} dieser Periode`}
+        />
         <EntryList
-          entries={entriesOfPeriod}
+          entries={filters.visible}
           pots={snapshot.pots}
-          emptyHint={`In dieser Periode wurde noch nichts auf „${pot.name}“ gebucht.`}
+          emptyHint={
+            filters.active || filters.search.trim() !== ''
+              ? 'Keine Buchung passt zu Suche und Filtern.'
+              : `In dieser Periode wurde noch nichts auf „${pot.name}“ gebucht.`
+          }
         />
       </Card>
 

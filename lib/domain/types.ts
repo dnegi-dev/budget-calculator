@@ -25,6 +25,14 @@ export type EntryKind = 'expense' | 'income';
 
 export type Frequency = 'weekly' | 'monthly' | 'yearly';
 
+/**
+ * Was der schwebende Knopf beim Antippen tut, und für welche Seiten sich das
+ * getrennt einstellen lässt. Die Regeln dazu stehen in `lib/domain/fab.ts`;
+ * hier stehen nur die Werte, weil `Household` sie trägt.
+ */
+export type FabAction = 'expense' | 'income' | 'ask';
+export type FabScope = 'home' | 'pots' | 'potDetail' | 'entries' | 'recurring' | 'analysis';
+
 /** Metadaten jedes haushaltsgebundenen Records. */
 export interface RecordMeta {
   id: string;
@@ -62,6 +70,21 @@ export interface Household {
   askForPot: boolean;
   /** Ob Tags erfasst, gefiltert und ausgewertet werden. */
   tagsEnabled: boolean;
+  /**
+   * Was der schwebende Knopf beim Antippen tut, wenn der Bereich nichts
+   * eigenes sagt. Die Regeln dazu stehen in `lib/domain/fab.ts`.
+   *
+   * Gehört zum Haushalt und nicht zum Gerät: Es ist eine Aussage darüber, wie
+   * dieser Haushalt erfasst — wie `askForPot` — und soll in der Sicherung
+   * stehen.
+   */
+  fabDefault: FabAction;
+  /**
+   * Abweichungen je Bereich. Ein fehlender Schlüssel heißt „wie überall",
+   * nicht „Ausgabe": Wer `fabDefault` später ändert, soll das in allen
+   * Bereichen sehen, für die er nichts eigenes eingestellt hat.
+   */
+  fabScopes: Partial<Record<FabScope, FabAction>>;
   onboardingCompletedAt: IsoDateTime | null;
   createdAt: IsoDateTime;
   updatedAt: IsoDateTime;

@@ -15,6 +15,7 @@
 import { useMemo, useState } from 'react';
 import { EntrySheet } from '../components/entries/EntrySheet';
 import { PeriodSwitcher } from '../components/PeriodSwitcher';
+import { ListToolbar } from '../components/lists/ListToolbar';
 import { PotRow } from '../components/pots/PotRow';
 import { PotWizard } from '../components/pots/PotWizard';
 import { useCan } from '../lib/auth/provider';
@@ -54,6 +55,13 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/*
+        Die Seite hatte bisher keine Überschrift — der Periodenwechsler stand
+        ganz oben. Beim Scrollen durch zwanzig Töpfe war damit nicht mehr zu
+        sehen, wo man ist. Die klebende Leiste ist dieselbe wie über den
+        Listenseiten; zu suchen gibt es hier nichts, das tut „Töpfe“.
+      */}
+      <ListToolbar title="Heute" />
       <PeriodSwitcher periodKey={periodKey} onChange={setPeriodKey} currentKey={currentKey} />
 
       {/* Der große Erfassen-Knopf nur ab md — mobil macht das der schwebende. */}

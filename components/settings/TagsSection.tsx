@@ -27,7 +27,7 @@ import { inputClass } from '../../lib/ui/Field';
 import { Icon } from '../../lib/ui/Icon';
 import { SegmentedControl } from '../../lib/ui/SegmentedControl';
 
-export function TagsSection() {
+export function TagsSection({ search = '' }: { search?: string } = {}) {
   const { repository, snapshot } = useData();
   const can = useCan();
 
@@ -42,7 +42,12 @@ export function TagsSection() {
 
   const darfSchalten = can('settings.manage');
   const darfAendern = can('entry.edit.any');
-  const tags = collectTags(snapshot.entries);
+  const needle = search.trim().toLowerCase();
+  const alle = collectTags(snapshot.entries);
+  // Gesucht wird auf der geschriebenen Form, verglichen klein — dieselbe
+  // Regel wie in `tagKey`, nur ohne Anspruch auf Gleichheit.
+  const tags =
+    needle === '' ? alle : alle.filter((usage) => usage.tag.toLowerCase().includes(needle));
 
   async function fuehreAus(arbeit: () => Promise<unknown>) {
     setFehler(null);
@@ -88,7 +93,9 @@ export function TagsSection() {
 
       {tags.length === 0 ? (
         <p className="px-4 pb-4 text-sm text-ink-muted">
-          Noch keine Tags benutzt. Sie entstehen beim Erfassen — dort tippen, mit Komma trennen.
+          {needle === ''
+            ? 'Noch keine Tags benutzt. Sie entstehen beim Erfassen — dort tippen, mit Komma trennen.'
+            : 'Kein Tag enthält diesen Text.'}
         </p>
       ) : (
         <>

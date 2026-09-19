@@ -219,23 +219,91 @@ Hürde erreichbar.
   Zeile „Neuer Topf" auf „Heute", verwaltet über den Link in den
   Einstellungen. Wer einen fünften Eintrag ergänzen will, prüft ihn vorher bei
   320 px Breite.
-- **Erfassen läuft über den schwebenden Knopf** (`QuickEntryButton`), der die
-  Art vorab abfragt und `EntrySheet` mit `lockKind` öffnet. Seiten-Knöpfe zum
-  Erfassen gibt es nur noch ab `md`. In den Einstellungen erscheint der Knopf
-  nicht: Dort erfasst niemand etwas, und er lag auf den Schaltern. Wer den
-  Knopf verschiebt, prüft das `pb-36` am `main` in `AppShell` mit — er endet
+- **Erfassen läuft über den schwebenden Knopf** (`QuickEntryButton`), der
+  `EntrySheet` mit `lockKind` öffnet — Einzelheiten im Abschnitt „Schwebender
+  Knopf". Seiten-Knöpfe zum Erfassen gibt es nur noch ab `md`. Wer den Knopf
+  verschiebt, prüft das `pb-36` am `main` in `AppShell` mit — er endet
   8,25 rem über dem unteren Rand, und darunter darf keine Listenzeile liegen
   bleiben.
-- **Suche und Filter auf der Buchungsseite liegen hinter je einem Symbol.** Das
-  Schließen der Suche räumt den Begriff weg; ein aktiver Filter zeigt sich als
-  Zeile mit „zurücksetzen". Ein eingeklappter, still wirksamer Filter ist ein
-  Fehler, kein Feature.
+- **Suche und Filter liegen hinter je einem Symbol** — in der klebenden Leiste
+  über der Liste (`components/lists/ListToolbar.tsx`), an jeder Breite gleich.
+  Das Schließen der Suche räumt den Begriff weg; ein aktiver Filter zeigt sich
+  als Zeile mit „zurücksetzen". Ein eingeklappter, still wirksamer Filter ist
+  ein Fehler, kein Feature.
 - **`hidden md:…` funktioniert an `Button` nicht.** `Button` bringt
   `inline-flex` als Grundklasse mit, und Tailwind gibt `.inline-flex` **nach**
   `.hidden` aus — an derselben Klassenliste gewinnt `inline-flex`. Wer einen
   Knopf erst ab `md` zeigen will, hängt `hidden md:inline-flex` an eine Hülle.
   Umgekehrt ist `md:hidden` am Knopf in Ordnung: Es steht in einer Media-Query
   und kommt damit später.
+
+## Schwebender Knopf
+
+**Ein Tippen führt direkt zur Standardaktion**, es gibt keine Zwischenfrage
+mehr. Sie ist einstellbar — allgemein und je Bereich —, und die Regeln stehen
+in `lib/domain/fab.ts`: `scopeForPath` (Pfad → Bereich), `resolveFabAction`
+(Bereich schlägt allgemein, Rückfall `'expense'`) und `fabVisibleOnPath`.
+
+- **Die Zuordnung Pfad → Bereich gehört in die Domäne**, nicht in die
+  Komponente: Sie hat zwei Verbraucher, den Knopf und die Einstellungsseite.
+  Und sie muss den nachgestellten Schrägstrich vertragen — `trailingSlash: true`
+  liefert `/buchungen/`.
+- **`fabDefault` und `fabScopes` hängen am Haushalt**, nicht am Gerät: Es ist
+  eine Aussage darüber, wie dieser Haushalt erfasst, wie `askForPot`, und sie
+  steht in der Sicherung. Deshalb braucht beides einen Standardwert in
+  `withHouseholdDefaults` **und** im `householdSchema`.
+- **Ein fehlender Schlüssel in `fabScopes` heißt „wie überall"**, nicht
+  „Ausgabe". Ein eigener Wert `'inherit'` hätte denselben Effekt, aber ein
+  Bereich, für den nichts eingestellt ist, folgt so auch einer späteren
+  Änderung des Allgemeinen.
+- **`fabScopes` braucht `z.partialRecord`.** Bei einem Enum als Schlüssel
+  verlangt `z.record` in Zod 4 jeden Wert des Enums — ein Haushalt ohne
+  Ausnahmen wäre damit nicht einlesbar.
+- **Langes Drücken ist nur die halbe Bedienung.** `lib/ui/useLongPress.ts`
+  bricht bei Bewegung ab (sonst öffnet Scrollen das Menü), unterdrückt das
+  Kontextmenü nur am eigenen Knopf und merkt sich, dass es ausgelöst hat —
+  sonst führte der `click` nach dem `pointerup` die Standardaktion obendrauf
+  aus. Weil die Geste für Tastatur und Screenreader unerreichbar ist, öffnet
+  **Pfeil nach oben** dasselbe Menü. Ohne diesen zweiten Weg wäre „Einnahme"
+  mobil per Tastatur unerreichbar; er ist nicht optional.
+- **Im `aria-label` steht „für mehr", nicht „für weitere".** „weitere" enthält
+  „Weiter" — denselben Namen, den jeder Schritt im Erfassen-Sheet trägt, und
+  eine Rollen-Abfrage findet dann zwei Knöpfe.
+- **Der Topf kommt aus der Adresse.** Auf `/toepfe/detail?pot=…` liest der
+  Knopf `?pot=` und gibt ihn als `defaultPotId` weiter; der Knopf „Auf „X"
+  buchen" auf der Seite ist damit ab `md` übrig und mobil weg. Dafür braucht
+  der Knopf `useSearchParams` und damit eine `Suspense`-Grenze **um** ihn —
+  die steht in `AppShell`. Fehlt sie, scheitert der Build, nicht erst die
+  Laufzeit.
+- **In den Einstellungen und auf den Rechtsseiten erscheint der Knopf nicht.**
+  Dort erfasst niemand etwas, und auf den Schaltern lag er im Weg.
+
+## Klebende Leiste über Listen
+
+`components/lists/ListToolbar.tsx` trägt Überschrift, Suche, Filter, freie
+Links und eine Aktion — und bleibt beim Scrollen oben. Der Grund ist nicht
+Optik: Vorher verschwand mit der Überschrift auch die Lupe, und in einer
+langen Liste zu suchen hieß erst hochscrollen.
+
+Vier Dinge, die beim Anfassen zählen:
+
+- **`top` ist `env(safe-area-inset-top)`, nicht 0** — sonst klebt die Leiste
+  als installierte App unter der Statusleiste.
+- **Die Leiste meldet ihre Höhe als `--list-toolbar-h`** (am Wurzelelement, per
+  `ResizeObserver`, beim Ausbauen aufgeräumt). Der Datumskopf in `EntryList`
+  klebt selbst und rechnet damit; ohne diesen Versatz liegt er hinter der
+  Leiste. Ein fester Wert geht nicht, weil die Höhe mit aufgeklappter Suche
+  wächst.
+- **Stapelreihenfolge**: untere Leiste und schwebender Knopf `z-40`, `Sheet`
+  `z-50`, diese Leiste `z-30`, der Datumskopf `z-10`.
+- **`-mx-4 px-4 md:-mx-8 md:px-8`**, sonst scrollt Inhalt sichtbar an ihren
+  Rändern vorbei.
+
+Im Einsatz auf Heute, Buchungen, Wiederkehrend, Töpfe, Topf-Detail,
+Auswertung (nur Titel) und über `SettingsPage` auf allen
+Einstellungs-Unterseiten. Das Filtern der Buchungsliste steckt in
+`components/lists/useEntryFilters.ts`, die Felder in `EntryFilterFields` —
+getrennt, weil ein Haken, der JSX zurückgibt, beim Lesen überrascht.
 
 ## Geräte-Einstellungen
 
@@ -316,7 +384,9 @@ Icon-Satz kann „🥑“ nicht abbilden.
 ## Einstellungen
 
 Eine Übersicht mit sieben Unterseiten (`app/einstellungen/*`), nicht mehr eine
-Seite mit zwölf Karten. `isActive` in `AppShell` arbeitet mit `startsWith`,
+Seite mit zwölf Karten. Kopfzeile und Titel jeder Unterseite kommen aus
+`SettingsPage` und damit aus `ListToolbar` — dieselbe klebende Leiste wie über
+den Listen, und auf „Ordnen" trägt sie die Suche über Tags und Zuordnungen. `isActive` in `AppShell` arbeitet mit `startsWith`,
 also bleibt „Einstellungen“ markiert und die untere Leiste behält ihre vier
 Einträge. Jede neue Unterseite gehört in `APP_SHELL` in `public/sw.js`, sonst
 ist sie offline nicht erreichbar.

@@ -2,8 +2,9 @@ import { expect, test } from '@playwright/test';
 import { einrichten, entsperren, erfassenOeffnen, istMobil } from './helpers';
 
 /**
- * Die Buchungsseite nach dem Umbau: Suche hinter der Lupe, Erfassen nur noch
- * am Schreibtisch, und die Regeln als Unterseite.
+ * Die Buchungsseite nach dem Umbau: Suche hinter der Lupe — an jeder Breite,
+ * seit die klebende Leiste sie überall gleich führt —, Erfassen nur noch am
+ * Schreibtisch, und die Regeln als Unterseite.
  */
 
 test.beforeEach(async ({ page }) => {
@@ -30,15 +31,13 @@ test.describe('Buchungen', () => {
     const erfassen = page.getByRole('button', { name: '+ Erfassen' });
     const suchfeld = page.locator('input[type="search"]:visible');
 
-    if (istMobil(page)) {
-      // Doppelt zum schwebenden Knopf — deshalb mobil weg.
-      await expect(erfassen).toBeHidden();
-      await expect(suchfeld).toHaveCount(0);
-      await page.getByRole('button', { name: 'Suchen' }).click();
-    } else {
-      await expect(erfassen).toBeVisible();
-      await expect(suchfeld).toHaveCount(1);
-    }
+    // Der Erfassen-Knopf ist mobil doppelt zum schwebenden — deshalb erst ab
+    // `md`. Das Suchfeld liegt an jeder Breite hinter der Lupe.
+    if (istMobil(page)) await expect(erfassen).toBeHidden();
+    else await expect(erfassen).toBeVisible();
+
+    await expect(suchfeld).toHaveCount(0);
+    await page.getByRole('button', { name: 'Suchen' }).click();
 
     await suchfeld.fill('Baumarkt');
     await expect(page.getByText('1 Buchung', { exact: false })).toBeVisible();
@@ -46,19 +45,16 @@ test.describe('Buchungen', () => {
     await suchfeld.fill('Zahnpasta');
     await expect(page.getByText('0 Buchungen')).toBeVisible();
 
-    if (istMobil(page)) {
-      // Dieselbe Lupe schließt wieder, und das Schließen räumt den Begriff
-      // weg: Ein unsichtbarer Filter, der weiter wirkt, wäre schlechter.
-      await page.getByRole('button', { name: 'Suchen' }).click();
-      await expect(suchfeld).toHaveCount(0);
-    } else {
-      await suchfeld.fill('');
-    }
+    // Dieselbe Lupe schließt wieder, und das Schließen räumt den Begriff weg:
+    // Ein unsichtbarer Filter, der weiter wirkt, wäre schlechter.
+    await page.getByRole('button', { name: 'Suchen' }).click();
+    await expect(suchfeld).toHaveCount(0);
     await expect(page.getByText('1 Buchung', { exact: false })).toBeVisible();
 
-    // Wiederkehrende Buchungen stehen jetzt hier und nicht mehr unter
+    // Wiederkehrende Buchungen stehen jetzt in der klebenden Leiste, nicht
+    // mehr in einer Karte unter der Liste — und schon gar nicht in den
     // Einstellungen.
-    await page.getByRole('link', { name: /Wiederkehrende Buchungen/ }).click();
+    await page.getByRole('link', { name: 'Wiederkehrende Buchungen' }).click();
     await expect(
       page.getByRole('heading', { name: 'Wiederkehrende Buchungen', level: 1 }),
     ).toBeVisible();

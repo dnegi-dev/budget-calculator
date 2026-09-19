@@ -11,6 +11,7 @@
 
 import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
+import { ListToolbar } from '../../components/lists/ListToolbar';
 import { PeriodSwitcher } from '../../components/PeriodSwitcher';
 import { useSnapshot } from '../../lib/data/provider';
 import { todayIso } from '../../lib/domain/dates';
@@ -141,7 +142,13 @@ export default function AnalyticsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="text-xl font-medium">Auswertung</h1>
+      {/*
+        Nur der klebende Titel: Hier gibt es nichts zu durchsuchen und nichts
+        zu filtern, was nicht schon der Periodenwechsler tut. Die Leiste ist
+        trotzdem dieselbe — eine Seite mit eigener Kopfzeile wäre eine zweite
+        Bauweise für denselben Zweck.
+      */}
+      <ListToolbar title="Auswertung" />
 
       <Card className="px-4 py-3">
         <PeriodSwitcher periodKey={periodKey} onChange={setPeriodKey} currentKey={currentKey} />

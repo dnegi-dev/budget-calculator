@@ -34,7 +34,25 @@ import { Sheet } from '../../lib/ui/Sheet';
 import { WEEKDAY_LABELS } from '../../lib/domain/recurrence';
 import { useFormat } from '../../lib/ui/useFormat';
 
-export function RecurringSection() {
+/**
+ * Die Liste der Regeln.
+ *
+ * `rules` kommt von der Seite und ist schon durchsucht und gefiltert — die
+ * Leiste darüber hält Suchbegriff und Filter, weil sie klebt und die Karte
+ * nicht. Ohne `rules` (etwa in einem anderen Zusammenhang) stehen alle
+ * Regeln da.
+ *
+ * Die Überschrift trägt die Anzahl und nicht den Namen: Der steht in der
+ * Leiste eine Zeile höher, und zweimal dasselbe Wort ist keine Gliederung.
+ */
+export function RecurringSection({
+  rules,
+  filtering = false,
+}: {
+  rules?: readonly RecurringRule[];
+  /** Ob gerade gesucht oder gefiltert wird — dann lautet der leere Zustand anders. */
+  filtering?: boolean;
+} = {}) {
   const snapshot = useSnapshot();
   const { repository } = useData();
   const format = useFormat();
@@ -43,13 +61,14 @@ export function RecurringSection() {
   const [editing, setEditing] = useState<RecurringRule | null>(null);
   const [creating, setCreating] = useState(false);
 
+  const sichtbar = rules ?? snapshot.recurringRules;
   const potsById = new Map(snapshot.pots.map((pot) => [pot.id, pot]));
   const allowed = can('recurring.manage');
 
   return (
     <Card>
       <CardHeader
-        title="Wiederkehrende Buchungen"
+        title={`${sichtbar.length} Regel${sichtbar.length === 1 ? '' : 'n'}`}
         action={
           allowed ? (
             <Button variant="ghost" size="sm" onClick={() => setCreating(true)}>
@@ -59,13 +78,17 @@ export function RecurringSection() {
         }
       />
 
-      {snapshot.recurringRules.length === 0 ? (
+      {sichtbar.length === 0 ? (
         <EmptyState
           icon={<Icon icon={RefreshCw} size={30} />}
-          title="Keine Regeln"
-          hint="Lege Miete, Abos oder das Gehalt einmal an — die Buchungen entstehen dann automatisch."
+          title={filtering ? 'Keine Regel passt' : 'Keine Regeln'}
+          hint={
+            filtering
+              ? 'Zu Suche und Filtern gibt es keine Regel.'
+              : 'Lege Miete, Abos oder das Gehalt einmal an — die Buchungen entstehen dann automatisch.'
+          }
           action={
-            allowed ? (
+            allowed && !filtering ? (
               <Button variant="primary" onClick={() => setCreating(true)}>
                 Erste Regel anlegen
               </Button>
@@ -74,7 +97,7 @@ export function RecurringSection() {
         />
       ) : (
         <ul className="divide-y divide-[var(--border)]">
-          {snapshot.recurringRules.map((rule) => {
+          {sichtbar.map((rule) => {
             const pot = rule.potId ? potsById.get(rule.potId) : null;
             const next = rule.paused
               ? null

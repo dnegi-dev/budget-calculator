@@ -20,20 +20,30 @@ import { Button } from '../../lib/ui/Button';
 import { Card, CardHeader } from '../../lib/ui/Card';
 import { Icon } from '../../lib/ui/Icon';
 
-export function ItemRulesSection() {
+export function ItemRulesSection({ search = '' }: { search?: string } = {}) {
   const { repository, snapshot } = useData();
   const [loeschen, setLoeschen] = useState<string | null>(null);
 
   const potsById = new Map(snapshot.pots.map((pot) => [pot.id, pot]));
-  const rules = [...snapshot.itemRules].sort((a, b) => a.keyword.localeCompare(b.keyword, 'de'));
+  const needle = search.trim().toLowerCase();
+  const rules = [...snapshot.itemRules]
+    // Gesucht wird im Schlagwort **und** im Topfnamen: „welche Regeln zeigen
+    // eigentlich auf Lebensmittel?" ist die häufigere Frage beim Aufräumen.
+    .filter((rule) => {
+      if (needle === '') return true;
+      const pot = potsById.get(rule.potId);
+      return `${rule.keyword} ${pot?.name ?? ''}`.toLowerCase().includes(needle);
+    })
+    .sort((a, b) => a.keyword.localeCompare(b.keyword, 'de'));
 
   return (
     <Card>
       <CardHeader title="Zuordnungen" />
       {rules.length === 0 ? (
         <p className="px-4 pb-4 text-sm text-ink-muted">
-          Noch keine. Beim Einlesen eines PDF-Bons merkt sich die App, welchen Topf du einem Posten
-          gibst, und schlägt ihn beim nächsten Mal vor.
+          {needle === ''
+            ? 'Noch keine. Beim Einlesen eines PDF-Bons merkt sich die App, welchen Topf du einem Posten gibst, und schlägt ihn beim nächsten Mal vor.'
+            : 'Keine Zuordnung passt zu diesem Text.'}
         </p>
       ) : (
         <>
