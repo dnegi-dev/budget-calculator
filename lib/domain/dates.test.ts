@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, addMonths, daysInMonth, isIsoDate, todayIso, weekdayOf } from './dates';
+import {
+  addDays,
+  addMonths,
+  daysInMonth,
+  formatMonth,
+  isIsoDate,
+  todayIso,
+  weekdayOf,
+} from './dates';
 
 describe('addMonths', () => {
   it('klemmt auf das Monatsende', () => {
@@ -54,5 +62,34 @@ describe('todayIso', () => {
     // 23:30 lokal darf nicht als Folgetag gelten.
     const localLateEvening = new Date(2026, 8, 18, 23, 30);
     expect(todayIso(localLateEvening)).toBe('2026-09-18');
+  });
+});
+
+describe('formatMonth', () => {
+  it('schreibt Monat und Jahr aus', () => {
+    expect(formatMonth('2026-09-19', 'de-DE')).toBe('September 2026');
+    expect(formatMonth('2026-01-01', 'de-DE')).toBe('Januar 2026');
+  });
+
+  /**
+   * Der Tag darf nicht durchschlagen: Der Kopf über der Liste wird mit dem
+   * neuesten Tag des Monats beschriftet, und „31. Dezember" wäre dort falsch.
+   */
+  it('nennt den Tag nicht, egal welcher übergeben wird', () => {
+    expect(formatMonth('2026-12-01', 'de-DE')).toBe(formatMonth('2026-12-31', 'de-DE'));
+  });
+
+  /**
+   * UTC und nicht die Zeitzone des Geräts: Der 1. eines Monats rutschte in
+   * einer westlichen Zone sonst in den Vormonat — und der Kopf über der Liste
+   * nennte einen anderen Monat als die Zeilen darunter.
+   */
+  it('rechnet in UTC', () => {
+    expect(formatMonth('2026-03-01', 'de-DE')).toBe('März 2026');
+  });
+
+  it('folgt der Locale', () => {
+    expect(formatMonth('2026-09-19', 'en-US')).toBe('September 2026');
+    expect(formatMonth('2026-05-19', 'en-US')).toBe('May 2026');
   });
 });

@@ -24,13 +24,21 @@
  * `Suspense`-Grenze — die steht in `AppShell`, nicht hier, weil sie den Knopf
  * umschließen muss.
  *
+ * **Der Knopf trägt immer ein Plus**, auch wenn die Standardaktion „Ausgabe"
+ * ist. Vorher stand dort ein Rechenzeichen, und das beschreibt den Betrag,
+ * nicht die Handlung: Angelegt wird in beiden Fällen etwas. Welche Art es
+ * wird, steht im `aria-label` und im Menü — dort tragen Ausgabe und Einnahme
+ * gegenständliche Symbole (Einkaufswagen, Sparschwein), weil zwei
+ * Rechenzeichen nebeneinander wie eine Operation aussehen und nicht wie eine
+ * Wahl.
+ *
  * Nur bis `md`: Auf dem Desktop tragen die Seiten ihre eigenen Knöpfe, und ein
  * schwebendes Element in der Ecke eines breiten Fensters ist dort eher im Weg.
  */
 
 import { useCallback, useEffect, useRef, useState, type Ref } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Minus, Plus, type LucideIcon } from 'lucide-react';
+import { PiggyBank, Plus, ShoppingCart, type LucideIcon } from 'lucide-react';
 import { useCan } from '../lib/auth/provider';
 import { useSnapshot } from '../lib/data/provider';
 import { fabLabel, fabVisibleOnPath, resolveFabAction, scopeForPath } from '../lib/domain/fab';
@@ -136,11 +144,11 @@ export function QuickEntryButton() {
           >
             <MenuRow
               ref={firstItemRef}
-              icon={Plus}
+              icon={PiggyBank}
               label="Einnahme"
               onClick={() => starte('income')}
             />
-            <MenuRow icon={Minus} label="Ausgabe" onClick={() => starte('expense')} />
+            <MenuRow icon={ShoppingCart} label="Ausgabe" onClick={() => starte('expense')} />
           </div>
         </>
       )}
@@ -176,7 +184,7 @@ export function QuickEntryButton() {
           'shadow-lg active:opacity-85',
         ].join(' ')}
       >
-        <Icon icon={action === 'expense' ? Minus : Plus} size={26} />
+        <Icon icon={Plus} size={26} />
       </button>
 
       <Sheet
@@ -186,13 +194,13 @@ export function QuickEntryButton() {
       >
         <div className="flex flex-col gap-2">
           <ChoiceRow
-            icon={Minus}
+            icon={ShoppingCart}
             label="Ausgabe"
             hint="Geht von einem Topf ab"
             onClick={() => starte('expense')}
           />
           <ChoiceRow
-            icon={Plus}
+            icon={PiggyBank}
             label="Einnahme"
             hint="Kommt dem Haushalt zu"
             onClick={() => starte('income')}

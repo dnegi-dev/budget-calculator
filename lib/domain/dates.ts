@@ -95,6 +95,23 @@ export function formatDate(date: IsoDate, locale: string): string {
   );
 }
 
+/**
+ * Monat und Jahr, ausgeschrieben — „September 2026".
+ *
+ * Nimmt ein vollständiges Datum und nicht `'YYYY-MM'`: Die Buchungsliste
+ * gruppiert über `date.slice(0, 7)`, hat den Tag also ohnehin zur Hand, und
+ * eine zweite Datumsform im Umlauf wäre eine zweite Stelle, an der geprüft
+ * werden müsste.
+ */
+export function formatMonth(date: IsoDate, locale: string): string {
+  const { year, month, day } = toParts(date);
+  return new Intl.DateTimeFormat(locale, {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(year, month - 1, day)));
+}
+
 function pad(value: number, length: number): string {
   return String(value).padStart(length, '0');
 }
