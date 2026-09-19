@@ -18,9 +18,11 @@ import type {
   IsoDate,
   ItemRule,
   NewEntryInput,
+  NewPurchaseInput,
   NewPotInput,
   NewRecurringRuleInput,
   Pot,
+  Purchase,
   Receipt,
   ReceiptMeta,
   RecurringRule,
@@ -162,6 +164,21 @@ export class HttpBudgetRepository implements BudgetRepository {
   }
 
   deleteEntry(_id: string): Promise<void> {
+    throw new NotImplementedError('Zentrale Datenhaltung');
+  }
+
+  createPurchase(_input: NewPurchaseInput): Promise<{ purchase: Purchase; entries: Entry[] }> {
+    throw new NotImplementedError('Zentrale Datenhaltung');
+  }
+
+  updatePurchaseItem(
+    _id: string,
+    _patch: { potId?: string | null; tags?: string[] },
+  ): Promise<Entry[]> {
+    throw new NotImplementedError('Zentrale Datenhaltung');
+  }
+
+  deletePurchase(_id: string): Promise<void> {
     throw new NotImplementedError('Zentrale Datenhaltung');
   }
 

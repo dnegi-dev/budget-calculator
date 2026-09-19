@@ -29,8 +29,11 @@ import type {
   IsoDate,
   NewEntryInput,
   NewPotInput,
+  NewPurchaseInput,
   NewRecurringRuleInput,
   Pot,
+  Purchase,
+  PurchaseItem,
   Receipt,
   ReceiptMeta,
   RecurringRule,
@@ -76,6 +79,8 @@ export interface Snapshot {
   recurringRules: RecurringRule[];
   receipts: ReceiptMeta[];
   itemRules: ItemRule[];
+  purchases: Purchase[];
+  purchaseItems: PurchaseItem[];
 }
 
 export interface ImportResult {
@@ -185,6 +190,27 @@ export interface BudgetRepository {
   createEntries(inputs: readonly NewEntryInput[]): Promise<Entry[]>;
   updateEntry(id: string, patch: Partial<NewEntryInput>): Promise<Entry>;
   deleteEntry(id: string): Promise<void>;
+
+  /**
+   * Ein eingelesener Bon: Einkauf, Posten und die daraus gerechneten
+   * Buchungen in **einem** Zug.
+   *
+   * Die Gruppierung passiert im Repository und nicht in der Oberfläche —
+   * dieselbe Begründung wie beim Standardtopf: Eine künftige API geht an
+   * jedem Formular vorbei.
+   */
+  createPurchase(input: NewPurchaseInput): Promise<{ purchase: Purchase; entries: Entry[] }>;
+  /**
+   * Topf oder Tags eines Postens ändern; die Buchungen des Einkaufs werden
+   * neu gerechnet. Betrag und Bezeichnung sind nicht dabei: Sie stehen so auf
+   * dem Beleg, und die Summenprobe soll eine Aussage über ihn bleiben.
+   */
+  updatePurchaseItem(
+    id: string,
+    patch: { potId?: string | null; tags?: string[] },
+  ): Promise<Entry[]>;
+  /** Einkauf, Posten, Buchungen und Beleg — nicht rückgängig zu machen. */
+  deletePurchase(id: string): Promise<void>;
 
   listRecurringRules(): Promise<RecurringRule[]>;
   createRecurringRule(input: NewRecurringRuleInput): Promise<RecurringRule>;

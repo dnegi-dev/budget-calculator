@@ -916,3 +916,200 @@ describe('Tags an Buchungen', () => {
     await expect(repo.deleteTag('urlaub')).rejects.toThrow(PermissionDeniedError);
   });
 });
+
+describe('Bon-Posten', () => {
+  async function zweiToepfe() {
+    const a = await repo.createPot({
+      name: 'Lebensmittel',
+      kind: 'budget',
+      limitCents: 40_000,
+      carryOver: false,
+    });
+    const b = await repo.createPot({
+      name: 'Drogerie',
+      kind: 'budget',
+      limitCents: 10_000,
+      carryOver: false,
+    });
+    return { a, b };
+  }
+
+  it('legt Einkauf, Posten und je Topf eine Buchung in einem Zug an', async () => {
+    const { a, b } = await zweiToepfe();
+    const { purchase, entries } = await repo.createPurchase({
+      merchant: 'Supermarkt',
+      date: '2026-09-18',
+      totalCents: 1_000,
+      quality: 'exakt',
+      items: [
+        { label: 'Milch', amountCents: 250, potId: a.id },
+        { label: 'Brot', amountCents: 500, potId: a.id },
+        { label: 'Zahnpasta', amountCents: 250, potId: b.id },
+      ],
+    });
+
+    expect(entries).toHaveLength(2);
+    expect(entries.map((entry) => entry.amountCents).sort((x, y) => x - y)).toEqual([250, 750]);
+    // Alle Buchungen zeigen auf den Einkauf und tragen dieselbe Klammer.
+    expect(entries.every((entry) => entry.purchaseId === purchase.id)).toBe(true);
+    expect(new Set(entries.map((entry) => entry.splitGroupId)).size).toBe(1);
+
+    const snapshot = await repo.loadSnapshot();
+    expect(snapshot.purchases).toHaveLength(1);
+    expect(snapshot.purchaseItems).toHaveLength(3);
+    // Reihenfolge des Bons, nicht die der Datenbank.
+    expect(snapshot.purchaseItems.map((item) => item.label)).toEqual([
+      'Milch',
+      'Brot',
+      'Zahnpasta',
+    ]);
+  });
+
+  it('rechnet die Buchungen neu, wenn ein Posten den Topf wechselt', async () => {
+    const { a, b } = await zweiToepfe();
+    const { purchase } = await repo.createPurchase({
+      merchant: 'Supermarkt',
+      date: '2026-09-18',
+      totalCents: 1_000,
+      quality: 'exakt',
+      items: [
+        { label: 'Milch', amountCents: 250, potId: a.id },
+        { label: 'Brot', amountCents: 500, potId: a.id },
+        { label: 'Zahnpasta', amountCents: 250, potId: b.id },
+      ],
+    });
+
+    const vorher = await repo.loadSnapshot();
+    const brot = vorher.purchaseItems.find((item) => item.label === 'Brot');
+    const revisionVorher = vorher.entries.find((entry) => entry.potId === a.id)?.revision ?? 0;
+    const logVorher = await repo.pendingChangeCount();
+
+    await repo.updatePurchaseItem(brot!.id, { potId: b.id });
+
+    const nachher = await repo.loadSnapshot();
+    const lebensmittel = nachher.entries.find((entry) => entry.potId === a.id);
+    const drogerie = nachher.entries.find((entry) => entry.potId === b.id);
+    expect(lebensmittel?.amountCents).toBe(250);
+    expect(drogerie?.amountCents).toBe(750);
+    // Dieselben Buchungen, nur neu gerechnet — sonst wäre der Beleg weg.
+    expect(nachher.entries).toHaveLength(2);
+    expect(lebensmittel?.revision).toBe(revisionVorher + 1);
+    // Je berührtem Datensatz eine Outbox-Zeile: Posten plus zwei Buchungen.
+    expect(await repo.pendingChangeCount()).toBe(logVorher + 3);
+    expect(purchase.id).toBe(nachher.purchases[0]?.id);
+  });
+
+  /**
+   * Der teure Fall: Der letzte Posten verlässt den Topf, dessen Buchung den
+   * Beleg trägt. Ohne Umhängen nähme `deleteEntry` den Bon mit.
+   */
+  it('hängt den Beleg um, bevor eine leere Buchung verschwindet', async () => {
+    const { a, b } = await zweiToepfe();
+    const { entries } = await repo.createPurchase({
+      merchant: 'Supermarkt',
+      date: '2026-09-18',
+      totalCents: 1_000,
+      quality: 'exakt',
+      items: [
+        { label: 'Zahnpasta', amountCents: 250, potId: b.id },
+        { label: 'Milch', amountCents: 750, potId: a.id },
+      ],
+    });
+
+    // Der Beleg hängt an der ersten Buchung — der des Drogerie-Postens.
+    const traeger = entries.find((entry) => entry.potId === b.id);
+    await repo.addReceipt(traeger!.id, {
+      filename: 'bon.pdf',
+      mime: 'application/pdf',
+      blob: new Blob(['%PDF'], { type: 'application/pdf' }),
+      thumbnail: null,
+    });
+
+    const vorher = await repo.loadSnapshot();
+    const zahnpasta = vorher.purchaseItems.find((item) => item.label === 'Zahnpasta');
+    await repo.updatePurchaseItem(zahnpasta!.id, { potId: a.id });
+
+    const nachher = await repo.loadSnapshot();
+    expect(nachher.entries).toHaveLength(1);
+    expect(nachher.entries[0]?.amountCents).toBe(1_000);
+    // Der Bon ist noch da und hängt an der Buchung, die geblieben ist.
+    expect(nachher.receipts).toHaveLength(1);
+    expect(nachher.receipts[0]?.entryId).toBe(nachher.entries[0]?.id);
+    expect(nachher.receipts[0]?.entryId).not.toBe(traeger!.id);
+  });
+
+  it('nimmt beim Löschen Posten, Buchungen und Beleg mit', async () => {
+    const { a } = await zweiToepfe();
+    const { purchase, entries } = await repo.createPurchase({
+      merchant: 'Supermarkt',
+      date: '2026-09-18',
+      totalCents: 250,
+      quality: 'geprüft',
+      items: [{ label: 'Milch', amountCents: 250, potId: a.id }],
+    });
+    await repo.addReceipt(entries[0]!.id, {
+      filename: 'bon.pdf',
+      mime: 'application/pdf',
+      blob: new Blob(['%PDF'], { type: 'application/pdf' }),
+      thumbnail: null,
+    });
+
+    await repo.deletePurchase(purchase.id);
+
+    const snapshot = await repo.loadSnapshot();
+    expect(snapshot.purchases).toEqual([]);
+    expect(snapshot.purchaseItems).toEqual([]);
+    expect(snapshot.entries).toEqual([]);
+    expect(snapshot.receipts).toEqual([]);
+
+    const logged = await db.changeLog.toArray();
+    expect(logged.some((change) => change.entity === 'purchase' && change.op === 'delete')).toBe(
+      true,
+    );
+    expect(
+      logged.some((change) => change.entity === 'purchaseItem' && change.op === 'delete'),
+    ).toBe(true);
+  });
+
+  it('nimmt Einkäufe und Posten in die Sicherung auf', async () => {
+    const { a } = await zweiToepfe();
+    await repo.createPurchase({
+      merchant: 'Supermarkt',
+      date: '2026-09-18',
+      totalCents: 250,
+      quality: 'exakt',
+      items: [{ label: 'Milch', amountCents: 250, potId: a.id, quantity: 2 }],
+    });
+
+    const file = await repo.exportAll({ includeReceipts: false });
+    expect(file.purchases).toHaveLength(1);
+    expect(file.purchaseItems).toHaveLength(1);
+    // Über das Schema, weil genau dort ein fehlender Standardwert weh tut.
+    const geprueft = exportFileSchema.parse(JSON.parse(JSON.stringify(file)));
+    expect(geprueft.purchaseItems[0]?.label).toBe('Milch');
+    expect(geprueft.purchaseItems[0]?.quantity).toBe(2);
+
+    await repo.wipeAll();
+    await repo.restoreFromBackup(geprueft);
+    const snapshot = await repo.loadSnapshot();
+    expect(snapshot.purchaseItems).toHaveLength(1);
+    expect(snapshot.entries[0]?.purchaseId).toBe(snapshot.purchases[0]?.id);
+  });
+
+  /**
+   * Eine Sicherung von vor den Bon-Posten. Ohne die Standardwerte im Schema
+   * ließe sie sich nicht mehr einlesen — derselbe Fehler, der bei den
+   * gelernten Zuordnungen schon einmal drohte.
+   */
+  it('liest eine Sicherung ohne Einkäufe weiter ein', async () => {
+    const file = await repo.exportAll({ includeReceipts: false });
+    const alt = JSON.parse(JSON.stringify(file)) as Record<string, unknown>;
+    delete alt.purchases;
+    delete alt.purchaseItems;
+    delete (alt.entries as Record<string, unknown>[])[0]?.purchaseId;
+
+    const geparst = exportFileSchema.parse(alt);
+    expect(geparst.purchases).toEqual([]);
+    expect(geparst.purchaseItems).toEqual([]);
+  });
+});
