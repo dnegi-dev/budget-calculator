@@ -14,6 +14,7 @@
 
 import { useRef, useState } from 'react';
 import { SUGGESTED_POTS } from './suggested-pots';
+import { Save, TriangleAlert } from 'lucide-react';
 import { useData } from '../../lib/data/provider';
 import { todayIso } from '../../lib/domain/dates';
 import { periodForDate } from '../../lib/domain/period';
@@ -24,6 +25,7 @@ import { AmountInput } from '../../lib/ui/AmountInput';
 import { Field, inputClass, selectClass } from '../../lib/ui/Field';
 import { WizardSteps } from '../../lib/ui/WizardSteps';
 import { Banner } from '../../lib/ui/Banner';
+import { Icon } from '../../lib/ui/Icon';
 import { potColorVar } from '../../lib/ui/colors';
 import { exportFileSchema } from '../../lib/domain/schemas';
 import { clampBackupText, describeImportError } from '../../lib/domain/backup';
@@ -211,7 +213,7 @@ export function OnboardingWizard() {
               </Button>
               {error && (
                 <div className="mt-3">
-                  <Banner tone="negative" icon="⚠">
+                  <Banner tone="negative" icon={<Icon icon={TriangleAlert} size={18} />}>
                     <span className="whitespace-pre-line">{error}</span>
                   </Banner>
                 </div>
@@ -336,12 +338,12 @@ export function OnboardingWizard() {
               label="Betrag pro Periode"
               currencySymbol={currency === 'EUR' ? '€' : currency}
             />
-            <Banner icon="💾">
+            <Banner icon={<Icon icon={Save} size={18} />}>
               Alle Daten bleiben auf diesem Gerät — ohne Konto, ohne Server. Sichere sie in den
               Einstellungen als Datei, bevor du das Gerät wechselst.
             </Banner>
             {error && (
-              <Banner tone="negative" icon="⚠">
+              <Banner tone="negative" icon={<Icon icon={TriangleAlert} size={18} />}>
                 {error}
               </Banner>
             )}

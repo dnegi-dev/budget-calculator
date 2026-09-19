@@ -20,6 +20,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { Info, TriangleAlert } from 'lucide-react';
 import { useCan } from '../../lib/auth/provider';
 import { useData } from '../../lib/data/provider';
 import { newId } from '../../lib/domain/ids';
@@ -38,6 +39,7 @@ import type { Pot } from '../../lib/domain/types';
 import { extractPdf, PdfReadError } from '../../lib/pdf/extract';
 import { Banner } from '../../lib/ui/Banner';
 import { Button } from '../../lib/ui/Button';
+import { Icon } from '../../lib/ui/Icon';
 import { Sheet } from '../../lib/ui/Sheet';
 import { TagInput } from '../entries/TagInput';
 import { selectClass } from '../../lib/ui/Field';
@@ -246,7 +248,7 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
       }
     >
       {fehler && (
-        <Banner tone="negative" icon="⚠">
+        <Banner tone="negative" icon={<Icon icon={TriangleAlert} size={18} />}>
           {fehler}
         </Banner>
       )}
@@ -365,7 +367,7 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
           )}
 
           {parsed.items.length === 0 && (
-            <Banner icon="ℹ">
+            <Banner icon={<Icon icon={Info} size={18} />}>
               Einzelposten waren nicht verlässlich zu erkennen. Es wird eine Buchung über die
               Endsumme angelegt, die du danach wie gewohnt aufteilen kannst.
             </Banner>

@@ -14,8 +14,10 @@
  */
 
 import { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
 import { withBasePath } from '../lib/base-path';
 import { BUILD_VERSION, VERSION_FILE } from '../lib/build-version';
+import { Icon } from '../lib/ui/Icon';
 
 const CHECK_INTERVAL_MS = 30 * 60 * 1000;
 
@@ -98,7 +100,7 @@ export function UpdateNotice() {
         className="px-1 opacity-80"
         onClick={() => setDismissed(true)}
       >
-        <span aria-hidden>✕</span>
+        <Icon icon={X} size={18} />
       </button>
     </div>
   );

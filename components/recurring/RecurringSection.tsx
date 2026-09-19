@@ -15,6 +15,7 @@
  */
 
 import { useState } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { useCan } from '../../lib/auth/provider';
 import { useData, useSnapshot } from '../../lib/data/provider';
 import { todayIso } from '../../lib/domain/dates';
@@ -26,6 +27,7 @@ import { AmountInput } from '../../lib/ui/AmountInput';
 import { Button } from '../../lib/ui/Button';
 import { Card, CardHeader } from '../../lib/ui/Card';
 import { EmptyState } from '../../lib/ui/EmptyState';
+import { Icon } from '../../lib/ui/Icon';
 import { Field, inputClass, selectClass } from '../../lib/ui/Field';
 import { SegmentedControl } from '../../lib/ui/SegmentedControl';
 import { Sheet } from '../../lib/ui/Sheet';
@@ -59,7 +61,7 @@ export function RecurringSection() {
 
       {snapshot.recurringRules.length === 0 ? (
         <EmptyState
-          icon="↻"
+          icon={<Icon icon={RefreshCw} size={30} />}
           title="Keine Regeln"
           hint="Lege Miete, Abos oder das Gehalt einmal an — die Buchungen entstehen dann automatisch."
           action={

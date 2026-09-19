@@ -17,12 +17,14 @@
  */
 
 import { useState } from 'react';
+import { X } from 'lucide-react';
 import { useCan } from '../../lib/auth/provider';
 import { useData } from '../../lib/data/provider';
 import { collectTags } from '../../lib/domain/tags';
 import { Button } from '../../lib/ui/Button';
 import { Card, CardHeader } from '../../lib/ui/Card';
 import { inputClass } from '../../lib/ui/Field';
+import { Icon } from '../../lib/ui/Icon';
 import { SegmentedControl } from '../../lib/ui/SegmentedControl';
 
 export function TagsSection() {
@@ -122,7 +124,7 @@ export function TagsSection() {
                           setUmbenennen(null);
                         }}
                       >
-                        <span aria-hidden>✕</span>
+                        <Icon icon={X} size={18} />
                       </Button>
                     </>
                   )}

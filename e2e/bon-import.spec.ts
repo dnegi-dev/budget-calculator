@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { einrichten, entsperren, erfassenOeffnen, optionWaehlen } from './helpers';
+import {
+  einrichten,
+  entsperren,
+  erfassenOeffnen,
+  optionWaehlen,
+  einstellungOeffnen,
+} from './helpers';
 
 /**
  * Der Bon-Import von der Datei bis zu den Buchungen.
@@ -86,8 +92,8 @@ test.describe('Bon einlesen', () => {
     await expect(page.getByText('2,50', { exact: false }).first()).toBeVisible();
     await expect(page.getByText('2,00', { exact: false }).first()).toBeVisible();
 
-    // Gelernt: Die Zuordnungen stehen in den Einstellungen.
-    await page.getByRole('link', { name: 'Einstellungen' }).first().click();
+    // Gelernt: Die Zuordnungen stehen in den Einstellungen unter „Ordnen“.
+    await einstellungOeffnen(page, 'Ordnen');
     await expect(page.getByText('kaffee to go')).toBeVisible();
 
     // Und beim zweiten Mal ist die Zeile vorbelegt.

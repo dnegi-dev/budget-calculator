@@ -15,7 +15,9 @@ import { useCan, useSession } from '../../lib/auth/provider';
 import { useData, useSnapshot } from '../../lib/data/provider';
 import type { Role } from '../../lib/domain/types';
 import { ROLE_DESCRIPTIONS, ROLE_LABELS, ROLES, permissionsOf } from '../../lib/rbac/permissions';
+import { TriangleAlert, Users } from 'lucide-react';
 import { Banner } from '../../lib/ui/Banner';
+import { Icon } from '../../lib/ui/Icon';
 import { Card, CardHeader } from '../../lib/ui/Card';
 import { selectClass } from '../../lib/ui/Field';
 
@@ -39,7 +41,7 @@ export function RolesSection() {
     <Card>
       <CardHeader title="Nutzer und Rollen" />
       <div className="flex flex-col gap-4 px-4 py-4">
-        <Banner icon="👤">
+        <Banner icon={<Icon icon={Users} size={18} />}>
           Weitere Nutzer brauchen die zentrale Datenhaltung — auf einem Gerät gibt es nur diesen
           einen. Das Rechtemodell ist aber schon aktiv.
         </Banner>
@@ -79,7 +81,7 @@ export function RolesSection() {
         </ul>
 
         {session.principal?.role !== 'admin' && (
-          <Banner tone="warning" icon="⚠">
+          <Banner tone="warning" icon={<Icon icon={TriangleAlert} size={18} />}>
             <p>
               Deine Rolle ist „{ROLE_LABELS[session.principal?.role ?? 'viewer']}“. Damit fehlen dir
               Rechte, die du zum Zurücksetzen bräuchtest.
@@ -95,7 +97,7 @@ export function RolesSection() {
         )}
 
         {error && (
-          <Banner tone="negative" icon="⚠">
+          <Banner tone="negative" icon={<Icon icon={TriangleAlert} size={18} />}>
             {error}
           </Banner>
         )}

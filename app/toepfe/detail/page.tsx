@@ -23,6 +23,8 @@ import { todayIso } from '../../../lib/domain/dates';
 import { computePotPeriodState, entriesInPeriod } from '../../../lib/domain/ledger';
 import { periodForDate } from '../../../lib/domain/period';
 import { describePotConfig, matchesPreset } from '../../../lib/domain/pot-kinds';
+import { CircleHelp } from 'lucide-react';
+import { Icon } from '../../../lib/ui/Icon';
 import { Banner } from '../../../lib/ui/Banner';
 import { Button } from '../../../lib/ui/Button';
 import { Card, CardHeader } from '../../../lib/ui/Card';
@@ -75,7 +77,7 @@ function PotDetail() {
   if (!pot || !state) {
     return (
       <div className="flex flex-col gap-4">
-        <Banner tone="warning" icon="?">
+        <Banner tone="warning" icon={<Icon icon={CircleHelp} size={18} />}>
           Dieser Topf existiert nicht mehr.
         </Banner>
         <Link href="/toepfe" className="text-sm text-accent underline">

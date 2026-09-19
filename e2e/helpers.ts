@@ -104,3 +104,16 @@ export async function optionWaehlen(page: Page, feld: string, text: string): Pro
 export async function filterOeffnen(page: Page): Promise<void> {
   if (istMobil(page)) await page.getByRole('button', { name: 'Filter' }).click();
 }
+
+/**
+ * Öffnet einen Punkt der Einstellungen.
+ *
+ * Seit die Einstellungen Unterseiten haben, sind es zwei Klicks: erst die
+ * Übersicht, dann die Zeile. Der Name der Zeile enthält auch ihre Unterzeile,
+ * deshalb der Anker am Anfang.
+ */
+export async function einstellungOeffnen(page: Page, punkt: string): Promise<void> {
+  await page.getByRole('link', { name: 'Einstellungen' }).first().click();
+  await page.getByRole('link', { name: new RegExp(`^${punkt}`) }).click();
+  await expect(page.getByRole('heading', { name: punkt, level: 1 })).toBeVisible();
+}

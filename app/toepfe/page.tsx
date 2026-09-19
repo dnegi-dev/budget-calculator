@@ -11,6 +11,8 @@ import { computePotStates } from '../../lib/domain/ledger';
 import { periodForDate } from '../../lib/domain/period';
 import { Button } from '../../lib/ui/Button';
 import { Card, CardHeader } from '../../lib/ui/Card';
+import { Wallet } from 'lucide-react';
+import { Icon } from '../../lib/ui/Icon';
 import { EmptyState } from '../../lib/ui/EmptyState';
 import { useFormat } from '../../lib/ui/useFormat';
 
@@ -62,7 +64,7 @@ export default function PotsPage() {
       <Card>
         {active.length === 0 ? (
           <EmptyState
-            icon="◫"
+            icon={<Icon icon={Wallet} size={30} />}
             title="Keine aktiven Töpfe"
             hint="Lege einen Topf an, um Ausgaben zuordnen zu können."
             action={

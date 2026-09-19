@@ -25,6 +25,8 @@ import { entriesInPeriod } from '../../lib/domain/ledger';
 import { periodForDate } from '../../lib/domain/period';
 import { collectTags, hasTag } from '../../lib/domain/tags';
 import type { EntryKind } from '../../lib/domain/types';
+import { Search, SlidersHorizontal } from 'lucide-react';
+import { Icon } from '../../lib/ui/Icon';
 import { Button } from '../../lib/ui/Button';
 import { Card, CardHeader } from '../../lib/ui/Card';
 import { SegmentedControl } from '../../lib/ui/SegmentedControl';
@@ -201,7 +203,7 @@ export default function EntriesPage() {
             aria-expanded={searchOpen}
             onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
           >
-            <span aria-hidden>🔍</span>
+            <Icon icon={Search} size={20} />
           </Button>
           <Button
             variant="ghost"
@@ -211,7 +213,7 @@ export default function EntriesPage() {
             aria-expanded={filtersOpen}
             onClick={() => setFiltersOpen((open) => !open)}
           >
-            <span aria-hidden>⚙</span>
+            <Icon icon={SlidersHorizontal} size={20} />
           </Button>
           {/*
             Erfassen nur ab md: mobil macht das der schwebende Knopf.

@@ -1,5 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { einrichten, entsperren, erfassenOeffnen, filterOeffnen, optionWaehlen } from './helpers';
+import {
+  einrichten,
+  einstellungOeffnen,
+  entsperren,
+  erfassenOeffnen,
+  filterOeffnen,
+  optionWaehlen,
+} from './helpers';
 
 /**
  * Standardtopf und Tags — zwei Einstellungen, die den Erfassen-Fluss ändern.
@@ -18,7 +25,7 @@ test.describe('Standardtopf', () => {
   test('bucht ohne Topf-Schritt in den Standardtopf', async ({ page }) => {
     await einrichten(page);
 
-    await page.getByRole('link', { name: 'Einstellungen' }).first().click();
+    await einstellungOeffnen(page, 'Erfassen');
     await optionWaehlen(page, 'Standardtopf', 'Wohnen');
     await page.getByRole('radio', { name: 'Direkt in den Standardtopf' }).click();
     await expect(page.getByText(/Der Schritt entfällt/)).toBeVisible();
@@ -44,7 +51,7 @@ test.describe('Standardtopf', () => {
   test('fängt eine Ausgabe auf, bei der „Kein Topf“ gewählt wurde', async ({ page }) => {
     await einrichten(page);
 
-    await page.getByRole('link', { name: 'Einstellungen' }).first().click();
+    await einstellungOeffnen(page, 'Erfassen');
     await optionWaehlen(page, 'Standardtopf', 'Wohnen');
 
     await page.getByRole('link', { name: 'Heute' }).first().click();
@@ -73,7 +80,7 @@ test.describe('Tags', () => {
     await einrichten(page);
 
     // --- Einschalten -----------------------------------------------------
-    await page.getByRole('link', { name: 'Einstellungen' }).first().click();
+    await einstellungOeffnen(page, 'Ordnen');
     await page.getByRole('radiogroup', { name: 'Tags benutzen' }).getByText('An').click();
     await expect(page.getByText(/Noch keine Tags benutzt/)).toBeVisible();
 
@@ -121,7 +128,7 @@ test.describe('Tags', () => {
     await expect(page.getByText(/ergeben zusammen mehr als die Ausgaben/)).toBeVisible();
 
     // --- Umbenennen ------------------------------------------------------
-    await page.getByRole('link', { name: 'Einstellungen' }).first().click();
+    await einstellungOeffnen(page, 'Ordnen');
     // In der Zeile des Tags bleiben: „Speichern" heißt auch der Knopf der
     // Haushalt-Karte, und der steht weiter oben im Baum.
     const tagZeile = page.getByRole('listitem').filter({ hasText: 'Urlaub' }).first();

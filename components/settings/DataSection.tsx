@@ -1,43 +1,43 @@
 'use client';
 
 /**
- * Export und Import.
+ * Export und das zusammenführende Einlesen.
  *
  * Solange die Daten nur auf dem Gerät liegen, ist der Export die einzige
  * Sicherung — deshalb steht er oben und nicht hinter „Erweitert“.
  *
- * Beim Import wird bewusst gefragt statt geraten: „Ersetzen“ ist richtig beim
- * Gerätewechsel, „Zusammenführen“ beim Abgleich zweier Geräte. Wer das falsch
- * wählt, verliert Daten.
+ * Das **ersetzende** Einlesen steht nicht hier, sondern in der Gefahrenzone.
+ * Vorher lagen „Zusammenführen“ und „Ersetzen“ als zwei Knöpfe im selben
+ * Bestätigungsblock; wer den falschen traf, hatte alles auf diesem Gerät
+ * verworfen. Den Ablauf teilen beide Seiten über `useBackupImport`.
  */
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
+import { CircleCheck, Save, TriangleAlert } from 'lucide-react';
+import Link from 'next/link';
 import { useCan } from '../../lib/auth/provider';
 import { useData } from '../../lib/data/provider';
 import { downloadFile, entriesToCsv } from '../../lib/data/csv';
 import { formatByteSize } from '../../lib/data/blobs';
-import { exportFileSchema, type ExportFile } from '../../lib/domain/schemas';
-import { clampBackupText, describeImportError } from '../../lib/domain/backup';
 import { todayIso } from '../../lib/domain/dates';
-import type { ImportResult } from '../../lib/data/repository';
 import { Banner } from '../../lib/ui/Banner';
 import { Button } from '../../lib/ui/Button';
 import { Card, CardHeader } from '../../lib/ui/Card';
+import { Icon } from '../../lib/ui/Icon';
 import { useFormat } from '../../lib/ui/useFormat';
+import { BackupFilePicker } from './BackupFilePicker';
+import { useBackupImport } from './useBackupImport';
 
 export function DataSection() {
   const { repository, snapshot } = useData();
   const format = useFormat();
   const can = useCan();
-  const fileRef = useRef<HTMLInputElement>(null);
+  const einlesen = useBackupImport();
 
   const [includeReceipts, setIncludeReceipts] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pendingImport, setPendingImport] = useState<ExportFile | null>(null);
-  const [truncated, setTruncated] = useState(0);
-  const [result, setResult] = useState<ImportResult | null>(null);
 
   const receiptBytes = snapshot.receipts.reduce((total, receipt) => total + receipt.byteSize, 0);
 
@@ -72,52 +72,11 @@ export function DataSection() {
     setMessage(`${snapshot.entries.length} Buchungen als CSV heruntergeladen.`);
   }
 
-  async function readFile(file: File) {
-    setError(null);
-    setMessage(null);
-    setResult(null);
-    setTruncated(0);
-    try {
-      const parsed: unknown = JSON.parse(await file.text());
-      // Zu lange Freitexte kürzen, bevor das Schema urteilt: Eine Notiz soll
-      // die einzige Kopie der Daten nicht unlesbar machen.
-      const gekuerzt = clampBackupText(parsed);
-      const validation = exportFileSchema.safeParse(parsed);
-      if (!validation.success) {
-        setError(describeImportError(validation.error));
-        return;
-      }
-      setTruncated(gekuerzt);
-      setPendingImport(validation.data);
-    } catch {
-      setError('Die Datei ist kein gültiges JSON.');
-    } finally {
-      if (fileRef.current) fileRef.current.value = '';
-    }
-  }
-
-  async function runImport(mode: 'replace' | 'merge') {
-    if (pendingImport === null) return;
-    setBusy(true);
-    setError(null);
-    try {
-      // Kein zweites `parse`: Die Daten sind schon geprüft, und bei einer
-      // Sicherung mit Belegen wäre das ein Megabyte-Durchlauf für nichts.
-      const imported = await repository.importAll(pendingImport, mode);
-      setResult(imported);
-      setPendingImport(null);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Import fehlgeschlagen');
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <Card>
       <CardHeader title="Sicherung" />
       <div className="flex flex-col gap-4 px-4 py-4">
-        <Banner icon="💾">
+        <Banner icon={<Icon icon={Save} size={18} />}>
           Die Daten liegen ausschließlich auf diesem Gerät. Ohne Sicherung sind sie verloren, wenn
           du den Browser-Speicher leerst oder das Gerät wechselst.
         </Banner>
@@ -156,73 +115,71 @@ export function DataSection() {
 
         {can('data.import') && (
           <div className="border-t border-line pt-4">
-            <p className="font-medium">Sicherung einlesen</p>
+            <p className="font-medium">Sicherung zusammenführen</p>
             <p className="mt-1 mb-3 text-sm text-ink-muted">
-              Nur JSON-Dateien aus dieser App. CSV kann nicht eingelesen werden — dort fehlen IDs
-              und Beleg-Zuordnungen.
+              Bei gleicher ID gewinnt der neuere Stand — richtig beim Abgleich zweier Geräte. Nur
+              JSON-Dateien aus dieser App; CSV kann nicht eingelesen werden, dort fehlen IDs und
+              Beleg-Zuordnungen.
             </p>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="application/json,.json"
-              className="hidden"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) void readFile(file);
-              }}
+            <BackupFilePicker
+              label="Datei wählen"
+              disabled={einlesen.busy}
+              onFile={(file) => void einlesen.lesen(file)}
             />
-            <Button variant="secondary" disabled={busy} onClick={() => fileRef.current?.click()}>
-              Datei wählen
-            </Button>
+            <p className="mt-3 text-xs text-ink-muted">
+              Eine Sicherung stattdessen <em>ersetzend</em> einzulesen verwirft alles auf diesem
+              Gerät — das steht in der{' '}
+              <Link href="/einstellungen/gefahrenzone" className="text-accent hover:underline">
+                Gefahrenzone
+              </Link>
+              .
+            </p>
           </div>
         )}
 
-        {pendingImport !== null && (
+        {einlesen.pending !== null && (
           <div className="rounded-card border border-[var(--warning)] px-4 py-3">
-            <p className="font-medium">Wie soll eingelesen werden?</p>
-            {truncated > 0 && (
+            <p className="font-medium">Zusammenführen?</p>
+            {einlesen.truncated > 0 && (
               <p className="mt-1 text-sm text-ink-muted">
-                {truncated === 1
+                {einlesen.truncated === 1
                   ? 'Ein zu langer Text wurde auf die zulässige Länge gekürzt.'
-                  : `${truncated} zu lange Texte wurden auf die zulässige Länge gekürzt.`}
+                  : `${einlesen.truncated} zu lange Texte wurden auf die zulässige Länge gekürzt.`}
               </p>
             )}
-            <ul className="mt-2 flex flex-col gap-2 text-sm text-ink-muted">
-              <li>
-                <strong className="text-ink">Ersetzen</strong> — alles auf diesem Gerät wird
-                verworfen und durch die Datei ersetzt. Richtig beim Gerätewechsel.
-              </li>
-              <li>
-                <strong className="text-ink">Zusammenführen</strong> — bei gleicher ID gewinnt der
-                neuere Stand. Richtig beim Abgleich zweier Geräte.
-              </li>
-            </ul>
+            <p className="mt-1 text-sm text-ink-muted">
+              Vorhandene Datensätze bleiben; bei gleicher ID gewinnt der neuere Stand.
+            </p>
             <div className="mt-3 flex flex-wrap gap-3">
-              <Button variant="primary" disabled={busy} onClick={() => void runImport('merge')}>
+              <Button
+                variant="primary"
+                disabled={einlesen.busy}
+                onClick={() => void einlesen.ausfuehren('merge')}
+              >
                 Zusammenführen
               </Button>
-              <Button variant="danger" disabled={busy} onClick={() => void runImport('replace')}>
-                Ersetzen
-              </Button>
-              <Button variant="ghost" onClick={() => setPendingImport(null)}>
+              <Button variant="ghost" onClick={einlesen.abbrechen}>
                 Abbrechen
               </Button>
             </div>
           </div>
         )}
 
-        {result && (
-          <Banner icon="✓">
-            Eingelesen: {result.pots} Töpfe, {result.entries} Buchungen, {result.recurringRules}{' '}
-            Regeln, {result.receipts} Belege
-            {result.skipped > 0 ? ` — ${result.skipped} übersprungen (lokal neuer)` : ''}.
+        {einlesen.result && (
+          <Banner icon={<Icon icon={CircleCheck} size={18} />}>
+            Eingelesen: {einlesen.result.pots} Töpfe, {einlesen.result.entries} Buchungen,{' '}
+            {einlesen.result.recurringRules} Regeln, {einlesen.result.receipts} Belege
+            {einlesen.result.skipped > 0
+              ? ` — ${einlesen.result.skipped} übersprungen (lokal neuer)`
+              : ''}
+            .
           </Banner>
         )}
 
         {message && <p className="text-sm text-positive">{message}</p>}
-        {error && (
-          <Banner tone="negative" icon="⚠">
-            <span className="whitespace-pre-line">{error}</span>
+        {(error ?? einlesen.error) && (
+          <Banner tone="negative" icon={<Icon icon={TriangleAlert} size={18} />}>
+            <span className="whitespace-pre-line">{error ?? einlesen.error}</span>
           </Banner>
         )}
       </div>
