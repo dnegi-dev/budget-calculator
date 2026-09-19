@@ -75,7 +75,8 @@ test.describe('Haushalt einrichten und buchen', () => {
 
     // Details: Beleg anhängen. Die Buchung existiert an dieser Stelle schon,
     // denn ein Beleg braucht etwas zu belegen.
-    await page.getByLabel('Wo?').fill('Supermarkt');
+    // „Firma" ist der Name; „Wo?" trägt seit der Trennung die Anschrift.
+    await page.getByLabel('Firma').fill('Supermarkt');
     // Das Feld ohne `capture` — der Kamera-Knopf hat ein eigenes, und ein
     // unspezifisches input[type=file] träfe beide.
     const belegFeld = 'input[type="file"][accept="image/*,application/pdf"]';

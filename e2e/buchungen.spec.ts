@@ -21,7 +21,7 @@ test.describe('Buchungen', () => {
     await page.getByRole('button', { name: 'Weiter' }).click();
     await page.getByRole('button', { name: /Wohnen/ }).click();
     await page.getByRole('button', { name: 'Weiter' }).click();
-    await page.getByLabel('Wo?').fill('Baumarkt');
+    await page.getByLabel('Firma').fill('Baumarkt');
     await page.getByRole('button', { name: 'Fertig' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
 

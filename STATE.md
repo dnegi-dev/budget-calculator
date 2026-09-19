@@ -31,6 +31,7 @@ Konto und keine Übertragung.
 | Klebende Leiste je Liste (Titel, Suche, Filter)    | fertig auf Heute, Buchungen, Wiederkehrend, Töpfe, Ordnen    |
 | Monat und Tag kleben über der Buchungsliste        | fertig, zwei Zeilen unter der Werkzeugleiste                 |
 | Buchung löschen (Wischen und Knopf)                | fertig, beides abschaltbar, Rückfrage voreingestellt         |
+| Firma und Anschrift getrennt, Anschrift als Karte  | fertig; `geo:`-Verweis, kein Kartendienst im Netz            |
 | Impressum und Datenschutz über der unteren Leiste  | fertig, kleben sobald sie im Bild waren (mobil)              |
 | Bon-Einzelposten, Topf und Tags je Posten          | fertig; Buchungen werden neu gerechnet, Beleg hängt um       |
 | Bon-Profile je Kette (Erkennung, Produkt-Mappings) | fertig ohne Oberfläche; Verwaltung offen                     |
@@ -39,8 +40,8 @@ Konto und keine Übertragung.
 | Impressum, Datenschutz                             | **Gerüst mit Platzhaltern — vor Veröffentlichung ausfüllen** |
 | Zentrale Datenbank, SSO                            | vorbereitet, nicht eingeschaltet                             |
 
-**Prüfstand:** 644 Unit-Tests (`npm test`), 46 E2E-Tests auf zwei Viewports
-(`npm run test:e2e`, 86 Läufe und 6 bewusste Auslassungen — den schwebenden
+**Prüfstand:** 654 Unit-Tests (`npm test`), 48 E2E-Tests auf zwei Viewports
+(`npm run test:e2e`, 90 Läufe und 6 bewusste Auslassungen — den schwebenden
 Knopf und die klebende Rechtsleiste gibt es ab `md` nicht), typecheck und lint
 grün, statischer Build erzeugt.
 CI prüft jeden Pull Request, der Deploy-Workflow prüft erneut vor der

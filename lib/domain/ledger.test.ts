@@ -46,6 +46,7 @@ function entry(potId: string | null, kind: EntryKind, amountCents: number, date:
     date,
     note: null,
     merchant: null,
+    address: null,
     recurringRuleId: null,
     splitGroupId: null,
     purchaseId: null,

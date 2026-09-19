@@ -494,6 +494,37 @@ Sicherung war unbrauchbar. Neu ist außerdem `clampBackupText`
 (`lib/domain/backup.ts`): Der Import kürzt und meldet, statt die ganze Datei
 abzulehnen. Das Schema selbst bleibt streng, es ist die künftige API-Grenze.
 
+## Firma und Anschrift
+
+Eine Buchung trägt zwei Ortsangaben, und die Trennung ist jung:
+
+- **`merchant` ist der Name** und heißt in der Oberfläche „Firma". Es hieß
+  dort früher „Wo?" und trug beides — damit ließ sich weder eine Karte öffnen
+  noch eine Filiale von einer anderen unterscheiden.
+- **`address` ist die vollständige Anschrift** und heißt jetzt „Wo?".
+
+**Die Richtung war die Entscheidung.** `merchant` zur Anschrift zu machen
+hätte in jeder bestehenden Buchung einen Namen als Anschrift geführt — und
+der Bon-Import schreibt dort seit jeher den Händlernamen. So bleibt der
+Bestand richtig, und das neue Feld startet leer.
+
+- **Angezeigt wird gekürzt, gespeichert vollständig.** `shortenAddress` in
+  `lib/domain/address.ts` nimmt den Teil vor dem ersten Komma; der volle Text
+  steht im `title`.
+- **Das Kartenziel ist `geo:`, keine Adresse im Netz.** Ein
+  `https://…maps…`-Link schickte die Anschrift an einen Dritten, und
+  `app/datenschutz/page.tsx` sagt belegbar zu, dass nichts das Gerät
+  verlässt. Der Preis steht dort ebenso ehrlich: Am Desktop tut ein
+  `geo:`-Verweis je nach System nichts.
+- **Der Verweis steht unter der Zeile, nicht in ihr.** Die Listenzeile ist
+  eine Schaltfläche, und ein Verweis darin ist kein gültiges HTML — der
+  Browser zieht ihn heraus und die Zeile zerfällt. Die eigene Zeile kostet
+  Höhe, aber nur bei Buchungen mit Anschrift.
+- Gesucht wird über beide Felder, im Snapshot und im Adapter. `address` ist
+  **nicht indiziert** (wie `tags`), also keine Dexie-Migration — aber ein
+  Standardwert im `entrySchema`, sonst lässt sich keine ältere Sicherung mehr
+  einlesen.
+
 ## Bon-Import
 
 - **Ein Einkauf, mehrere Buchungen.** Ein Bon auf drei Töpfe wird zu drei

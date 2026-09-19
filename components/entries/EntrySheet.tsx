@@ -111,6 +111,7 @@ function EntryForm({
   const [tags, setTags] = useState<string[]>(entry?.tags ?? []);
   const [date, setDate] = useState(entry?.date ?? todayIso());
   const [merchant, setMerchant] = useState(entry?.merchant ?? '');
+  const [address, setAddress] = useState(entry?.address ?? '');
   const [bonDatei, setBonDatei] = useState<File | null>(null);
   const bonRef = useRef<HTMLInputElement>(null);
   const [note, setNote] = useState(entry?.note ?? '');
@@ -167,6 +168,7 @@ function EntryForm({
         date,
         note: note.trim() || null,
         merchant: merchant.trim() || null,
+        address: address.trim() || null,
         tags,
       };
 
@@ -454,7 +456,13 @@ function EntryForm({
             )}
           </Field>
 
-          <Field label="Wo?" hint="Optional — hilft beim Suchen.">
+          {/*
+            Zwei Felder statt einem: „Wo?" trug vorher den Ladennamen, und
+            damit ließ sich weder eine Karte öffnen noch nach einer Filiale
+            unterscheiden. Der Name bleibt in `merchant` — bestehende
+            Buchungen und der Bon-Import sind damit weiter richtig.
+          */}
+          <Field label="Firma" hint="Optional — steht als Titel in der Liste.">
             {(props) => (
               <input
                 {...props}
@@ -463,7 +471,21 @@ function EntryForm({
                 onChange={(event) => setMerchant(event.target.value)}
                 placeholder="z. B. Supermarkt"
                 maxLength={TEXT_LIMITS.merchant}
-                autoComplete="off"
+                autoComplete="organization"
+              />
+            )}
+          </Field>
+
+          <Field label="Wo?" hint="Vollständige Anschrift — in der Liste gekürzt und antippbar.">
+            {(props) => (
+              <input
+                {...props}
+                className={inputClass}
+                value={address}
+                onChange={(event) => setAddress(event.target.value)}
+                placeholder="z. B. Beispielstraße 96, 12345 Musterstadt"
+                maxLength={TEXT_LIMITS.address}
+                autoComplete="street-address"
               />
             )}
           </Field>

@@ -21,9 +21,10 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { MapPin, Trash2 } from 'lucide-react';
 import { useCan } from '../../lib/auth/provider';
 import { useData } from '../../lib/data/provider';
+import { mapsHref, shortenAddress } from '../../lib/domain/address';
 import { canDeleteEntryDirectly } from '../../lib/domain/ledger';
 import type { Entry, Pot } from '../../lib/domain/types';
 import { Button } from '../../lib/ui/Button';
@@ -268,6 +269,8 @@ function EntryRow({
   onSwipe: (() => void) | null;
 }) {
   const format = useFormat();
+  const kurzeAdresse = entry.address ? shortenAddress(entry.address) : '';
+  const karte = entry.address ? mapsHref(entry.address) : null;
   const { handlers, offset, ziehend, consumeTriggered } = useSwipeAction(
     () => onSwipe?.(),
     onSwipe !== null,
@@ -295,73 +298,111 @@ function EntryRow({
         </span>
       )}
 
-      <button
-        type="button"
-        {...handlers}
-        onClick={() => {
-          // Nach einem Wischen kein Öffnen: Das `click` folgt auf `pointerup`
-          // und zeigte sonst die Buchung, die gerade gelöscht wurde.
-          if (consumeTriggered()) return;
-          onOpen();
-        }}
-        className={[
-          'relative flex w-full items-center gap-3 bg-surface px-4 py-3 text-left hover:bg-subtle',
-          // Senkrecht scrollt der Browser, waagerecht übernehmen wir. Ohne
-          // das käme `preventDefault` bei einem passiven Listener zu spät.
-          onSwipe !== null ? 'touch-pan-y' : '',
-        ].join(' ')}
+      {/*
+        Die Hülle trägt die Verschiebung, nicht die Schaltfläche: Die
+        Anschrift darunter ist ein eigener Verweis und soll mitwandern.
+      */}
+      <div
+        className="relative bg-surface"
         style={{
           transform: offset > 0 ? `translateX(-${offset}px)` : undefined,
           transition: ziehend ? 'none' : 'transform 150ms ease-out',
         }}
       >
-        <span
-          aria-hidden
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-base"
-          style={{
-            background: pot
-              ? `color-mix(in oklch, ${potColorVar(pot.color)} 18%, transparent)`
-              : 'var(--bg-subtle)',
+        <button
+          type="button"
+          {...handlers}
+          onClick={() => {
+            // Nach einem Wischen kein Öffnen: Das `click` folgt auf
+            // `pointerup` und zeigte sonst die Buchung, die gerade gelöscht
+            // wurde.
+            if (consumeTriggered()) return;
+            onOpen();
           }}
-        >
-          {pot?.icon ?? (entry.kind === 'income' ? '↓' : '–')}
-        </span>
-
-        <span className="min-w-0 flex-1">
-          <span className="block truncate font-medium">
-            {entry.merchant ||
-              entry.note ||
-              pot?.name ||
-              (entry.kind === 'income' ? 'Einnahme' : 'Ausgabe')}
-          </span>
-          <span className="block truncate text-xs text-ink-muted">
-            {[
-              pot?.name ?? 'ohne Topf',
-              // Tags in dieselbe Zeile und nicht als eigene Marken: Die Liste
-              // soll bei 320 px nicht in die Höhe wachsen, und hier zählt
-              // „welcher Tag war das", nicht das Bearbeiten.
-              (entry.tags ?? []).length > 0
-                ? (entry.tags ?? []).map((tag) => `#${tag}`).join(' ')
-                : null,
-              entry.recurringRuleId ? 'wiederkehrend' : null,
-              splitCount > 1 ? `Einkauf mit ${splitCount} Buchungen` : null,
-              receiptCount > 0 ? `${receiptCount} Beleg${receiptCount > 1 ? 'e' : ''}` : null,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </span>
-        </span>
-
-        <span
           className={[
-            'tabular shrink-0 font-semibold',
-            entry.kind === 'income' ? 'text-positive' : '',
+            'flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-subtle',
+            // Senkrecht scrollt der Browser, waagerecht übernehmen wir. Ohne
+            // das käme `preventDefault` bei einem passiven Listener zu spät.
+            onSwipe !== null ? 'touch-pan-y' : '',
           ].join(' ')}
         >
-          {entry.kind === 'income' ? '+' : '−'}
-          {format.money(entry.amountCents)}
-        </span>
-      </button>
+          <span
+            aria-hidden
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-base"
+            style={{
+              background: pot
+                ? `color-mix(in oklch, ${potColorVar(pot.color)} 18%, transparent)`
+                : 'var(--bg-subtle)',
+            }}
+          >
+            {pot?.icon ?? (entry.kind === 'income' ? '↓' : '–')}
+          </span>
+
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-medium">
+              {entry.merchant ||
+                entry.note ||
+                pot?.name ||
+                (entry.kind === 'income' ? 'Einnahme' : 'Ausgabe')}
+            </span>
+            <span className="block truncate text-xs text-ink-muted">
+              {[
+                pot?.name ?? 'ohne Topf',
+                // Tags in dieselbe Zeile und nicht als eigene Marken: Die Liste
+                // soll bei 320 px nicht in die Höhe wachsen, und hier zählt
+                // „welcher Tag war das", nicht das Bearbeiten.
+                (entry.tags ?? []).length > 0
+                  ? (entry.tags ?? []).map((tag) => `#${tag}`).join(' ')
+                  : null,
+                entry.recurringRuleId ? 'wiederkehrend' : null,
+                splitCount > 1 ? `Einkauf mit ${splitCount} Buchungen` : null,
+                receiptCount > 0 ? `${receiptCount} Beleg${receiptCount > 1 ? 'e' : ''}` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
+          </span>
+
+          <span
+            className={[
+              'tabular shrink-0 font-semibold',
+              entry.kind === 'income' ? 'text-positive' : '',
+            ].join(' ')}
+          >
+            {entry.kind === 'income' ? '+' : '−'}
+            {format.money(entry.amountCents)}
+          </span>
+        </button>
+
+        {/*
+          Die Anschrift steht **unter** der Zeile und nicht in ihr: Sie ist
+          ein Verweis, und ein Verweis in einer Schaltfläche ist kein
+          gültiges HTML — der Browser zieht ihn heraus und die Zeile
+          zerfällt. Eine eigene Zeile kostet Höhe, aber nur bei Buchungen,
+          die überhaupt eine Anschrift haben.
+
+          Das Ziel ist `geo:` und keine Karten-Adresse im Netz — die
+          Begründung steht in `lib/domain/address.ts`. Auf dem Telefon öffnet
+          das die Karten-Anwendung, am Desktop passiert je nach System
+          nichts; das ist der Preis dafür, die Anschrift nicht an einen
+          Dritten zu schicken. Ohne verwertbaren Inhalt gibt `mapsHref`
+          `null`, dann steht die Anschrift als Text da.
+        */}
+        {kurzeAdresse !== '' && (
+          <div className="flex items-center gap-1 px-4 pb-2 pl-[3.25rem] text-xs text-ink-muted">
+            <Icon icon={MapPin} size={13} />
+            {karte ? (
+              <a href={karte} className="truncate hover:underline" title={entry.address ?? ''}>
+                {kurzeAdresse}
+              </a>
+            ) : (
+              <span className="truncate" title={entry.address ?? ''}>
+                {kurzeAdresse}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
     </li>
   );
 }

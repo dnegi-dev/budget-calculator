@@ -507,7 +507,8 @@ export class DexieBudgetRepository implements BudgetRepository {
         entries = entries.filter(
           (entry) =>
             (entry.note ?? '').toLowerCase().includes(needle) ||
-            (entry.merchant ?? '').toLowerCase().includes(needle),
+            (entry.merchant ?? '').toLowerCase().includes(needle) ||
+            (entry.address ?? '').toLowerCase().includes(needle),
         );
       }
     }
@@ -561,6 +562,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       date: input.date,
       note: clampText(input.note, TEXT_LIMITS.note),
       merchant: clampText(input.merchant, TEXT_LIMITS.merchant),
+      address: clampText(input.address, TEXT_LIMITS.address),
       tags: dedupeTags(input.tags ?? []),
       splitGroupId: input.splitGroupId ?? null,
       purchaseId: input.purchaseId ?? null,
@@ -596,6 +598,10 @@ export class DexieBudgetRepository implements BudgetRepository {
         patch.merchant === undefined
           ? entry.merchant
           : clampText(patch.merchant, TEXT_LIMITS.merchant),
+      address:
+        patch.address === undefined
+          ? (entry.address ?? null)
+          : clampText(patch.address, TEXT_LIMITS.address),
       // Beim Bearbeiten greift der Standardtopf **nicht**: Wer hier
       // ausdrücklich „Kein Topf" wählt, meint das auch. Der Auffangnetz-Fall
       // ist das Anlegen.
@@ -878,6 +884,7 @@ export class DexieBudgetRepository implements BudgetRepository {
             date: input.date,
             note: input.note ?? null,
             merchant: null,
+            address: null,
             // Wiederkehrende Regeln tragen selbst noch keine Tags — offen und
             // in STATE.md notiert, nicht vergessen.
             tags: [],
@@ -986,6 +993,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       date: entry.date,
       note: clampText(entry.note, TEXT_LIMITS.note),
       merchant: clampText(entry.merchant, TEXT_LIMITS.merchant),
+      address: clampText(entry.address ?? null, TEXT_LIMITS.address),
       tags: entry.tags ?? [],
       splitGroupId: entry.splitGroupId ?? null,
       purchaseId: purchase.id,
@@ -1080,6 +1088,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       date: entry.date,
       note: clampText(entry.note, TEXT_LIMITS.note),
       merchant: clampText(entry.merchant, TEXT_LIMITS.merchant),
+      address: clampText(entry.address ?? null, TEXT_LIMITS.address),
       tags: entry.tags ?? [],
       splitGroupId: entry.splitGroupId ?? null,
       purchaseId: purchase.id,

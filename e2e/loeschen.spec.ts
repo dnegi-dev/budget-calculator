@@ -24,9 +24,16 @@ async function ausgabeErfassen(page: Page, betrag: string) {
   await expect(page.getByRole('dialog')).toBeHidden();
 }
 
-/** Die erste Zeile der Buchungsliste. */
+/**
+ * Die erste Zeile der Buchungsliste.
+ *
+ * Nicht `li > button`: Seit die Anschrift als eigener Verweis unter der
+ * Zeile steht, liegt die Schaltfläche in einer Hülle, die beide zusammen
+ * verschiebt. Nur Buchungszeilen tragen eine Schaltfläche in einem `li` —
+ * Monats- und Tageskopf sind Absätze, die untere Navigation sind Verweise.
+ */
 function ersteZeile(page: Page) {
-  return page.locator('li > button[type="button"]').first();
+  return page.locator('li button[type="button"]').first();
 }
 
 async function zuBuchungen(page: Page) {
