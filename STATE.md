@@ -29,13 +29,14 @@ Konto und keine Übertragung.
 | Einstellungen als Unterseiten mit Gefahrenzone   | fertig                                                       |
 | Schwebender Knopf mit Standardaktion             | fertig; allgemein und je Bereich, langes Drücken für die Art |
 | Klebende Leiste je Liste (Titel, Suche, Filter)  | fertig auf Heute, Buchungen, Wiederkehrend, Töpfe, Ordnen    |
+| Bon-Einzelposten, Topf und Tags je Posten        | fertig; Buchungen werden neu gerechnet, Beleg hängt um       |
 | Update-Hinweis bei neuer Fassung                 | fertig, Leiste mit „Neu laden“ — kein automatischer Reload   |
 | PWA (Manifest, Icons, Offline-Start)             | fertig                                                       |
 | Impressum, Datenschutz                           | **Gerüst mit Platzhaltern — vor Veröffentlichung ausfüllen** |
 | Zentrale Datenbank, SSO                          | vorbereitet, nicht eingeschaltet                             |
 
-**Prüfstand:** 601 Unit-Tests (`npm test`), 34 E2E-Tests auf zwei Viewports
-(`npm run test:e2e`, 63 Läufe und 5 bewusste Auslassungen — den schwebenden
+**Prüfstand:** 619 Unit-Tests (`npm test`), 37 E2E-Tests auf zwei Viewports
+(`npm run test:e2e`, 69 Läufe und 5 bewusste Auslassungen — den schwebenden
 Knopf gibt es ab `md` nicht), typecheck und lint grün, statischer Build
 erzeugt.
 CI prüft jeden Pull Request, der Deploy-Workflow prüft erneut vor der

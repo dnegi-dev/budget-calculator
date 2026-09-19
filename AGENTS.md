@@ -481,6 +481,45 @@ abzulehnen. Das Schema selbst bleibt streng, es ist die künftige API-Grenze.
   Datei: Da stehen Einkauf, Filiale und Signatur drin, und das Repository ist
   öffentlich.
 
+## Bon-Posten
+
+Die Artikelzeilen eines eingelesenen Bons bleiben liegen: `purchases` und
+`purchaseItems` (Dexie `version(3)`, rein additiv), dazu `Entry.purchaseId`.
+Vorher wurde aus 18 Zeilen je Topf **eine** Buchung, und von einem Posten
+überlebte nur sein Name — verkettet in `note` und nicht wieder auftrennbar,
+weil ein Artikelname selbst Kommas enthalten darf.
+
+- **Die Rechnung steht in `lib/domain/purchase.ts`, nicht in der Seite.**
+  `planPurchaseEntries` liefert einen Plan (`create`/`update`/`remove`), das
+  Repository führt ihn in **einer** Transaktion aus. Gruppiert wird über
+  `groupItemsByPot` aus `receipt-parse.ts` — dieselbe Funktion wie in der
+  Vorschau des Imports; eine zweite Gruppierung wäre eine zweite Wahrheit.
+- **Eine bestehende Buchung wird weiterbenutzt, nicht ersetzt.** Zuordnung
+  über den Topf. Eine neue Buchung hätte eine neue ID, und alles, was daran
+  hängt — Beleg, `revision` für den Sync —, wäre weg.
+- **Der Beleg ist die Falle.** Er hängt an einer Buchung (`Receipt.entryId`),
+  und `deleteEntry` löscht die Belege seiner Buchung mit. Wandert der letzte
+  Posten aus genau dieser Buchung, wäre der Bon weg. Deshalb nennt der Plan
+  `receiptAnchorId`, und das Repository hängt den Beleg um, **bevor** es
+  löscht. Dafür gibt es je einen Test in der Domäne und im Adapter.
+- **Änderbar sind nur Topf und Tags**, nicht Betrag und Bezeichnung: Die
+  stehen so auf dem Beleg, und die Summenprobe (`quality`) soll eine Aussage
+  über den Bon bleiben statt über eine nachbearbeitete Liste. Aus demselben
+  Grund ist der Betrag einer Buchung mit `purchaseId` im `EntrySheet`
+  gesperrt — ein Wert, den die nächste Postenänderung still überschreibt,
+  wäre ein unsichtbarer Fehler.
+- **Tags des Einkaufs stehen am `Purchase`**, nicht nur an den Buchungen:
+  Die Buchungen werden neu gerechnet, und was nur an ihnen hinge, wäre nach
+  dem ersten Umhängen weg, ohne dass jemand es gelöscht hätte.
+- **Ein Bon ohne verwertbare Posten (`quality: 'unsicher'`) wird kein
+  Einkauf**, sondern wie bisher eine einzelne Buchung über die Endsumme. Ein
+  Einkauf ohne Posten wäre eine leere Hülle.
+- **Alte Bons bekommen keine Posten nachträglich.** Aus der verketteten Notiz
+  ließen sie sich nicht zurückgewinnen — genau das war der Mangel.
+- Die Einkaufsansicht liegt unter `/buchungen/einkauf?einkauf=<id>`
+  (Query-Parameter wegen `output: 'export'`, wie `app/toepfe/detail`) und
+  gehört in `APP_SHELL` in `public/sw.js`.
+
 ## Rechtsseiten
 
 `/impressum` und `/datenschutz` müssen **ohne** eingerichteten Haushalt
@@ -490,4 +529,6 @@ der Hinweis verschwindet erst, wenn echte Angaben eingetragen sind.
 
 Ändert sich, wie die App mit Daten umgeht (zentrale DB, Anmeldung, externe
 Dienste), ist `app/datenschutz/page.tsx` mitzuändern. Der Text behauptet heute
-belegbar, dass nichts das Gerät verlässt.
+belegbar, dass nichts das Gerät verlässt — und nennt seit den Bon-Posten
+ausdrücklich, dass Artikelzeilen dauerhaft gespeichert werden und nicht nur
+zu Summen verrechnet.

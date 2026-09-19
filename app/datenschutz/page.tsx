@@ -59,8 +59,9 @@ export default function DatenschutzPage() {
           Die App legt deine Eingaben in der Datenbank <code>haushaltsplanung</code> im
           IndexedDB-Speicher des Browsers ab. Das umfasst Name des Haushalts, Währung, Töpfe mit
           ihren Limits, alle Buchungen mit Betrag, Datum, Ort und Notiz, wiederkehrende Regeln, die
-          gelernten Zuordnungen von Artikelbezeichnungen zu Töpfen sowie die hochgeladenen Belege
-          selbst.
+          gelernten Zuordnungen von Artikelbezeichnungen zu Töpfen, die{' '}
+          <strong>Einzelposten eingelesener PDF-Bons</strong> mit Bezeichnung, Betrag und Menge
+          sowie die hochgeladenen Belege selbst.
         </p>
         <p>
           Diese Daten erreichen keinen Server. Es gibt keine Schnittstelle, über die sie abgerufen
@@ -82,8 +83,15 @@ export default function DatenschutzPage() {
         <p>
           <strong>PDF-Bons werden gelesen</strong>, wenn du das ausdrücklich anstößt („Aus PDF-Bon
           einlesen“). Die App entnimmt der Datei die Einzelposten, die Endsumme, das Datum und den
-          Händler, um dir Buchungen vorzuschlagen; aus den Bezeichnungen der Posten merkt sie sich
+          Händler, um daraus Buchungen zu rechnen; aus den Bezeichnungen der Posten merkt sie sich
           auf Wunsch, welchem Topf du sie zugeordnet hast.
+        </p>
+        <p>
+          <strong>Die Einzelposten bleiben dabei gespeichert</strong>, nicht nur ihre Summe: Sie
+          stehen als Liste am Einkauf, damit du einen Posten nachträglich einem anderen Topf
+          zuordnen kannst. Das ist seit der Einführung dieser Ansicht so — vorher wurden die Zeilen
+          nach dem Buchen verworfen. Löschst du den Einkauf, sind sie weg; dasselbe gilt für „Alles
+          löschen“.
         </p>
         <p>
           Das geschieht vollständig <strong>auf deinem Gerät</strong>, im Browser. Die Datei wird
