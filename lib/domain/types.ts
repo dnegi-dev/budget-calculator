@@ -26,6 +26,16 @@ export type EntryKind = 'expense' | 'income';
 export type Frequency = 'weekly' | 'monthly' | 'yearly';
 
 /**
+ * Woher die Posten eines Bons kommen — und damit, wie viel Vertrauen
+ * angebracht ist. Die Regeln dazu stehen in `lib/domain/receipt-parse.ts`.
+ *
+ * - `exakt`     aus `ekabs.json`, vom Kassensystem selbst geschrieben
+ * - `geprüft`   aus der Textschicht, Posten gehen auf die Endsumme auf
+ * - `unsicher`  Posten verworfen; nur Summe und Datum
+ */
+export type ParseQuality = 'exakt' | 'geprüft' | 'unsicher';
+
+/**
  * Was der schwebende Knopf beim Antippen tut, und für welche Seiten sich das
  * getrennt einstellen lässt. Die Regeln dazu stehen in `lib/domain/fab.ts`;
  * hier stehen nur die Werte, weil `Household` sie trägt.
@@ -147,7 +157,70 @@ export interface Entry extends RecordMeta {
    * indiziert: Gefiltert wird über den Snapshot, der ohnehin im Speicher liegt.
    */
   tags: string[];
+  /**
+   * Der Einkauf, aus dessen Posten diese Buchung gerechnet wurde.
+   *
+   * `null` bei allem, was von Hand erfasst wurde — und bei Bons, die vor der
+   * Einführung der Posten gebucht wurden. Ihr Betrag ist dann das, was da
+   * steht; es gibt nichts, woraus er sich nachrechnen ließe.
+   *
+   * Nicht indiziert, wie `splitGroupId`: Zugeordnet wird über den Snapshot.
+   */
+  purchaseId: string | null;
   createdBy: string;
+}
+
+/**
+ * Ein Einkauf — die Klammer um die Posten eines Bons.
+ *
+ * Getrennt von der Buchung, weil ein Bon auf mehrere Töpfe geht und damit
+ * mehrere Buchungen erzeugt. Der Einkauf ist das, was es **einmal** gibt: ein
+ * Händler, ein Datum, eine Endsumme.
+ *
+ * **Der Beleg hängt nicht hier**, sondern wie bisher an einer Buchung
+ * (`Receipt.entryId`). Eine zweite Stelle, an der derselbe Bon steht, wären
+ * zwei Wahrheiten — und die Buchung ist die, die es schon gibt.
+ */
+export interface Purchase extends RecordMeta {
+  merchant: string | null;
+  date: IsoDate;
+  /**
+   * Die auf dem Bon **erkannte** Endsumme — nicht die Summe der Posten.
+   *
+   * Der Unterschied ist der ganze Punkt: Nur wenn beide übereinstimmen, ist
+   * die Aufteilung belegt. `null`, wenn keine Summe zu finden war.
+   */
+  totalCents: number | null;
+  quality: ParseQuality;
+  /**
+   * Tags des ganzen Einkaufs. Stehen hier und nicht nur an den Buchungen,
+   * weil die Buchungen aus den Posten **neu gerechnet** werden: Wüsste der
+   * Einkauf sie nicht, wären sie nach dem ersten Umhängen eines Postens weg,
+   * ohne dass jemand sie gelöscht hätte.
+   */
+  tags: string[];
+}
+
+/**
+ * Eine Artikelzeile eines Bons.
+ *
+ * Änderbar sind nur `potId` und `tags`. Betrag und Bezeichnung stehen so auf
+ * dem Beleg; ließe man sie ändern, wäre die Summenprobe keine Aussage mehr
+ * über den Bon, sondern über eine nachbearbeitete Liste.
+ */
+export interface PurchaseItem extends RecordMeta {
+  purchaseId: string;
+  label: string;
+  /**
+   * **Vorzeichenbehaftet**, anders als `Entry.amountCents`: Rabatt und
+   * Pfandrückgabe sind negativ, genau wie in `ParsedItem`. Erst beim
+   * Zusammenfassen zu einer Buchung wird daraus Betrag plus `kind`.
+   */
+  amountCents: number;
+  quantity: number | null;
+  potId: string | null;
+  tags: string[];
+  sortIndex: number;
 }
 
 /**
@@ -206,7 +279,16 @@ export interface Receipt extends ReceiptMeta {
 export interface ChangeLogEntry {
   id: string;
   householdId: string;
-  entity: 'household' | 'user' | 'pot' | 'entry' | 'recurringRule' | 'receipt' | 'itemRule';
+  entity:
+    | 'household'
+    | 'user'
+    | 'pot'
+    | 'entry'
+    | 'recurringRule'
+    | 'receipt'
+    | 'itemRule'
+    | 'purchase'
+    | 'purchaseItem';
   entityId: string;
   op: 'upsert' | 'delete';
   revision: number;
@@ -215,7 +297,19 @@ export interface ChangeLogEntry {
 
 /** Eingabeform: alles, was der Nutzer angibt, ohne Metadaten. */
 export type NewEntryInput = Pick<Entry, 'potId' | 'kind' | 'amountCents' | 'date'> &
-  Partial<Pick<Entry, 'note' | 'merchant' | 'recurringRuleId' | 'splitGroupId' | 'tags'>>;
+  Partial<
+    Pick<Entry, 'note' | 'merchant' | 'recurringRuleId' | 'splitGroupId' | 'tags' | 'purchaseId'>
+  >;
+
+/** Ein Einkauf samt seiner Posten, so wie der Bon-Import ihn übergibt. */
+export type NewPurchaseInput = Pick<Purchase, 'merchant' | 'date' | 'totalCents' | 'quality'> & {
+  items: readonly NewPurchaseItemInput[];
+  /** Tags des ganzen Einkaufs. Jede entstehende Buchung bekommt sie. */
+  tags?: string[];
+};
+
+export type NewPurchaseItemInput = Pick<PurchaseItem, 'label' | 'amountCents'> &
+  Partial<Pick<PurchaseItem, 'quantity' | 'potId' | 'tags'>>;
 
 export type NewPotInput = Pick<Pot, 'name' | 'kind' | 'limitCents' | 'carryOver'> &
   Partial<Pick<Pot, 'icon' | 'color' | 'sortIndex'>>;

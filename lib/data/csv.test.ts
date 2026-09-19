@@ -34,6 +34,7 @@ function entry(overrides: Partial<Entry> & { id: string }): Entry {
     merchant: null,
     recurringRuleId: null,
     splitGroupId: null,
+    purchaseId: null,
     tags: [],
     createdBy: 'u1',
     ...overrides,

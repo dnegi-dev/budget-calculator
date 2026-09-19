@@ -17,7 +17,7 @@
 
 import { fromParts, isIsoDate } from './dates';
 import { parseAmountToCents, sumCents } from './money';
-import type { IsoDate } from './types';
+import type { IsoDate, ParseQuality } from './types';
 
 export interface ParsedItem {
   label: string;
@@ -28,13 +28,11 @@ export interface ParsedItem {
 
 /**
  * Woher die Posten kommen — steht in der Vorschau, damit sichtbar ist, wie
- * viel Vertrauen angebracht ist.
- *
- * - `exakt`     aus `ekabs.json`, vom Kassensystem selbst geschrieben
- * - `geprüft`   aus der Textschicht, Posten gehen auf die Endsumme auf
- * - `unsicher`  Posten verworfen; nur Summe und Datum
+ * viel Vertrauen angebracht ist. Der Typ selbst liegt in `types.ts`, weil
+ * `Purchase` ihn trägt; hier steht er weiter zur Verfügung, damit die
+ * Aufrufer nicht zwei Dateien importieren müssen.
  */
-export type ParseQuality = 'exakt' | 'geprüft' | 'unsicher';
+export type { ParseQuality };
 
 export interface ParsedReceipt {
   merchant: string | null;
