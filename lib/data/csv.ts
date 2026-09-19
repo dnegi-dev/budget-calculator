@@ -14,7 +14,8 @@ const HEADERS = [
   'Art',
   'Topf',
   'Betrag',
-  'Ort',
+  'Firma',
+  'Adresse',
   'Notiz',
   'Tags',
   'Belege',
@@ -48,6 +49,7 @@ export function entriesToCsv(
     // Ausgaben negativ: In einer Tabelle soll die Spalte summierbar sein.
     formatCentsPlain(entry.kind === 'expense' ? -entry.amountCents : entry.amountCents, decimal),
     entry.merchant ?? '',
+    entry.address ?? '',
     entry.note ?? '',
     // Komma als Trenner, auch bei deutscher Locale: Die Zelle wird ohnehin
     // maskiert, und in einer Tabelle liest sich „urlaub, auto" wie Text.

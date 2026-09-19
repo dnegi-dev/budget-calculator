@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canDeleteEntryDirectly,
   computeHouseholdSummary,
   computePotPeriodState,
   computePotStates,
@@ -45,6 +46,7 @@ function entry(potId: string | null, kind: EntryKind, amountCents: number, date:
     date,
     note: null,
     merchant: null,
+    address: null,
     recurringRuleId: null,
     splitGroupId: null,
     purchaseId: null,
@@ -255,5 +257,29 @@ describe('periodTotals', () => {
     expect(totals).toHaveLength(2);
     expect(totals[0]).toMatchObject({ periodKey: '2026-08', expenseCents: 0 });
     expect(totals[1]).toMatchObject({ periodKey: '2026-09', expenseCents: 1_000 });
+  });
+});
+
+describe('canDeleteEntryDirectly', () => {
+  it('erlaubt das Löschen einer von Hand erfassten Buchung', () => {
+    expect(canDeleteEntryDirectly({ purchaseId: null })).toBe(true);
+  });
+
+  /**
+   * Der Fall, um den es geht: Der Betrag einer Bon-Buchung ist die Summe der
+   * Posten ihres Topfes, und an einer Buchung der Gruppe hängt der Beleg.
+   * Einzeln gelöscht bliebe ein Einkauf zurück, dessen Posten ins Leere
+   * zeigen — im schlechten Fall ohne Bon.
+   */
+  it('verbietet es bei einer Buchung aus einem Einkauf', () => {
+    expect(canDeleteEntryDirectly({ purchaseId: 'p1' })).toBe(false);
+  });
+
+  /**
+   * Buchungen aus Sicherungen von vor den Bon-Posten tragen das Feld nicht.
+   * `== null` deckt beides ab; `=== null` hätte sie fälschlich gesperrt.
+   */
+  it('behandelt ein fehlendes Feld wie „von Hand erfasst"', () => {
+    expect(canDeleteEntryDirectly({ purchaseId: undefined } as unknown as Entry)).toBe(true);
   });
 });

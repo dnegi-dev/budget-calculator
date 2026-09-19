@@ -33,3 +33,37 @@ export function ToolbarLink({
     </Link>
   );
 }
+
+/**
+ * Dasselbe als Schaltfläche — für das, was kein Ziel hat, sondern etwas
+ * öffnet (die Topf-Einstellungen etwa).
+ *
+ * Bewusst kein `Button` aus `lib/ui`: Der bringt eigene Maße und einen
+ * Rahmen mit, und die Leiste soll nebeneinander gleich große Symbole
+ * zeigen. Die Klassen sind deshalb dieselben wie oben — wer eine ändert,
+ * ändert beide.
+ */
+export function ToolbarButton({
+  icon,
+  label,
+  onClick,
+  expanded,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+  expanded?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-expanded={expanded}
+      title={label}
+      className="grid h-9 w-9 place-items-center rounded-lg text-ink-muted hover:bg-subtle hover:text-ink"
+    >
+      <Icon icon={icon} size={20} />
+    </button>
+  );
+}

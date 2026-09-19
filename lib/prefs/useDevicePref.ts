@@ -4,7 +4,10 @@ import { useSyncExternalStore } from 'react';
 import {
   getAmountMode,
   getAppearance,
+  getDeleteButton,
   getIconStyle,
+  getSwipeConfirm,
+  getSwipeDelete,
   getThemeChoice,
   subscribePrefs,
   type AmountMode,
@@ -30,6 +33,18 @@ export function useAmountMode(): AmountMode {
 
 export function useIconStyle(): IconStyle {
   return useSyncExternalStore(subscribePrefs, getIconStyle, () => 'normal');
+}
+
+export function useSwipeDelete(): boolean {
+  return useSyncExternalStore(subscribePrefs, getSwipeDelete, () => true);
+}
+
+export function useSwipeConfirm(): boolean {
+  return useSyncExternalStore(subscribePrefs, getSwipeConfirm, () => true);
+}
+
+export function useDeleteButton(): boolean {
+  return useSyncExternalStore(subscribePrefs, getDeleteButton, () => true);
 }
 
 /**

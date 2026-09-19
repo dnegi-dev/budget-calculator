@@ -73,6 +73,7 @@ export function clampBackupText(backup: unknown): number {
   count += clampEach(backup.entries, [
     ['note', TEXT_LIMITS.note],
     ['merchant', TEXT_LIMITS.merchant],
+    ['address', TEXT_LIMITS.address],
   ]);
   if (Array.isArray(backup.entries)) {
     for (const item of backup.entries) if (isRecord(item)) count += clampTags(item);

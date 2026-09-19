@@ -32,6 +32,7 @@ function entry(overrides: Partial<Entry> & { id: string }): Entry {
     date: '2026-09-18',
     note: null,
     merchant: null,
+    address: null,
     recurringRuleId: null,
     splitGroupId: null,
     purchaseId: null,
@@ -85,7 +86,7 @@ describe('entriesToCsv', () => {
     ];
     const csv = entriesToCsv([entry({ id: 'e1' })], [pot], receipts, { locale: 'de-DE' });
     // Spalte 7, nicht 6: Zwischen Notiz und Belegen stehen jetzt die Tags.
-    expect(csv.split('\r\n')[1]?.split(';')[7]).toBe('2');
+    expect(csv.split('\r\n')[1]?.split(';')[8]).toBe('2');
   });
 
   it('schreibt die Tags in eine eigene Spalte', () => {
@@ -94,10 +95,10 @@ describe('entriesToCsv', () => {
     });
     const [kopf, zeile] = csv.split('\r\n');
 
-    expect(kopf?.split(';')[6]).toBe('Tags');
+    expect(kopf?.split(';')[7]).toBe('Tags');
     // Deutscher Trenner ist das Semikolon — das Komma in der Zelle ist also
     // harmlos und bleibt ohne Anführungszeichen.
-    expect(zeile?.split(';')[6]).toBe('Urlaub, auto');
+    expect(zeile?.split(';')[7]).toBe('Urlaub, auto');
   });
 
   it('maskiert die Tag-Zelle, wo das Komma der Trenner ist', () => {

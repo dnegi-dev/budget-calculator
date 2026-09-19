@@ -50,6 +50,7 @@ function buchung(overrides: Partial<Entry> = {}): Entry {
     date: '2026-09-19',
     note: null,
     merchant: 'Supermarkt',
+    address: null,
     recurringRuleId: null,
     splitGroupId: null,
     purchaseId: 'k1',

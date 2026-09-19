@@ -298,6 +298,43 @@ in `lib/domain/fab.ts`: `scopeForPath` (Pfad → Bereich), `resolveFabAction`
 - **In den Einstellungen und auf den Rechtsseiten erscheint der Knopf nicht.**
   Dort erfasst niemand etwas, und auf den Schaltern lag er im Weg.
 
+## Löschen
+
+Bis zu dieser Runde gab es **keinen** Weg, eine Buchung zu löschen:
+`deleteEntry` stand im Repository und wurde von der Oberfläche nie gerufen.
+Jetzt gibt es zwei, und beide braucht es.
+
+- **Wischen ist nur die halbe Bedienung.** Dieselbe Lage wie beim langen
+  Drücken am schwebenden Knopf: Für Tastatur und Screenreader ist eine Geste
+  unerreichbar. Der Löschknopf im `EntrySheet` ist deshalb der zweite Weg und
+  nicht optional — wer ihn entfernt, nimmt einem Teil der Nutzer das Löschen
+  ganz.
+- **`lib/ui/useSwipeAction.ts` gibt die Spur erst frei, wenn die waagerechte
+  Bewegung die senkrechte übersteigt** und 12 px reißt. Ohne diese Prüfung
+  zieht jeder Daumen beim Scrollen Zeilen auf. Dazu `touch-action: pan-y` an
+  der Zeile (sonst scrollt der Browser waagerecht mit, und `preventDefault`
+  kommt bei einem passiven Listener zu spät) und `setPointerCapture`, weil der
+  Finger eine 44 px hohe Zeile ständig verlässt.
+- **Nach einem Wischen folgt kein Klick.** `consumeTriggered()` wie bei
+  `useLongPress` — sonst öffnete sich die Buchung, die gerade gelöscht wurde.
+  Das gilt auch unterhalb der Auslöseschwelle: Ein abgebrochenes Wischen ist
+  kein Tippen.
+- **Die Rückfrage ist voreingestellt an.** Nicht aus Vorsicht, sondern weil es
+  kein Rückgängig gibt: `deleteEntry` löscht zwar weich (`deletedAt`), aber
+  ein `restoreEntry` existiert nicht. Wer sie abschaltet, weiß das dann — der
+  Text unter dem Schalter sagt es.
+- **Eine Buchung mit `purchaseId` wird nie einzeln gelöscht.** Ihr Betrag ist
+  die Summe der Posten ihres Topfes, und an einer Buchung der Gruppe hängt der
+  Beleg; einzeln gelöscht bliebe ein Einkauf zurück, dessen Posten ins Leere
+  zeigen. Die Regel steht als `canDeleteEntryDirectly` in
+  `lib/domain/ledger.ts` und wird von beiden Wegen gelesen — die Geste löst
+  dann nicht aus, das Sheet zeigt statt des Knopfes den Weg zum Einkauf.
+- **Die drei Schalter hängen am Gerät**, nicht am Haushalt (Einstellungen →
+  Erfassen → „Löschen"). Wischen ist eine Berührungsgeste, die es am Desktop
+  gar nicht gibt; eine Aussage über „diesen Haushalt" wäre sie nicht. Wer das
+  Löschen für alle unterbinden will, nimmt die Rolle „Nur Lesen" — die wirkt
+  im Repository.
+
 ## Klebende Leiste über Listen
 
 `components/lists/ListToolbar.tsx` trägt Überschrift, Suche, Filter, freie
@@ -409,13 +446,27 @@ Icon-Satz kann „🥑“ nicht abbilden.
 
 ## Einstellungen
 
-Eine Übersicht mit sieben Unterseiten (`app/einstellungen/*`), nicht mehr eine
+Eine Übersicht mit acht Unterseiten (`app/einstellungen/*`), nicht mehr eine
 Seite mit zwölf Karten. Kopfzeile und Titel jeder Unterseite kommen aus
 `SettingsPage` und damit aus `ListToolbar` — dieselbe klebende Leiste wie über
 den Listen, und auf „Ordnen" trägt sie die Suche über Tags und Zuordnungen. `isActive` in `AppShell` arbeitet mit `startsWith`,
 also bleibt „Einstellungen“ markiert und die untere Leiste behält ihre vier
 Einträge. Jede neue Unterseite gehört in `APP_SHELL` in `public/sw.js`, sonst
 ist sie offline nicht erreichbar.
+
+**Die Einstellungen eines Topfes hängen am Zahnrad in seiner Leiste**, nicht
+in einer Karte unter der Buchungsliste. Vorher musste man an allen Buchungen
+des Topfes vorbeiscrollen, um ein Limit zu ändern. Im selben Sheet stehen die
+**wiederkehrenden Regeln dieses Topfes** — „Miete" gehört zu „Wohnen" — mit
+dem Topf vorbelegt; nach dem zu fragen, den man gerade offen hat, wäre eine
+Frage ohne Antwortmöglichkeit.
+
+**`/buchungen/wiederkehrend` bleibt und steht in den Einstellungen.** Das
+Symbol über der Buchungsliste ist weg (eine Regel legt man einmal an und sieht
+sie jahrelang nicht wieder), aber die Seite selbst ist der **einzige** Ort, an
+dem Regeln **ohne** Topf verwaltbar sind — Gehalt läuft auf den Haushalt.
+Fiele sie weg, liefen solche Regeln still weiter und wären nicht mehr
+erreichbar.
 
 **Die Gefahrenzone ist kein Stilmittel.** Dort steht, was sich nicht rückgängig
 machen lässt: `wipeAll` und das ersetzende Einlesen einer Sicherung. Letzteres
@@ -456,6 +507,37 @@ eine zu lange Notiz speichern, exportieren — und dann nicht mehr einlesen. Die
 Sicherung war unbrauchbar. Neu ist außerdem `clampBackupText`
 (`lib/domain/backup.ts`): Der Import kürzt und meldet, statt die ganze Datei
 abzulehnen. Das Schema selbst bleibt streng, es ist die künftige API-Grenze.
+
+## Firma und Anschrift
+
+Eine Buchung trägt zwei Ortsangaben, und die Trennung ist jung:
+
+- **`merchant` ist der Name** und heißt in der Oberfläche „Firma". Es hieß
+  dort früher „Wo?" und trug beides — damit ließ sich weder eine Karte öffnen
+  noch eine Filiale von einer anderen unterscheiden.
+- **`address` ist die vollständige Anschrift** und heißt jetzt „Wo?".
+
+**Die Richtung war die Entscheidung.** `merchant` zur Anschrift zu machen
+hätte in jeder bestehenden Buchung einen Namen als Anschrift geführt — und
+der Bon-Import schreibt dort seit jeher den Händlernamen. So bleibt der
+Bestand richtig, und das neue Feld startet leer.
+
+- **Angezeigt wird gekürzt, gespeichert vollständig.** `shortenAddress` in
+  `lib/domain/address.ts` nimmt den Teil vor dem ersten Komma; der volle Text
+  steht im `title`.
+- **Das Kartenziel ist `geo:`, keine Adresse im Netz.** Ein
+  `https://…maps…`-Link schickte die Anschrift an einen Dritten, und
+  `app/datenschutz/page.tsx` sagt belegbar zu, dass nichts das Gerät
+  verlässt. Der Preis steht dort ebenso ehrlich: Am Desktop tut ein
+  `geo:`-Verweis je nach System nichts.
+- **Der Verweis steht unter der Zeile, nicht in ihr.** Die Listenzeile ist
+  eine Schaltfläche, und ein Verweis darin ist kein gültiges HTML — der
+  Browser zieht ihn heraus und die Zeile zerfällt. Die eigene Zeile kostet
+  Höhe, aber nur bei Buchungen mit Anschrift.
+- Gesucht wird über beide Felder, im Snapshot und im Adapter. `address` ist
+  **nicht indiziert** (wie `tags`), also keine Dexie-Migration — aber ein
+  Standardwert im `entrySchema`, sonst lässt sich keine ältere Sicherung mehr
+  einlesen.
 
 ## Bon-Import
 

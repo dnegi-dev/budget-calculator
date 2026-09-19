@@ -58,14 +58,21 @@ export default function DatenschutzPage() {
         <p>
           Die App legt deine Eingaben in der Datenbank <code>haushaltsplanung</code> im
           IndexedDB-Speicher des Browsers ab. Das umfasst Name des Haushalts, Währung, Töpfe mit
-          ihren Limits, alle Buchungen mit Betrag, Datum, Ort und Notiz, wiederkehrende Regeln, die
-          gelernten Zuordnungen von Artikelbezeichnungen zu Töpfen, die{' '}
-          <strong>Einzelposten eingelesener PDF-Bons</strong> mit Bezeichnung, Betrag und Menge
-          sowie die hochgeladenen Belege selbst.
+          ihren Limits, alle Buchungen mit Betrag, Datum, Firma, <strong>Anschrift</strong> und
+          Notiz, wiederkehrende Regeln, die gelernten Zuordnungen von Artikelbezeichnungen zu
+          Töpfen, die <strong>Einzelposten eingelesener PDF-Bons</strong> mit Bezeichnung, Betrag
+          und Menge sowie die hochgeladenen Belege selbst.
         </p>
         <p>
           Diese Daten erreichen keinen Server. Es gibt keine Schnittstelle, über die sie abgerufen
           werden könnten.
+        </p>
+        <p>
+          Eine Ausnahme, die du selbst auslöst: Tippst du in der Buchungsliste auf eine Anschrift,
+          übergibt die App sie über einen <code>geo:</code>-Verweis an die Karten-Anwendung deines
+          Geräts. Dabei entsteht kein Aufruf an diese Website und keiner an einen Kartendienst im
+          Netz — was deine Karten-Anwendung anschließend tut, richtet sich nach deren eigenen
+          Einstellungen. Ohne diesen Tipp verlässt die Anschrift das Gerät nicht.
         </p>
         <p>
           Du löschst diese Daten jederzeit selbst: in den Einstellungen der App über „Alles

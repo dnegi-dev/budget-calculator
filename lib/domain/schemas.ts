@@ -32,6 +32,8 @@ export const TEXT_LIMITS = {
   potName: 60,
   note: 500,
   merchant: 120,
+  /** Eine Anschrift mit Straße, PLZ, Ort und Zusatz — 180 reichen dafür. */
+  address: 180,
   keyword: 60,
   /** Die Bezeichnung eines Bon-Postens — so lang wie eine Kassenzeile wird. */
   itemLabel: 120,
@@ -143,6 +145,9 @@ export const entrySchema = z.object({
   date: isoDateSchema,
   note: z.string().max(TEXT_LIMITS.note).nullable(),
   merchant: z.string().max(TEXT_LIMITS.merchant).nullable(),
+  // Ältere Sicherungen kennen das Feld nicht — wie bei `splitGroupId` wäre
+  // ohne den Standardwert keine davon mehr einlesbar.
+  address: z.string().max(TEXT_LIMITS.address).nullable().default(null),
   recurringRuleId: idSchema.nullable(),
   // Ältere Sicherungen kennen das Feld nicht — ohne den Standardwert
   // ließe sich keine davon mehr einlesen.

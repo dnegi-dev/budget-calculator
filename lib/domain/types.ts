@@ -136,7 +136,22 @@ export interface Entry extends RecordMeta {
   amountCents: number;
   date: IsoDate;
   note: string | null;
+  /**
+   * Der Name des Ladens oder der Firma — in der Oberfläche „Firma".
+   *
+   * Hieß dort früher „Wo?" und trug beides. Seit es `address` gibt, trägt
+   * dieses Feld nur noch den Namen; bestehende Buchungen bleiben damit
+   * richtig, denn der Bon-Import schrieb hier schon immer den Händlernamen.
+   */
   merchant: string | null;
+  /**
+   * Die vollständige Anschrift — in der Oberfläche „Wo?".
+   *
+   * Angezeigt wird sie gekürzt (`lib/domain/address.ts`) und mobil als
+   * `geo:`-Verweis, der sie an die Karten-Anwendung des Geräts übergibt.
+   * Nicht indiziert, gesucht wird über den Snapshot — wie bei `tags`.
+   */
+  address: string | null;
   /** Gesetzt, wenn die Buchung aus einer wiederkehrenden Regel entstand. */
   recurringRuleId: string | null;
   /**
@@ -298,7 +313,10 @@ export interface ChangeLogEntry {
 /** Eingabeform: alles, was der Nutzer angibt, ohne Metadaten. */
 export type NewEntryInput = Pick<Entry, 'potId' | 'kind' | 'amountCents' | 'date'> &
   Partial<
-    Pick<Entry, 'note' | 'merchant' | 'recurringRuleId' | 'splitGroupId' | 'tags' | 'purchaseId'>
+    Pick<
+      Entry,
+      'note' | 'merchant' | 'address' | 'recurringRuleId' | 'splitGroupId' | 'tags' | 'purchaseId'
+    >
   >;
 
 /** Ein Einkauf samt seiner Posten, so wie der Bon-Import ihn übergibt. */

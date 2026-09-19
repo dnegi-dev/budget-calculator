@@ -50,6 +50,24 @@ function isActive(entry: Entry): boolean {
   return entry.deletedAt === null;
 }
 
+/**
+ * Ob eine Buchung für sich allein gelöscht werden darf.
+ *
+ * Nein, wenn sie aus einem Einkauf gerechnet wurde. Ihr Betrag ist die Summe
+ * der Posten dieses Topfes, und an einer Buchung der Gruppe hängt der Beleg
+ * — dieselbe Falle, die `receiptAnchorId` in `lib/domain/purchase.ts`
+ * entschärft. Einzeln gelöscht bliebe ein Einkauf zurück, dessen Posten auf
+ * eine Buchung zeigen, die es nicht mehr gibt, und im schlechten Fall wäre
+ * der Bon weg. Gelöscht wird so eine Buchung über den Einkauf, der alles
+ * zusammen entfernt.
+ *
+ * Hier und nicht in der Oberfläche, weil zwei Stellen dieselbe Regel lesen:
+ * die Wischgeste in der Liste und der Löschknopf im Erfassen-Sheet.
+ */
+export function canDeleteEntryDirectly(entry: Pick<Entry, 'purchaseId'>): boolean {
+  return entry.purchaseId == null;
+}
+
 /** Buchungen einer Periode — als eigene Funktion, weil sie überall gebraucht wird. */
 export function entriesInPeriod(
   entries: readonly Entry[],

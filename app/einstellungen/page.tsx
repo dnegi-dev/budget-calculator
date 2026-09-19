@@ -12,7 +12,17 @@
  * ist, und der Abmelde-Knopf.
  */
 
-import { Database, Palette, SquarePen, Tags, TriangleAlert, Users, Wallet } from 'lucide-react';
+import {
+  Database,
+  House,
+  Palette,
+  RefreshCw,
+  SquarePen,
+  Tags,
+  TriangleAlert,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import { useMemo } from 'react';
 import { setUnlocked } from '../../lib/auth/local-credentials';
 import { useData, useSnapshot } from '../../lib/data/provider';
@@ -41,9 +51,27 @@ export default function SettingsPage() {
         <div className="divide-y divide-[var(--border)]">
           <NavRow
             href="/einstellungen/haushalt"
-            icon={Wallet}
+            icon={House}
             title="Haushalt"
             hint="Name, Währung, Beginn der Periode"
+          />
+          <NavRow
+            href="/einstellungen/toepfe"
+            icon={Wallet}
+            title="Töpfe"
+            hint="Anlegen, umbenennen, archivieren, Limits"
+          />
+          {/*
+            Der einzige Ort, an dem Regeln **ohne** Topf verwaltbar sind
+            (Gehalt läuft auf den Haushalt). Das Symbol über der
+            Buchungsliste ist dafür weggefallen; ohne diese Zeile liefen
+            solche Regeln still weiter und wären nicht mehr erreichbar.
+          */}
+          <NavRow
+            href="/buchungen/wiederkehrend"
+            icon={RefreshCw}
+            title="Wiederkehrende Buchungen"
+            hint="Miete, Abos, Gehalt — auch ohne Topf"
           />
           <NavRow
             href="/einstellungen/erfassen"
@@ -61,7 +89,7 @@ export default function SettingsPage() {
             href="/einstellungen/organisieren"
             icon={Tags}
             title="Ordnen"
-            hint="Tags, gelernte Zuordnungen, Töpfe verwalten"
+            hint="Tags und gelernte Zuordnungen aus dem Bon-Import"
           />
           <NavRow
             href="/einstellungen/daten"

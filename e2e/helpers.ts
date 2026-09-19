@@ -150,3 +150,26 @@ export async function einstellungOeffnen(page: Page, punkt: string): Promise<voi
   await page.getByRole('link', { name: new RegExp(`^${punkt}`) }).click();
   await expect(page.getByRole('heading', { name: punkt, level: 1 })).toBeVisible();
 }
+
+/**
+ * Wischt eine Zeile nach links.
+ *
+ * Über die Maus und nicht über `dispatchEvent`, aus demselben Grund wie bei
+ * `langDruecken`: `lib/ui/useSwipeAction.ts` prüft `event.button`, das
+ * Verhältnis von waagerechter zu senkrechter Bewegung und fängt den Zeiger
+ * ein. Zusammengebaute Ereignisse gingen an diesen Prüfungen vorbei, und der
+ * Test wäre grün, ohne dass ein Finger etwas auslösen könnte.
+ *
+ * `steps` ist nicht Kosmetik: Ohne Zwischenschritte gibt es genau ein
+ * `pointermove`, und der Haken bräuchte dann den ganzen Weg in einem Sprung.
+ */
+export async function wischen(page: Page, ziel: Locator, weite = 130): Promise<void> {
+  const box = await ziel.boundingBox();
+  if (!box) throw new Error('Die Zeile ist nicht sichtbar.');
+  const y = box.y + box.height / 2;
+  const x = box.x + box.width - 12;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x - weite, y, { steps: 12 });
+  await page.mouse.up();
+}

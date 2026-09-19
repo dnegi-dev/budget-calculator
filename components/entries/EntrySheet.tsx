@@ -16,8 +16,11 @@
 
 import Link from 'next/link';
 import { useMemo, useRef, useState } from 'react';
+import { useCan } from '../../lib/auth/provider';
 import { useData } from '../../lib/data/provider';
 import { todayIso } from '../../lib/domain/dates';
+import { canDeleteEntryDirectly } from '../../lib/domain/ledger';
+import { useDeleteButton } from '../../lib/prefs/useDevicePref';
 import { parseAmountToCents } from '../../lib/domain/money';
 import { TEXT_LIMITS } from '../../lib/domain/schemas';
 import type { Entry, EntryKind, Pot } from '../../lib/domain/types';
@@ -74,6 +77,8 @@ function EntryForm({
 }: Omit<EntrySheetProps, 'open'>) {
   const { repository, snapshot } = useData();
   const format = useFormat();
+  const can = useCan();
+  const loeschKnopf = useDeleteButton();
   const editing = entry !== null;
 
   const household = snapshot.household;
@@ -106,15 +111,46 @@ function EntryForm({
   const [tags, setTags] = useState<string[]>(entry?.tags ?? []);
   const [date, setDate] = useState(entry?.date ?? todayIso());
   const [merchant, setMerchant] = useState(entry?.merchant ?? '');
+  const [address, setAddress] = useState(entry?.address ?? '');
   const [bonDatei, setBonDatei] = useState<File | null>(null);
   const bonRef = useRef<HTMLInputElement>(null);
   const [note, setNote] = useState(entry?.note ?? '');
   const [savedEntryId, setSavedEntryId] = useState<string | null>(entry?.id ?? null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Zweistufig: Ein Klick fragt nur, wie in der Einkaufsansicht. */
+  const [fragtLoeschen, setFragtLoeschen] = useState(false);
 
   /** Buchungen aus einem Bon: Betrag gesperrt, Weg zum Einkauf daneben. */
   const ausEinkauf = entry?.purchaseId != null;
+
+  /**
+   * Der zweite Weg zum Löschen — der erste ist das Wischen in der Liste, und
+   * das ist für Tastatur und Screenreader unerreichbar. Deshalb ist dieser
+   * Knopf nicht bloß Bequemlichkeit.
+   *
+   * Nur beim Bearbeiten: An einer Buchung, die es noch nicht gibt, ist
+   * nichts zu löschen.
+   */
+  const darfLoeschen =
+    editing &&
+    loeschKnopf &&
+    can('entry.edit.any') &&
+    entry !== null &&
+    canDeleteEntryDirectly(entry);
+
+  async function loeschen() {
+    if (!entry) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await repository.deleteEntry(entry.id);
+      onClose();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unbekannter Fehler');
+      setSaving(false);
+    }
+  }
 
   const amountCents = parseAmountToCents(amountRaw);
   const amountValid = amountCents !== null && amountCents > 0;
@@ -132,6 +168,7 @@ function EntryForm({
         date,
         note: note.trim() || null,
         merchant: merchant.trim() || null,
+        address: address.trim() || null,
         tags,
       };
 
@@ -245,7 +282,8 @@ function EntryForm({
           */}
           {ausEinkauf && (
             <p className="text-sm text-ink-muted">
-              Der Betrag kommt aus den Posten des Bons.{' '}
+              Der Betrag kommt aus den Posten des Bons, und gelöscht wird diese Buchung über den
+              Einkauf.{' '}
               <Link
                 href={`/buchungen/einkauf?einkauf=${entry?.purchaseId}`}
                 className="text-accent hover:underline"
@@ -292,6 +330,38 @@ function EntryForm({
                 Liest Posten und Summe aus einem digitalen Kassenbon. Ein Foto lässt sich noch nicht
                 auswerten.
               </p>
+            </div>
+          )}
+
+          {/*
+            Löschen steht im **ersten** Schritt und nicht bei den Details:
+            Wer eine bestehende Buchung öffnet, landet hier. Zwei Klicks
+            „Weiter" vor das Löschen zu legen wäre für den Weg, der die
+            Wischgeste für Tastatur und Screenreader ersetzt, zu weit.
+
+            Eine Buchung aus einem Bon steht nicht zur Wahl — ihr Weg führt
+            über den Einkauf, und der Satz dazu steht schon oben.
+          */}
+          {darfLoeschen && (
+            <div className="border-t border-line pt-4">
+              {fragtLoeschen ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="w-full text-sm text-ink-muted">
+                    Wirklich löschen? Belege dieser Buchung gehen mit — das lässt sich nicht
+                    rückgängig machen.
+                  </p>
+                  <Button variant="danger" disabled={saving} onClick={() => void loeschen()}>
+                    Ja, entfernen
+                  </Button>
+                  <Button variant="ghost" onClick={() => setFragtLoeschen(false)}>
+                    Abbrechen
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="danger" onClick={() => setFragtLoeschen(true)}>
+                  Buchung löschen
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -386,7 +456,13 @@ function EntryForm({
             )}
           </Field>
 
-          <Field label="Wo?" hint="Optional — hilft beim Suchen.">
+          {/*
+            Zwei Felder statt einem: „Wo?" trug vorher den Ladennamen, und
+            damit ließ sich weder eine Karte öffnen noch nach einer Filiale
+            unterscheiden. Der Name bleibt in `merchant` — bestehende
+            Buchungen und der Bon-Import sind damit weiter richtig.
+          */}
+          <Field label="Firma" hint="Optional — steht als Titel in der Liste.">
             {(props) => (
               <input
                 {...props}
@@ -395,7 +471,21 @@ function EntryForm({
                 onChange={(event) => setMerchant(event.target.value)}
                 placeholder="z. B. Supermarkt"
                 maxLength={TEXT_LIMITS.merchant}
-                autoComplete="off"
+                autoComplete="organization"
+              />
+            )}
+          </Field>
+
+          <Field label="Wo?" hint="Vollständige Anschrift — in der Liste gekürzt und antippbar.">
+            {(props) => (
+              <input
+                {...props}
+                className={inputClass}
+                value={address}
+                onChange={(event) => setAddress(event.target.value)}
+                placeholder="z. B. Beispielstraße 96, 12345 Musterstadt"
+                maxLength={TEXT_LIMITS.address}
+                autoComplete="street-address"
               />
             )}
           </Field>

@@ -3,10 +3,15 @@
 /**
  * Buchungsliste mit Filtern.
  *
- * Suche, Filter und der Weg zu den wiederkehrenden Buchungen liegen in der
- * klebenden Leiste über der Liste (`ListToolbar`) — beim Scrollen bleiben sie
- * erreichbar, und genau darum geht es: In einer Liste mit zweihundert Zeilen
- * ist Suchen das, was man unten braucht, nicht oben.
+ * Suche und Filter liegen in der klebenden Leiste über der Liste
+ * (`ListToolbar`) — beim Scrollen bleiben sie erreichbar, und genau darum
+ * geht es: In einer Liste mit zweihundert Zeilen ist Suchen das, was man
+ * unten braucht, nicht oben.
+ *
+ * Das Symbol zu den wiederkehrenden Buchungen stand hier auch einmal. Es ist
+ * weg: Eine Regel legt man einmal an und sieht sie jahrelang nicht wieder —
+ * der Platz in der Leiste ist für das da, was täglich gebraucht wird. Der
+ * Weg führt jetzt über die Einstellungen.
  *
  * Das Filtern selbst steckt in `useEntryFilters`, weil die Topf-Detailseite
  * dieselbe Liste zeigt.
@@ -25,10 +30,8 @@ import { todayIso } from '../../lib/domain/dates';
 import { entriesInPeriod } from '../../lib/domain/ledger';
 import { periodForDate } from '../../lib/domain/period';
 import { collectTags } from '../../lib/domain/tags';
-import { RefreshCw } from 'lucide-react';
 import { Button } from '../../lib/ui/Button';
 import { Card, CardHeader } from '../../lib/ui/Card';
-import { ToolbarLink } from '../../components/lists/ToolbarLink';
 import { useFormat } from '../../lib/ui/useFormat';
 
 export default function EntriesPage() {
@@ -94,13 +97,6 @@ export default function EntriesPage() {
         }
         filtersActive={filters.active}
         onResetFilters={filters.reset}
-        links={
-          <ToolbarLink
-            href="/buchungen/wiederkehrend"
-            icon={RefreshCw}
-            label="Wiederkehrende Buchungen"
-          />
-        }
         action={
           /*
             Erfassen nur ab md: mobil macht das der schwebende Knopf.

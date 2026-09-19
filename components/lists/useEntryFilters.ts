@@ -60,7 +60,8 @@ export function useEntryFilters(entries: readonly Entry[]): EntryFilters {
       gefiltert = gefiltert.filter(
         (entry) =>
           (entry.note ?? '').toLowerCase().includes(needle) ||
-          (entry.merchant ?? '').toLowerCase().includes(needle),
+          (entry.merchant ?? '').toLowerCase().includes(needle) ||
+          (entry.address ?? '').toLowerCase().includes(needle),
       );
     }
     return gefiltert;

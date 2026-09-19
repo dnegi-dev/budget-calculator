@@ -30,6 +30,9 @@ Konto und keine Übertragung.
 | Schwebender Knopf mit Standardaktion               | fertig; immer ein Plus, langes Drücken für die Art           |
 | Klebende Leiste je Liste (Titel, Suche, Filter)    | fertig auf Heute, Buchungen, Wiederkehrend, Töpfe, Ordnen    |
 | Monat und Tag kleben über der Buchungsliste        | fertig, zwei Zeilen unter der Werkzeugleiste                 |
+| Buchung löschen (Wischen und Knopf)                | fertig, beides abschaltbar, Rückfrage voreingestellt         |
+| Firma und Anschrift getrennt, Anschrift als Karte  | fertig; `geo:`-Verweis, kein Kartendienst im Netz            |
+| Topf-Einstellungen am Zahnrad, eigenes Untermenü   | fertig; Regeln je Topf im selben Sheet                       |
 | Impressum und Datenschutz über der unteren Leiste  | fertig, kleben sobald sie im Bild waren (mobil)              |
 | Bon-Einzelposten, Topf und Tags je Posten          | fertig; Buchungen werden neu gerechnet, Beleg hängt um       |
 | Bon-Profile je Kette (Erkennung, Produkt-Mappings) | fertig ohne Oberfläche; Verwaltung offen                     |
@@ -38,8 +41,8 @@ Konto und keine Übertragung.
 | Impressum, Datenschutz                             | **Gerüst mit Platzhaltern — vor Veröffentlichung ausfüllen** |
 | Zentrale Datenbank, SSO                            | vorbereitet, nicht eingeschaltet                             |
 
-**Prüfstand:** 641 Unit-Tests (`npm test`), 40 E2E-Tests auf zwei Viewports
-(`npm run test:e2e`, 74 Läufe und 6 bewusste Auslassungen — den schwebenden
+**Prüfstand:** 654 Unit-Tests (`npm test`), 52 E2E-Tests auf zwei Viewports
+(`npm run test:e2e`, 98 Läufe und 6 bewusste Auslassungen — den schwebenden
 Knopf und die klebende Rechtsleiste gibt es ab `md` nicht), typecheck und lint
 grün, statischer Build erzeugt.
 CI prüft jeden Pull Request, der Deploy-Workflow prüft erneut vor der
@@ -103,7 +106,12 @@ Rollen-Code hinaus.
    daraus erzeugten Buchungen also auch nicht. Das Feld an `RecurringRule`
    nachzuziehen ist klein; die Frage dahinter ist, ob eine Regel überhaupt
    Tags setzen soll oder ob das am erzeugten Datensatz passiert.
-10. **Papierbons.** Der TSE-QR-Code enthält die Bruttobeträge je Steuersatz,
+10. **Kein Rückgängig nach dem Löschen.** `deleteEntry` setzt `deletedAt`,
+    löscht also weich — aber es gibt kein `restoreEntry` und keinen
+    Papierkorb. Deshalb ist die Rückfrage beim Wischen voreingestellt an. Ein
+    Papierkorb wäre eine eigene Runde: Er braucht eine Liste, eine Frist und
+    eine Entscheidung, was mit den Belegen dazwischen passiert.
+11. **Papierbons.** Der TSE-QR-Code enthält die Bruttobeträge je Steuersatz,
     aber keine Einzelposten; `zxing-wasm` (953 KB) wäre der Weg, weil
     `BarcodeDetector` in Safari und auf iOS fehlt. Einzelposten aus einem Foto
     bräuchten OCR und bleiben unzuverlässig.
