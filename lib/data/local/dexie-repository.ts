@@ -161,6 +161,8 @@ export class DexieBudgetRepository implements BudgetRepository {
       defaultPotId: null,
       askForPot: true,
       tagsEnabled: false,
+      fabDefault: 'expense',
+      fabScopes: {},
       onboardingCompletedAt: null,
       createdAt: at,
       updatedAt: at,
@@ -1296,6 +1298,8 @@ function withHouseholdDefaults(stored: Household): Household {
     defaultPotId: stored.defaultPotId ?? null,
     askForPot: stored.askForPot ?? true,
     tagsEnabled: stored.tagsEnabled ?? false,
+    fabDefault: stored.fabDefault ?? 'expense',
+    fabScopes: stored.fabScopes ?? {},
   };
 }
 

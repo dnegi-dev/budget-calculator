@@ -52,6 +52,15 @@ export const roleSchema = z.enum(['admin', 'member', 'viewer']);
 export const potKindSchema = z.enum(['budget', 'envelope', 'category']);
 export const entryKindSchema = z.enum(['expense', 'income']);
 export const frequencySchema = z.enum(['weekly', 'monthly', 'yearly']);
+export const fabActionSchema = z.enum(['expense', 'income', 'ask']);
+export const fabScopeSchema = z.enum([
+  'home',
+  'pots',
+  'potDetail',
+  'entries',
+  'recurring',
+  'analysis',
+]);
 
 export const tagSchema = z.string().min(1).max(TAG_LIMITS.length);
 /**
@@ -89,6 +98,14 @@ export const householdSchema = z.object({
   defaultPotId: idSchema.nullable().default(null),
   askForPot: z.boolean().default(true),
   tagsEnabled: z.boolean().default(false),
+  // Dasselbe für den schwebenden Knopf: Eine Sicherung von vorher kennt die
+  // Felder nicht, und `'expense'` ist das, was der Knopf ohne Einstellung tut.
+  fabDefault: fabActionSchema.default('expense'),
+  // `partialRecord` und nicht `record`: Bei einem Enum als Schlüssel verlangt
+  // `z.record` in Zod 4 **jeden** Wert des Enums. Damit wäre ein Haushalt
+  // ohne Ausnahmen je Bereich — also der Normalfall — nicht einlesbar, und ein
+  // fehlender Schlüssel soll ja genau „wie überall" heißen.
+  fabScopes: z.partialRecord(fabScopeSchema, fabActionSchema).default({}),
   onboardingCompletedAt: isoDateTimeSchema.nullable(),
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,

@@ -2,6 +2,7 @@
 
 import { AmountModeSection } from '../../../components/settings/AmountModeSection';
 import { CaptureSection } from '../../../components/settings/CaptureSection';
+import { FabSection } from '../../../components/settings/FabSection';
 import { SettingsPage } from '../../../components/settings/SettingsPage';
 
 export default function CaptureSettingsPage() {
@@ -11,6 +12,7 @@ export default function CaptureSettingsPage() {
       hint="Was beim Anlegen einer Buchung vorgegeben ist und was gefragt wird."
     >
       <CaptureSection />
+      <FabSection />
       <AmountModeSection />
     </SettingsPage>
   );

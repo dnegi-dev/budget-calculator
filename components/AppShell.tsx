@@ -16,7 +16,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { ChartPie, House, ListOrdered, Settings, Wallet } from 'lucide-react';
 import { Icon } from '../lib/ui/Icon';
@@ -111,7 +111,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           </footer>
         </main>
 
-        <QuickEntryButton />
+        {/*
+          Die `Suspense`-Grenze gehört hierhin und nicht in den Knopf: Er liest
+          mit `useSearchParams` den Topf aus der Adresse, und unter
+          `output: 'export'` verlangt der Build für jeden solchen Leser eine
+          Grenze **um** ihn. Ohne sie schlägt nicht die Laufzeit fehl, sondern
+          das Bauen.
+        */}
+        <Suspense fallback={null}>
+          <QuickEntryButton />
+        </Suspense>
 
         <nav
           aria-label="Hauptnavigation"

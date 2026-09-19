@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 /**
  * Setzt den Entsperr-Merker, bevor die erste Seite lädt.
@@ -32,6 +32,29 @@ export async function entsperren(page: Page): Promise<void> {
 const MD_BREAKPOINT = 768;
 
 /**
+ * Hält den Knopf lange gedrückt.
+ *
+ * Über die Maus und nicht über `dispatchEvent`: Der Haken in
+ * `lib/ui/useLongPress.ts` prüft `event.button` und die Bewegung, und
+ * zusammengebaute Ereignisse würden genau diese Prüfungen überspringen — der
+ * Test wäre dann grün, ohne dass ein Finger das Menü öffnen könnte.
+ * 700 ms: die Schwelle liegt bei 450.
+ */
+export async function langDruecken(page: Page, ziel: Locator): Promise<void> {
+  const box = await ziel.boundingBox();
+  if (!box) throw new Error('Der Knopf ist nicht sichtbar.');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(700);
+  await page.mouse.up();
+}
+
+/** Der schwebende Knopf — erkennbar am Zusatz im `aria-label`. */
+export function schwebenderKnopf(page: Page): Locator {
+  return page.getByRole('button', { name: /lang drücken/ });
+}
+
+/**
  * Öffnet das Erfassen über den schwebenden Knopf (mobil) oder den Knopf auf
  * der Seite (Desktop) und wählt die Art.
  *
@@ -39,13 +62,21 @@ const MD_BREAKPOINT = 768;
  * Das wartet nicht und liefert direkt nach einem Seitenwechsel `false`,
  * bevor der Knopf überhaupt gerendert ist — der Test landete dann still im
  * falschen Zweig.
+ *
+ * Mobil gibt es die Zwischenfrage nicht mehr: Ein Tippen öffnet die
+ * Standardaktion (Ausgabe), und „Einnahme" liegt hinter langem Drücken.
  */
 export async function erfassenOeffnen(page: Page, art: 'Ausgabe' | 'Einnahme'): Promise<void> {
   const breite = page.viewportSize()?.width ?? MD_BREAKPOINT;
 
   if (breite < MD_BREAKPOINT) {
-    await page.getByRole('button', { name: 'Buchung erfassen' }).click();
-    await page.getByRole('button', { name: new RegExp(`^${art}`) }).click();
+    const knopf = schwebenderKnopf(page);
+    if (art === 'Ausgabe') {
+      await knopf.click();
+    } else {
+      await langDruecken(page, knopf);
+      await page.getByRole('menuitem', { name: art }).click();
+    }
     return;
   }
 
@@ -98,11 +129,13 @@ export async function optionWaehlen(page: Page, feld: string, text: string): Pro
 }
 
 /**
- * Klappt Suche und Filter auf der Buchungsseite auf, falls sie hinter den
- * Symbolen liegen (mobil). Ab `md` stehen sie ohnehin offen.
+ * Klappt die Filter in der klebenden Leiste auf.
+ *
+ * Seit die Leiste überall dieselbe ist, liegen sie an jeder Breite hinter dem
+ * Symbol — der Zweig nach Fensterbreite ist damit weg.
  */
 export async function filterOeffnen(page: Page): Promise<void> {
-  if (istMobil(page)) await page.getByRole('button', { name: 'Filter' }).click();
+  await page.getByRole('button', { name: 'Filter' }).click();
 }
 
 /**
