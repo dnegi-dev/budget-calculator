@@ -452,8 +452,8 @@ abzulehnen. Das Schema selbst bleibt streng, es ist die künftige API-Grenze.
   Standard-Bundle von pdf.js 6 ruft `Map.prototype.getOrInsertComputed`. Fehlt
   die Methode im Browser, wirft der XRef-Cache, pdf.js fällt auf „Indexing all
   PDF objects" zurück — und ein echter Bon kommt als Unsinn oder gar nicht
-  zurück. Die handgebauten Muster überlebten diesen Rückfall, ein REWE-Beleg
-  nicht. Deshalb nehmen Browser **und** Unit-Test denselben Build über
+  zurück. Die handgebauten Muster überlebten diesen Rückfall, der Beleg einer
+  Supermarktkette nicht. Deshalb nehmen Browser **und** Unit-Test denselben Build über
   `defaultLoader`; lief der Test gegen `legacy/` und der Browser gegen das
   Standard-Bundle, saß der Fehler in der Lücke und kein Test konnte ihn sehen.
   Aus demselben Grund achtet `e2e/bon-import.spec.ts` auf Konsolenfehler: Der
@@ -474,12 +474,63 @@ abzulehnen. Das Schema selbst bleibt streng, es ist die künftige API-Grenze.
   Unterschied zwischen funktionierend und nutzlos: Ein echter Bon trug dort
   22,24 € an Bonus-Guthaben und Coupons, die als Posten mitgezählt wurden — die
   Summenprobe riss, und die Aufteilung fiel ganz aus.
+- **Die Kopfzeile ist nicht die erste Zeile.** Ein Bon kann über dem Namen
+  Werbung drucken („Du hast 27 Treuepunkte gesammelt."), und `findMerchant`
+  nahm genau die. Dafür gibt es `HEADER_CHATTER` — getrennt von
+  `NON_ITEM_PATTERNS`, weil solche Zeilen durchaus einen Betrag tragen dürfen
+  („Sie sparen 2,40 €") und trotzdem kein Händler sind. Steht die Anschrift in
+  derselben Zeile, schneidet `stripAddress` sie ab — aber nur, wenn hinter dem
+  Trenner eine Ziffer steht, sonst verliert „Müller - Bio und Frische" seine
+  Hälfte.
+- **Die Menge steht vor _oder_ hinter der Bezeichnung.** `2x 1,55 Apfelsaft`
+  und `Apfelsaft 2 * 1,55` sind beide echt; für die zweite Form gibt es
+  `TRAILING_QUANTITY`. Ohne sie klebte die Rechenaufgabe im Namen
+  („Schokolinsen 2 * 0,95") und `quantity` blieb trotzdem leer.
 - **Muster statt echter Bons im Test.** `e2e/fixtures/*.pdf` sind von Hand
-  gebaut (`build.mjs`): mit `ekabs.json`, ohne, und einer mit dem Aufbau eines
+  gebaut (`build.mjs`): mit `ekabs.json`, ohne, einer mit dem Aufbau eines
   Supermarkt-Ausdrucks samt gesperrtem Kopf, Rabatt-, Mengen- und
-  Bonuszeilen. Ein echter Bon gehört ins Muster nur als **Struktur**, nie als
+  Bonuszeilen, und einer mit Werbekopf und der Menge hinter der Bezeichnung. Ein echter Bon gehört ins Muster nur als **Struktur**, nie als
   Datei: Da stehen Einkauf, Filiale und Signatur drin, und das Repository ist
   öffentlich.
+
+## Handelsketten im Repository
+
+**Kein Name einer Handelskette in Code, Tests, Doku oder Commit-Nachricht** —
+auch nicht als Abkürzung, die sich daraus ableitet. Der Name steht auf dem Bon,
+wandert von dort in die lokale Datenbank und auf den Bildschirm; er ist
+**Daten, nicht Code**.
+
+Daraus folgt der Bau der Profile in `lib/domain/receipt/`:
+
+- **Eine Profildatei trägt einen Tiernamen**, und die Kennung im Profil ist
+  daraus abgeleitet (`chains/luchs/` → `id: 'lux'`). Welche Kette gemeint ist,
+  steht nirgends im Repository.
+- **Erkannt wird am Fingerabdruck des Layouts**, nie an einem Namen: eine
+  Werbezeile, ein Spaltenkopf, die Schreibweise der Fußzeile. `matchProfile`
+  verlangt `minHits` Treffer; darunter gilt kein Profil. Ein Fingerabdruck, der
+  zu viel trifft, belegt fremde Bons mit fremden Zuordnungen vor — und das
+  fällt erst beim Auswerten auf.
+- **Ein Profil verbessert nur, es ist nie Voraussetzung.** Trifft keines, kommt
+  genau das Ergebnis heraus, das der gemeinsame Parser liefert.
+- **Vorrang:** gelernte `itemRules` des Haushalts → Profil-Tabelle → nichts.
+  Eine Tabelle im Code darf eine Entscheidung des Nutzers nicht überstimmen.
+- **Profil-Vorschläge werden nicht gelernt.** `manuell` bleibt für sie `false`;
+  sonst stände die Liste unter „Ordnen" nach einem Einkauf voller Einträge, die
+  niemand angelegt hat.
+- **`produkte.ts` ist eine reine Tabelle** und liegt getrennt vom Profil: Wer
+  eine Zuordnung ändert, soll nicht durch Erkennungsmuster scrollen müssen. Die
+  `keyword` müssen normalisiert sein (wie `normalizeKeyword` sie erzeugt),
+  sonst treffen sie nie — und ein fehlender Vorschlag ist kein Fehler, den
+  jemand bemerkt.
+- **`kategorie` ist ein Schlüssel, keine Topf-ID.** Töpfe gehören dem Haushalt
+  und haben zufällige IDs. `lib/domain/pot-categories.ts` hält die Schlüssel
+  samt Namen — dieselben, unter denen die Ersteinrichtung ihre Töpfe anlegt —
+  und `resolveCategoryPot` sucht den Topf darüber. Kein Topf, kein Vorschlag;
+  geraten wird nicht.
+
+Ein echter Bon gehört weiter nur als **Struktur** ins Muster, nie als Datei:
+Da stehen Filiale, Kartennummer und Signatur drin, und das Repository ist
+öffentlich.
 
 ## Bon-Posten
 
