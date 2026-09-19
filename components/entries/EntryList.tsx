@@ -74,7 +74,16 @@ export function EntryList({
       <ul>
         {groups.map(([date, dayEntries]) => (
           <li key={date}>
-            <p className="sticky top-0 z-10 border-y border-line bg-subtle px-4 py-1.5 text-xs font-medium text-ink-muted">
+            {/*
+              Klebt unter der Werkzeugleiste, nicht am Fensterrand: Deren Höhe
+              steht als `--list-toolbar-h` am Wurzelelement (gesetzt von
+              `components/lists/ListToolbar.tsx`, und sie ändert sich, sobald
+              Suche oder Filter aufklappen). Ohne den Versatz verschwände der
+              Datumskopf hinter der Leiste. Der Rückfall `0px` gilt auf Seiten
+              ohne Leiste; der Sicherheitsbereich kommt in beiden Fällen dazu,
+              damit als installierte App nichts unter der Statusleiste klebt.
+            */}
+            <p className="sticky top-[calc(var(--list-toolbar-h,0px)+env(safe-area-inset-top))] z-10 border-y border-line bg-subtle px-4 py-1.5 text-xs font-medium text-ink-muted">
               {format.day(date)}
             </p>
             <ul className="divide-y divide-[var(--border)]">
