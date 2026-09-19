@@ -298,6 +298,43 @@ in `lib/domain/fab.ts`: `scopeForPath` (Pfad → Bereich), `resolveFabAction`
 - **In den Einstellungen und auf den Rechtsseiten erscheint der Knopf nicht.**
   Dort erfasst niemand etwas, und auf den Schaltern lag er im Weg.
 
+## Löschen
+
+Bis zu dieser Runde gab es **keinen** Weg, eine Buchung zu löschen:
+`deleteEntry` stand im Repository und wurde von der Oberfläche nie gerufen.
+Jetzt gibt es zwei, und beide braucht es.
+
+- **Wischen ist nur die halbe Bedienung.** Dieselbe Lage wie beim langen
+  Drücken am schwebenden Knopf: Für Tastatur und Screenreader ist eine Geste
+  unerreichbar. Der Löschknopf im `EntrySheet` ist deshalb der zweite Weg und
+  nicht optional — wer ihn entfernt, nimmt einem Teil der Nutzer das Löschen
+  ganz.
+- **`lib/ui/useSwipeAction.ts` gibt die Spur erst frei, wenn die waagerechte
+  Bewegung die senkrechte übersteigt** und 12 px reißt. Ohne diese Prüfung
+  zieht jeder Daumen beim Scrollen Zeilen auf. Dazu `touch-action: pan-y` an
+  der Zeile (sonst scrollt der Browser waagerecht mit, und `preventDefault`
+  kommt bei einem passiven Listener zu spät) und `setPointerCapture`, weil der
+  Finger eine 44 px hohe Zeile ständig verlässt.
+- **Nach einem Wischen folgt kein Klick.** `consumeTriggered()` wie bei
+  `useLongPress` — sonst öffnete sich die Buchung, die gerade gelöscht wurde.
+  Das gilt auch unterhalb der Auslöseschwelle: Ein abgebrochenes Wischen ist
+  kein Tippen.
+- **Die Rückfrage ist voreingestellt an.** Nicht aus Vorsicht, sondern weil es
+  kein Rückgängig gibt: `deleteEntry` löscht zwar weich (`deletedAt`), aber
+  ein `restoreEntry` existiert nicht. Wer sie abschaltet, weiß das dann — der
+  Text unter dem Schalter sagt es.
+- **Eine Buchung mit `purchaseId` wird nie einzeln gelöscht.** Ihr Betrag ist
+  die Summe der Posten ihres Topfes, und an einer Buchung der Gruppe hängt der
+  Beleg; einzeln gelöscht bliebe ein Einkauf zurück, dessen Posten ins Leere
+  zeigen. Die Regel steht als `canDeleteEntryDirectly` in
+  `lib/domain/ledger.ts` und wird von beiden Wegen gelesen — die Geste löst
+  dann nicht aus, das Sheet zeigt statt des Knopfes den Weg zum Einkauf.
+- **Die drei Schalter hängen am Gerät**, nicht am Haushalt (Einstellungen →
+  Erfassen → „Löschen"). Wischen ist eine Berührungsgeste, die es am Desktop
+  gar nicht gibt; eine Aussage über „diesen Haushalt" wäre sie nicht. Wer das
+  Löschen für alle unterbinden will, nimmt die Rolle „Nur Lesen" — die wirkt
+  im Repository.
+
 ## Klebende Leiste über Listen
 
 `components/lists/ListToolbar.tsx` trägt Überschrift, Suche, Filter, freie

@@ -13,14 +13,27 @@
  *
  * Zwei Klebezeilen sind das Maximum. Sie kosten zusammen rund 3,3 rem über
  * der Liste; eine dritte Ebene wäre bei 320 px mehr Kopf als Inhalt.
+ *
+ * **Wischen löscht** — abschaltbar, mit Rückfrage voreingestellt, und nie bei
+ * einer Buchung aus einem Bon (`canDeleteEntryDirectly`). Die Geste allein
+ * wäre zu wenig: Für Tastatur und Screenreader ist sie unerreichbar, der
+ * zweite Weg ist der Löschknopf im `EntrySheet`.
  */
 
 import { useMemo, useState } from 'react';
-import { useSnapshot } from '../../lib/data/provider';
+import { Trash2 } from 'lucide-react';
+import { useCan } from '../../lib/auth/provider';
+import { useData } from '../../lib/data/provider';
+import { canDeleteEntryDirectly } from '../../lib/domain/ledger';
 import type { Entry, Pot } from '../../lib/domain/types';
+import { Button } from '../../lib/ui/Button';
 import { EmptyState } from '../../lib/ui/EmptyState';
+import { Icon } from '../../lib/ui/Icon';
+import { Sheet } from '../../lib/ui/Sheet';
 import { potColorVar } from '../../lib/ui/colors';
 import { useFormat } from '../../lib/ui/useFormat';
+import { useSwipeAction } from '../../lib/ui/useSwipeAction';
+import { useSwipeConfirm, useSwipeDelete } from '../../lib/prefs/useDevicePref';
 import { EntrySheet } from './EntrySheet';
 
 export function EntryList({
@@ -33,8 +46,13 @@ export function EntryList({
   emptyHint: string;
 }) {
   const format = useFormat();
-  const snapshot = useSnapshot();
+  const { repository, snapshot } = useData();
+  const can = useCan();
+  const wischen = useSwipeDelete();
+  const rueckfrage = useSwipeConfirm();
   const [editing, setEditing] = useState<Entry | null>(null);
+  const [fragt, setFragt] = useState<Entry | null>(null);
+  const [fehler, setFehler] = useState<string | null>(null);
 
   const potsById = useMemo(() => new Map(pots.map((pot) => [pot.id, pot])), [pots]);
   const receiptCounts = useMemo(() => {
@@ -91,6 +109,27 @@ export function EntryList({
       }));
   }, [entries]);
 
+  /**
+   * Das Recht wird im Repository geprüft (`deleteEntry` verlangt
+   * `entry.edit.any`); hier wird nur nicht angeboten, was ohnehin scheitern
+   * würde.
+   */
+  const darfLoeschen = can('entry.edit.any');
+
+  async function loeschen(entry: Entry) {
+    setFehler(null);
+    try {
+      await repository.deleteEntry(entry.id);
+    } catch (caught) {
+      setFehler(caught instanceof Error ? caught.message : 'Unbekannter Fehler');
+    }
+  }
+
+  function angewischt(entry: Entry) {
+    if (rueckfrage) setFragt(entry);
+    else void loeschen(entry);
+  }
+
   if (entries.length === 0) {
     return <EmptyState icon="≡" title="Keine Buchungen" hint={emptyHint} />;
   }
@@ -130,71 +169,21 @@ export function EntryList({
                   </p>
                   <ul className="divide-y divide-[var(--border)]">
                     {dayEntries.map((entry) => {
-                      const pot = entry.potId ? potsById.get(entry.potId) : null;
                       const split = entry.splitGroupId ? splitGroups.get(entry.splitGroupId) : null;
-                      const receiptCount = split
-                        ? split.receipts
-                        : (receiptCounts.get(entry.id) ?? 0);
                       return (
-                        <li key={entry.id}>
-                          <button
-                            type="button"
-                            onClick={() => setEditing(entry)}
-                            className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-subtle"
-                          >
-                            <span
-                              aria-hidden
-                              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-base"
-                              style={{
-                                background: pot
-                                  ? `color-mix(in oklch, ${potColorVar(pot.color)} 18%, transparent)`
-                                  : 'var(--bg-subtle)',
-                              }}
-                            >
-                              {pot?.icon ?? (entry.kind === 'income' ? '↓' : '–')}
-                            </span>
-
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate font-medium">
-                                {entry.merchant ||
-                                  entry.note ||
-                                  pot?.name ||
-                                  (entry.kind === 'income' ? 'Einnahme' : 'Ausgabe')}
-                              </span>
-                              <span className="block truncate text-xs text-ink-muted">
-                                {[
-                                  pot?.name ?? 'ohne Topf',
-                                  // Tags in dieselbe Zeile und nicht als eigene
-                                  // Marken: Die Liste soll bei 320 px nicht in die
-                                  // Höhe wachsen, und hier zählt „welcher Tag war
-                                  // das", nicht das Bearbeiten.
-                                  (entry.tags ?? []).length > 0
-                                    ? (entry.tags ?? []).map((tag) => `#${tag}`).join(' ')
-                                    : null,
-                                  entry.recurringRuleId ? 'wiederkehrend' : null,
-                                  split && split.count > 1
-                                    ? `Einkauf mit ${split.count} Buchungen`
-                                    : null,
-                                  receiptCount > 0
-                                    ? `${receiptCount} Beleg${receiptCount > 1 ? 'e' : ''}`
-                                    : null,
-                                ]
-                                  .filter(Boolean)
-                                  .join(' · ')}
-                              </span>
-                            </span>
-
-                            <span
-                              className={[
-                                'tabular shrink-0 font-semibold',
-                                entry.kind === 'income' ? 'text-positive' : '',
-                              ].join(' ')}
-                            >
-                              {entry.kind === 'income' ? '+' : '−'}
-                              {format.money(entry.amountCents)}
-                            </span>
-                          </button>
-                        </li>
+                        <EntryRow
+                          key={entry.id}
+                          entry={entry}
+                          pot={entry.potId ? (potsById.get(entry.potId) ?? null) : null}
+                          splitCount={split?.count ?? 0}
+                          receiptCount={split ? split.receipts : (receiptCounts.get(entry.id) ?? 0)}
+                          onOpen={() => setEditing(entry)}
+                          onSwipe={
+                            wischen && darfLoeschen && canDeleteEntryDirectly(entry)
+                              ? () => angewischt(entry)
+                              : null
+                          }
+                        />
                       );
                     })}
                   </ul>
@@ -211,6 +200,168 @@ export function EntryList({
         pots={pots}
         entry={editing}
       />
+
+      {/*
+        Die Rückfrage nach dem Wischen. Ein `Sheet` und keine eingeschobene
+        Zeile: Die Liste soll beim Antworten nicht springen, und das Sheet
+        bringt die Scrollsperre mit.
+      */}
+      <Sheet
+        open={fragt !== null}
+        onClose={() => setFragt(null)}
+        title="Buchung löschen?"
+        footer={
+          <div className="flex gap-3">
+            <Button variant="ghost" onClick={() => setFragt(null)}>
+              Abbrechen
+            </Button>
+            <Button
+              variant="danger"
+              block
+              onClick={() => {
+                const opfer = fragt;
+                setFragt(null);
+                if (opfer) void loeschen(opfer);
+              }}
+            >
+              Ja, löschen
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-ink-muted">
+          {fragt
+            ? `„${fragt.merchant || fragt.note || format.money(fragt.amountCents)}" wird entfernt, samt Belegen. Das lässt sich nicht rückgängig machen.`
+            : null}
+        </p>
+      </Sheet>
+
+      {fehler && <p className="px-4 py-2 text-sm text-negative">{fehler}</p>}
     </>
+  );
+}
+
+/**
+ * Eine Zeile der Liste — als eigene Komponente, weil sie einen Haken braucht.
+ *
+ * `useSwipeAction` in der `map`-Schleife der Liste aufzurufen wäre ein Haken
+ * in einer Schleife; React verlangt eine feste Reihenfolge. Die Zeile ist
+ * damit ohnehin besser aufgehoben.
+ *
+ * `onSwipe === null` heißt: keine Geste. Das ist der Fall, wenn das Wischen
+ * abgeschaltet ist, das Recht fehlt oder die Buchung aus einem Bon stammt —
+ * die Zeile verhält sich dann wie vor dieser Änderung.
+ */
+function EntryRow({
+  entry,
+  pot,
+  splitCount,
+  receiptCount,
+  onOpen,
+  onSwipe,
+}: {
+  entry: Entry;
+  pot: Pot | null;
+  splitCount: number;
+  receiptCount: number;
+  onOpen: () => void;
+  onSwipe: (() => void) | null;
+}) {
+  const format = useFormat();
+  const { handlers, offset, ziehend, consumeTriggered } = useSwipeAction(
+    () => onSwipe?.(),
+    onSwipe !== null,
+  );
+
+  return (
+    <li className="relative overflow-hidden">
+      {/*
+        Die Fläche hinter der Zeile. Nur so breit wie gezogen wurde, damit
+        sie nicht schon vor der Geste durchscheint. Getönt statt gefüllt:
+        Eine volle Fläche bräuchte eine eigene Vordergrundfarbe, die in fünf
+        Themes und zwei Modi lesbar sein müsste — `text-negative` auf einer
+        Tönung derselben Farbe ist geprüft.
+      */}
+      {offset > 0 && (
+        <span
+          aria-hidden
+          className="absolute inset-y-0 right-0 flex items-center justify-center text-negative"
+          style={{
+            width: `${offset}px`,
+            background: 'color-mix(in oklch, var(--negative) 18%, transparent)',
+          }}
+        >
+          <Icon icon={Trash2} size={20} />
+        </span>
+      )}
+
+      <button
+        type="button"
+        {...handlers}
+        onClick={() => {
+          // Nach einem Wischen kein Öffnen: Das `click` folgt auf `pointerup`
+          // und zeigte sonst die Buchung, die gerade gelöscht wurde.
+          if (consumeTriggered()) return;
+          onOpen();
+        }}
+        className={[
+          'relative flex w-full items-center gap-3 bg-surface px-4 py-3 text-left hover:bg-subtle',
+          // Senkrecht scrollt der Browser, waagerecht übernehmen wir. Ohne
+          // das käme `preventDefault` bei einem passiven Listener zu spät.
+          onSwipe !== null ? 'touch-pan-y' : '',
+        ].join(' ')}
+        style={{
+          transform: offset > 0 ? `translateX(-${offset}px)` : undefined,
+          transition: ziehend ? 'none' : 'transform 150ms ease-out',
+        }}
+      >
+        <span
+          aria-hidden
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-base"
+          style={{
+            background: pot
+              ? `color-mix(in oklch, ${potColorVar(pot.color)} 18%, transparent)`
+              : 'var(--bg-subtle)',
+          }}
+        >
+          {pot?.icon ?? (entry.kind === 'income' ? '↓' : '–')}
+        </span>
+
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium">
+            {entry.merchant ||
+              entry.note ||
+              pot?.name ||
+              (entry.kind === 'income' ? 'Einnahme' : 'Ausgabe')}
+          </span>
+          <span className="block truncate text-xs text-ink-muted">
+            {[
+              pot?.name ?? 'ohne Topf',
+              // Tags in dieselbe Zeile und nicht als eigene Marken: Die Liste
+              // soll bei 320 px nicht in die Höhe wachsen, und hier zählt
+              // „welcher Tag war das", nicht das Bearbeiten.
+              (entry.tags ?? []).length > 0
+                ? (entry.tags ?? []).map((tag) => `#${tag}`).join(' ')
+                : null,
+              entry.recurringRuleId ? 'wiederkehrend' : null,
+              splitCount > 1 ? `Einkauf mit ${splitCount} Buchungen` : null,
+              receiptCount > 0 ? `${receiptCount} Beleg${receiptCount > 1 ? 'e' : ''}` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </span>
+        </span>
+
+        <span
+          className={[
+            'tabular shrink-0 font-semibold',
+            entry.kind === 'income' ? 'text-positive' : '',
+          ].join(' ')}
+        >
+          {entry.kind === 'income' ? '+' : '−'}
+          {format.money(entry.amountCents)}
+        </span>
+      </button>
+    </li>
   );
 }

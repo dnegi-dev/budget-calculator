@@ -52,6 +52,18 @@ export const ACCENT_KEY = 'haushalt.accent';
 export const ICON_STYLE_KEY = 'haushalt.iconStyle';
 export const AMOLED_KEY = 'haushalt.amoled';
 
+/**
+ * Löschen: Geste, Rückfrage, Knopf.
+ *
+ * Am Gerät und nicht am Haushalt, obwohl `askForPot` und `tagsEnabled` dort
+ * hängen: Wischen ist eine Berührungsgeste, die es am Desktop gar nicht gibt.
+ * Eine Aussage über „diesen Haushalt" wäre sie damit nicht — sie ist eine
+ * Aussage über dieses Gerät, wie die Art der Betragseingabe.
+ */
+export const SWIPE_DELETE_KEY = 'haushalt.swipeDelete';
+export const SWIPE_CONFIRM_KEY = 'haushalt.swipeConfirm';
+export const DELETE_BUTTON_KEY = 'haushalt.deleteButton';
+
 const ALL_KEYS: readonly string[] = [
   THEME_KEY,
   AMOUNT_MODE_KEY,
@@ -60,6 +72,9 @@ const ALL_KEYS: readonly string[] = [
   ACCENT_KEY,
   ICON_STYLE_KEY,
   AMOLED_KEY,
+  SWIPE_DELETE_KEY,
+  SWIPE_CONFIRM_KEY,
+  DELETE_BUTTON_KEY,
 ];
 
 const THEME_CHOICES: readonly ThemeChoice[] = ['system', 'light', 'dark'];
@@ -99,6 +114,24 @@ export function getIconStyle(): IconStyle {
 
 export function getAmoled(): boolean {
   return readKey(AMOLED_KEY, FLAGS, 'off') === 'on';
+}
+
+export function getSwipeDelete(): boolean {
+  return readKey(SWIPE_DELETE_KEY, FLAGS, 'on') === 'on';
+}
+
+/**
+ * Standardmäßig **an**, und das ist keine Vorsicht aus Gewohnheit: Es gibt
+ * kein Rückgängig. `deleteEntry` löscht zwar weich (`deletedAt`), aber es
+ * gibt keinen Weg zurück in der Oberfläche — ohne Rückfrage ist eine
+ * versehentliche Geste endgültig. Wer sie abschaltet, weiß das dann.
+ */
+export function getSwipeConfirm(): boolean {
+  return readKey(SWIPE_CONFIRM_KEY, FLAGS, 'on') === 'on';
+}
+
+export function getDeleteButton(): boolean {
+  return readKey(DELETE_BUTTON_KEY, FLAGS, 'on') === 'on';
 }
 
 export function getThemeFor(mode: ResolvedMode): ThemeName {
@@ -256,6 +289,23 @@ export function setAmoled(on: boolean): void {
 
 export function setAmountMode(mode: AmountMode): void {
   writeKey(AMOUNT_MODE_KEY, mode);
+}
+
+/**
+ * Kein `applyAppearance` wie bei den Farben: Diese drei ändern nichts am
+ * Wurzelelement, sie werden beim Rendern gelesen. `writeKey` benachrichtigt
+ * die Abonnenten, und das reicht.
+ */
+export function setSwipeDelete(on: boolean): void {
+  writeKey(SWIPE_DELETE_KEY, on ? 'on' : 'off');
+}
+
+export function setSwipeConfirm(on: boolean): void {
+  writeKey(SWIPE_CONFIRM_KEY, on ? 'on' : 'off');
+}
+
+export function setDeleteButton(on: boolean): void {
+  writeKey(DELETE_BUTTON_KEY, on ? 'on' : 'off');
 }
 
 const listeners = new Set<() => void>();
