@@ -14,6 +14,7 @@
  * trotzdem: Ein stumm gesetzter Topf wäre eine Überraschung beim Auswerten.
  */
 
+import Link from 'next/link';
 import { useMemo, useRef, useState } from 'react';
 import { useData } from '../../lib/data/provider';
 import { todayIso } from '../../lib/domain/dates';
@@ -111,6 +112,9 @@ function EntryForm({
   const [savedEntryId, setSavedEntryId] = useState<string | null>(entry?.id ?? null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /** Buchungen aus einem Bon: Betrag gesperrt, Weg zum Einkauf daneben. */
+  const ausEinkauf = entry?.purchaseId != null;
 
   const amountCents = parseAmountToCents(amountRaw);
   const amountValid = amountCents !== null && amountCents > 0;
@@ -231,7 +235,26 @@ function EntryForm({
             currencySymbol={format.currencySymbol}
             large
             autoFocus
+            readOnly={ausEinkauf}
           />
+          {/*
+            Der Betrag einer Bon-Buchung kommt aus den Posten. Ihn hier zu
+            ändern hieße, einen Wert zu setzen, den das nächste Umhängen eines
+            Postens still überschreibt — ein unsichtbarer Fehler. Der Weg
+            dahin steht daneben.
+          */}
+          {ausEinkauf && (
+            <p className="text-sm text-ink-muted">
+              Der Betrag kommt aus den Posten des Bons.{' '}
+              <Link
+                href={`/buchungen/einkauf?einkauf=${entry?.purchaseId}`}
+                className="text-accent hover:underline"
+                onClick={onClose}
+              >
+                Einkauf ansehen
+              </Link>
+            </p>
+          )}
           {selectedPot && (
             <p className="text-sm text-ink-muted">
               Wird auf „{selectedPot.name}“ gebucht.{' '}
