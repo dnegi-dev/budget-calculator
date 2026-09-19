@@ -1,0 +1,390 @@
+/*
+ * Die Paletten. Fünf Themes, jedes hell und dunkel, dazu echtes Schwarz und
+ * die Akzentfarben.
+ *
+ * Wie das aufgelöst wird — und warum so:
+ *
+ * Der Modus steht als `data-mode="light|dark"` am Wurzelelement und wird in
+ * JavaScript aufgelöst, nicht in CSS. Vorher hing alles an `data-theme` und am
+ * *Fehlen* des Attributs, und die Dunkelwerte standen doppelt in
+ * `globals.css`: einmal in `@media (prefers-color-scheme: dark)` für
+ * „Automatisch“, einmal unter `[data-theme='dark']` für die ausdrückliche
+ * Wahl. Bei fünf Themes wären das zehn doppelte Blöcke. Mit aufgelöstem Modus
+ * ist jede Regel flach und steht einmal.
+ *
+ * Der Preis: Ohne JavaScript gibt es kein `data-mode`. Dafür stehen in
+ * `globals.css` die Werte von „Klassisch hell“ auf `:root` und ein einzelner
+ * `@media`-Block für dunkel — der letzte Rest der alten Konstruktion.
+ *
+ * Reihenfolge und Spezifität, die drei Regeln, die hier zählen:
+ *
+ * 1. Theme-Blöcke (`[data-mode][data-theme]`, zwei Attribute) setzen Flächen
+ *    und Schrift, Akzent-Blöcke (`[data-mode][data-accent]`, auch zwei) setzen
+ *    nur die drei Akzent-Tokens. Sie überschneiden sich nicht, die Reihenfolge
+ *    ist also gleichgültig.
+ * 2. Die AMOLED-Blöcke tragen drei Attribute und gewinnen damit über den
+ *    Theme-Block, unabhängig von der Stelle in der Datei.
+ * 3. Ein Theme darf `--pot-*` mitüberschreiben. „Hoher Kontrast“ und
+ *    „Cyberpunk“ tun es: Die sechs gedeckten Topffarben wären dort nicht
+ *    unterscheidbar.
+ *
+ * Jeder Wert hier wird von `lib/ui/themes.test.ts` durchgerechnet — Schrift
+ * gegen Fläche, Akzentschrift gegen Akzent, Akzent gegen Fläche, und das für
+ * jede Kombination, die die Oberfläche anbietet. Wer einen Wert nachjustiert,
+ * bekommt vom Test gesagt, ob er noch lesbar ist.
+ */
+
+/* ── Klassisch ───────────────────────────────────────────────────────────── */
+
+[data-mode='light'][data-theme='classic'] {
+  --bg: oklch(99% 0.004 240);
+  --bg-elevated: oklch(100% 0 0);
+  --bg-subtle: oklch(96.5% 0.005 240);
+  --border: oklch(93.5% 0.006 240);
+  --border-strong: oklch(86% 0.009 240);
+  --text: oklch(24% 0.02 250);
+  --text-muted: oklch(52% 0.015 250);
+  --positive: oklch(50% 0.12 155);
+  --negative: oklch(52% 0.17 22);
+  --warning: oklch(52% 0.11 70);
+}
+
+[data-mode='dark'][data-theme='classic'] {
+  --bg: oklch(17% 0.012 255);
+  --bg-elevated: oklch(21% 0.014 255);
+  --bg-subtle: oklch(24% 0.014 255);
+  --border: oklch(27% 0.015 255);
+  --border-strong: oklch(36% 0.019 255);
+  --text: oklch(95% 0.008 250);
+  --text-muted: oklch(70% 0.014 250);
+  --positive: oklch(72% 0.14 155);
+  --negative: oklch(70% 0.16 22);
+  --warning: oklch(78% 0.13 75);
+}
+
+[data-mode='dark'][data-theme='classic'][data-amoled] {
+  --bg: oklch(0% 0 0);
+  --bg-elevated: oklch(9% 0.01 255);
+  --bg-subtle: oklch(14% 0.012 255);
+  --border: oklch(24% 0.015 255);
+  --border-strong: oklch(34% 0.019 255);
+}
+
+/* ── Pastell ─────────────────────────────────────────────────────────────── */
+
+[data-mode='light'][data-theme='pastel'] {
+  --bg: oklch(98% 0.012 85);
+  --bg-elevated: oklch(99% 0.006 85);
+  --bg-subtle: oklch(95% 0.018 85);
+  --border: oklch(91% 0.02 85);
+  --border-strong: oklch(83% 0.025 85);
+  --text: oklch(32% 0.03 300);
+  --text-muted: oklch(52% 0.03 300);
+  --positive: oklch(52% 0.11 155);
+  --negative: oklch(53% 0.14 20);
+  --warning: oklch(50% 0.11 70);
+}
+
+[data-mode='dark'][data-theme='pastel'] {
+  --bg: oklch(22% 0.02 285);
+  --bg-elevated: oklch(26% 0.024 285);
+  --bg-subtle: oklch(29% 0.026 285);
+  --border: oklch(32% 0.028 285);
+  --border-strong: oklch(41% 0.034 285);
+  --text: oklch(93% 0.015 285);
+  --text-muted: oklch(74% 0.022 285);
+  --positive: oklch(78% 0.11 155);
+  --negative: oklch(76% 0.12 18);
+  --warning: oklch(82% 0.1 75);
+}
+
+[data-mode='dark'][data-theme='pastel'][data-amoled] {
+  --bg: oklch(0% 0 0);
+  --bg-elevated: oklch(11% 0.018 285);
+  --bg-subtle: oklch(16% 0.022 285);
+  --border: oklch(26% 0.026 285);
+  --border-strong: oklch(38% 0.032 285);
+}
+
+/* ── Terminal ────────────────────────────────────────────────────────────── */
+
+[data-mode='light'][data-theme='nerd'] {
+  --bg: oklch(97% 0.008 120);
+  --bg-elevated: oklch(99% 0.004 120);
+  --bg-subtle: oklch(93% 0.012 120);
+  --border: oklch(88% 0.015 120);
+  --border-strong: oklch(78% 0.02 120);
+  --text: oklch(25% 0.04 150);
+  --text-muted: oklch(48% 0.04 150);
+  --positive: oklch(46% 0.115 150);
+  --negative: oklch(50% 0.17 25);
+  --warning: oklch(50% 0.11 70);
+  --font-app:
+    ui-monospace, 'SF Mono', 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+[data-mode='dark'][data-theme='nerd'] {
+  --bg: oklch(14% 0.015 150);
+  --bg-elevated: oklch(18% 0.018 150);
+  --bg-subtle: oklch(21% 0.02 150);
+  --border: oklch(26% 0.025 150);
+  --border-strong: oklch(36% 0.03 150);
+  --text: oklch(92% 0.06 150);
+  --text-muted: oklch(70% 0.08 150);
+  --positive: oklch(80% 0.17 150);
+  --negative: oklch(70% 0.17 25);
+  --warning: oklch(82% 0.14 85);
+  --font-app:
+    ui-monospace, 'SF Mono', 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+[data-mode='dark'][data-theme='nerd'][data-amoled] {
+  --bg: oklch(0% 0 0);
+  --bg-elevated: oklch(8% 0.012 150);
+  --bg-subtle: oklch(13% 0.016 150);
+  --border: oklch(23% 0.022 150);
+  --border-strong: oklch(34% 0.028 150);
+}
+
+/* ── Hoher Kontrast ──────────────────────────────────────────────────────── */
+
+/*
+ * Reines Weiß und reines Schwarz, Ränder sichtbar statt angedeutet. Die
+ * Topffarben werden kräftiger: Die sechs gedeckten Töne des klassischen
+ * Themes sind genau das, was hier nicht gewollt ist.
+ */
+[data-mode='light'][data-theme='contrast'] {
+  --bg: oklch(100% 0 0);
+  --bg-elevated: oklch(100% 0 0);
+  --bg-subtle: oklch(94% 0 0);
+  --border: oklch(62% 0 0);
+  --border-strong: oklch(35% 0 0);
+  --text: oklch(0% 0 0);
+  --text-muted: oklch(35% 0 0);
+  --positive: oklch(45% 0.12 150);
+  --negative: oklch(43% 0.174 25);
+  --warning: oklch(45% 0.1 65);
+  --pot-emerald: oklch(45% 0.109 155);
+  --pot-sky: oklch(45% 0.101 240);
+  --pot-amber: oklch(50% 0.106 70);
+  --pot-violet: oklch(42% 0.2 295);
+  --pot-rose: oklch(45% 0.179 15);
+  --pot-slate: oklch(35% 0.02 250);
+}
+
+[data-mode='dark'][data-theme='contrast'] {
+  --bg: oklch(0% 0 0);
+  --bg-elevated: oklch(13% 0 0);
+  --bg-subtle: oklch(19% 0 0);
+  --border: oklch(48% 0 0);
+  --border-strong: oklch(68% 0 0);
+  --text: oklch(100% 0 0);
+  --text-muted: oklch(78% 0 0);
+  --positive: oklch(85% 0.17 150);
+  --negative: oklch(72% 0.15 25);
+  --warning: oklch(88% 0.15 90);
+  --pot-emerald: oklch(82% 0.17 155);
+  --pot-sky: oklch(80% 0.114 235);
+  --pot-amber: oklch(88% 0.127 85);
+  --pot-violet: oklch(78% 0.121 295);
+  --pot-rose: oklch(78% 0.126 15);
+  --pot-slate: oklch(80% 0.02 250);
+}
+
+/*
+ * „Hoher Kontrast dunkel“ ist schon schwarz — der AMOLED-Block hebt hier nur
+ * die Kartenflächen an, damit der Schalter nichts kaputt macht, wenn er
+ * gesetzt bleibt und das Theme wechselt.
+ */
+[data-mode='dark'][data-theme='contrast'][data-amoled] {
+  --bg: oklch(0% 0 0);
+  --bg-elevated: oklch(8% 0 0);
+  --bg-subtle: oklch(14% 0 0);
+  --border: oklch(45% 0 0);
+  --border-strong: oklch(65% 0 0);
+}
+
+/* ── Cyberpunk ───────────────────────────────────────────────────────────── */
+
+[data-mode='light'][data-theme='cyberpunk'] {
+  --bg: oklch(97% 0.012 300);
+  --bg-elevated: oklch(98.5% 0.006 300);
+  --bg-subtle: oklch(93% 0.022 300);
+  --border: oklch(87% 0.03 300);
+  --border-strong: oklch(72% 0.05 320);
+  --text: oklch(22% 0.06 300);
+  --text-muted: oklch(46% 0.08 320);
+  --positive: oklch(48% 0.088 175);
+  --negative: oklch(48% 0.191 10);
+  --warning: oklch(52% 0.107 75);
+  --pot-emerald: oklch(52% 0.1 170);
+  --pot-sky: oklch(50% 0.124 245);
+  --pot-amber: oklch(55% 0.114 75);
+  --pot-violet: oklch(46% 0.22 300);
+  --pot-rose: oklch(48% 0.199 350);
+  --pot-slate: oklch(42% 0.04 300);
+}
+
+[data-mode='dark'][data-theme='cyberpunk'] {
+  --bg: oklch(12% 0.03 285);
+  --bg-elevated: oklch(16% 0.04 285);
+  --bg-subtle: oklch(20% 0.05 290);
+  --border: oklch(28% 0.07 300);
+  --border-strong: oklch(42% 0.1 310);
+  --text: oklch(94% 0.03 300);
+  --text-muted: oklch(74% 0.06 320);
+  --positive: oklch(84% 0.11 180);
+  --negative: oklch(72% 0.176 10);
+  --warning: oklch(88% 0.16 95);
+  --pot-emerald: oklch(84% 0.154 175);
+  --pot-sky: oklch(80% 0.109 240);
+  --pot-amber: oklch(88% 0.151 90);
+  --pot-violet: oklch(72% 0.168 300);
+  --pot-rose: oklch(74% 0.186 350);
+  --pot-slate: oklch(74% 0.04 300);
+}
+
+[data-mode='dark'][data-theme='cyberpunk'][data-amoled] {
+  --bg: oklch(0% 0 0);
+  --bg-elevated: oklch(10% 0.035 285);
+  --bg-subtle: oklch(15% 0.045 290);
+  --border: oklch(26% 0.065 300);
+  --border-strong: oklch(40% 0.095 310);
+}
+
+/* ── Akzentfarben ────────────────────────────────────────────────────────── */
+
+/*
+ * Ein Vorrat je Modus, nicht je Theme: Die Flächen aller hellen Themes liegen
+ * zwischen 97 % und 100 % Helligkeit, die aller dunklen zwischen 0 % und 22 %.
+ * Damit stimmt derselbe Akzent über alle Themes desselben Modus — geprüft
+ * wird das trotzdem für jede Paarung einzeln.
+ *
+ * Welche Akzente ein Theme anbietet, steht in `lib/ui/themes.ts`. Neon gehört
+ * zu Cyberpunk und Terminal, nicht zu Pastell.
+ *
+ * `--accent` ist nicht nur Fläche, sondern auch Schriftfarbe (jeder Link ist
+ * `text-accent`). Deshalb muss es 4,5:1 gegen die Fläche halten, nicht bloß
+ * die 3:1 für große Flächen.
+ */
+
+[data-mode='light'][data-accent='indigo'] {
+  --accent: oklch(50% 0.16 265);
+  --accent-text: oklch(99% 0 265);
+  --accent-subtle: oklch(95% 0.019 265);
+}
+[data-mode='dark'][data-accent='indigo'] {
+  --accent: oklch(72% 0.13 265);
+  --accent-text: oklch(16% 0.03 265);
+  --accent-subtle: oklch(29% 0.05 265);
+}
+
+[data-mode='light'][data-accent='sky'] {
+  --accent: oklch(48% 0.093 230);
+  --accent-text: oklch(99% 0.005 230);
+  --accent-subtle: oklch(95% 0.03 230);
+}
+[data-mode='dark'][data-accent='sky'] {
+  --accent: oklch(74% 0.12 230);
+  --accent-text: oklch(16% 0.03 230);
+  --accent-subtle: oklch(29% 0.05 230);
+}
+
+[data-mode='light'][data-accent='teal'] {
+  --accent: oklch(46% 0.078 185);
+  --accent-text: oklch(99% 0.005 185);
+  --accent-subtle: oklch(95% 0.03 185);
+}
+[data-mode='dark'][data-accent='teal'] {
+  --accent: oklch(74% 0.11 185);
+  --accent-text: oklch(16% 0.03 185);
+  --accent-subtle: oklch(29% 0.05 185);
+}
+
+[data-mode='light'][data-accent='emerald'] {
+  --accent: oklch(45% 0.109 155);
+  --accent-text: oklch(99% 0.005 155);
+  --accent-subtle: oklch(95% 0.03 155);
+}
+[data-mode='dark'][data-accent='emerald'] {
+  --accent: oklch(74% 0.13 155);
+  --accent-text: oklch(16% 0.03 155);
+  --accent-subtle: oklch(29% 0.05 155);
+}
+
+[data-mode='light'][data-accent='amber'] {
+  --accent: oklch(48% 0.106 65);
+  --accent-text: oklch(99% 0.005 65);
+  --accent-subtle: oklch(95% 0.03 65);
+}
+[data-mode='dark'][data-accent='amber'] {
+  --accent: oklch(78% 0.14 75);
+  --accent-text: oklch(16% 0.03 75);
+  --accent-subtle: oklch(29% 0.055 75);
+}
+
+[data-mode='light'][data-accent='rose'] {
+  --accent: oklch(50% 0.18 15);
+  --accent-text: oklch(99% 0.005 15);
+  --accent-subtle: oklch(95% 0.021 15);
+}
+[data-mode='dark'][data-accent='rose'] {
+  --accent: oklch(72% 0.16 15);
+  --accent-text: oklch(16% 0.03 15);
+  --accent-subtle: oklch(29% 0.06 15);
+}
+
+[data-mode='light'][data-accent='violet'] {
+  --accent: oklch(48% 0.19 300);
+  --accent-text: oklch(99% 0.005 300);
+  --accent-subtle: oklch(95% 0.024 300);
+}
+[data-mode='dark'][data-accent='violet'] {
+  --accent: oklch(72% 0.16 300);
+  --accent-text: oklch(16% 0.03 300);
+  --accent-subtle: oklch(29% 0.06 300);
+}
+
+[data-mode='light'][data-accent='slate'] {
+  --accent: oklch(42% 0.02 250);
+  --accent-text: oklch(99% 0.003 250);
+  --accent-subtle: oklch(94% 0.008 250);
+}
+[data-mode='dark'][data-accent='slate'] {
+  --accent: oklch(74% 0.02 250);
+  --accent-text: oklch(16% 0.01 250);
+  --accent-subtle: oklch(30% 0.015 250);
+}
+
+[data-mode='light'][data-accent='magenta'] {
+  --accent: oklch(48% 0.218 330);
+  --accent-text: oklch(99% 0.005 330);
+  --accent-subtle: oklch(94% 0.04 330);
+}
+[data-mode='dark'][data-accent='magenta'] {
+  --accent: oklch(72% 0.21 330);
+  --accent-text: oklch(15% 0.04 330);
+  --accent-subtle: oklch(29% 0.08 330);
+}
+
+[data-mode='light'][data-accent='cyan'] {
+  --accent: oklch(46% 0.076 205);
+  --accent-text: oklch(99% 0.005 205);
+  --accent-subtle: oklch(94% 0.035 205);
+}
+[data-mode='dark'][data-accent='cyan'] {
+  --accent: oklch(80% 0.11 200);
+  --accent-text: oklch(15% 0.03 200);
+  --accent-subtle: oklch(29% 0.049 200);
+}
+
+[data-mode='light'][data-accent='lime'] {
+  --accent: oklch(45% 0.12 130);
+  --accent-text: oklch(99% 0.005 130);
+  --accent-subtle: oklch(94% 0.04 130);
+}
+[data-mode='dark'][data-accent='lime'] {
+  --accent: oklch(82% 0.19 130);
+  --accent-text: oklch(15% 0.04 130);
+  --accent-subtle: oklch(29% 0.07 130);
+}

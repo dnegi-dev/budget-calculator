@@ -1,9 +1,14 @@
 @import 'tailwindcss';
+@import './themes.css';
 
 /*
- * Farben als Tokens auf :root, im Dunkelmodus neu definiert. Kein
- * Component-Framework, keine Farbklassen quer durch die Komponenten — so
- * bleibt das Erscheinungsbild an einer Stelle einstellbar.
+ * Farben als Tokens. Kein Component-Framework, keine Farbklassen quer durch
+ * die Komponenten — so bleibt das Erscheinungsbild an einer Stelle
+ * einstellbar.
+ *
+ * Was hier steht, ist „Klassisch hell“ als Grundstellung. Die Paletten in
+ * `themes.css` überschreiben sie: Ihre Selektoren tragen zwei Attribute und
+ * gewinnen damit über `:root`, unabhängig von der Reihenfolge der Dateien.
  */
 :root {
   --bg: oklch(99% 0.004 240);
@@ -13,12 +18,12 @@
   --border-strong: oklch(86% 0.009 240);
   --text: oklch(24% 0.02 250);
   --text-muted: oklch(52% 0.015 250);
-  --accent: oklch(52% 0.13 250);
-  --accent-text: oklch(99% 0.005 250);
-  --accent-subtle: oklch(95% 0.03 250);
-  --positive: oklch(52% 0.12 155);
-  --negative: oklch(55% 0.17 22);
-  --warning: oklch(64% 0.14 70);
+  --accent: oklch(50% 0.18 265);
+  --accent-text: oklch(99% 0 265);
+  --accent-subtle: oklch(95% 0.019 265);
+  --positive: oklch(50% 0.12 155);
+  --negative: oklch(52% 0.17 22);
+  --warning: oklch(52% 0.11 70);
 
   --pot-emerald: oklch(60% 0.12 160);
   --pot-sky: oklch(62% 0.12 235);
@@ -36,8 +41,16 @@
   --shadow-card: none;
 }
 
+/*
+ * Rückfall ohne JavaScript.
+ *
+ * Die Paletten in `themes.css` hängen an `data-mode`, und das setzt das
+ * Bootstrap-Skript. Läuft es nicht, greifen die Werte oben (Klassisch hell)
+ * und dieser eine Block für dunkel. Das ist der ganze Rest der alten
+ * Konstruktion, in der jede Farbe zweimal stand.
+ */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
+  :root:not([data-mode]) {
     --bg: oklch(17% 0.012 255);
     --bg-elevated: oklch(21% 0.014 255);
     --bg-subtle: oklch(24% 0.014 255);
@@ -45,31 +58,13 @@
     --border-strong: oklch(36% 0.019 255);
     --text: oklch(95% 0.008 250);
     --text-muted: oklch(70% 0.014 250);
-    --accent: oklch(70% 0.12 250);
-    --accent-text: oklch(17% 0.02 250);
-    --accent-subtle: oklch(28% 0.045 250);
+    --accent: oklch(72% 0.13 265);
+    --accent-text: oklch(16% 0.03 265);
+    --accent-subtle: oklch(29% 0.05 265);
     --positive: oklch(72% 0.14 155);
     --negative: oklch(70% 0.16 22);
     --warning: oklch(78% 0.13 75);
-    --shadow-card: none;
   }
-}
-
-:root[data-theme='dark'] {
-  --bg: oklch(17% 0.012 255);
-  --bg-elevated: oklch(21% 0.014 255);
-  --bg-subtle: oklch(24% 0.014 255);
-  --border: oklch(27% 0.015 255);
-  --border-strong: oklch(36% 0.019 255);
-  --text: oklch(95% 0.008 250);
-  --text-muted: oklch(70% 0.014 250);
-  --accent: oklch(70% 0.12 250);
-  --accent-text: oklch(17% 0.02 250);
-  --accent-subtle: oklch(28% 0.045 250);
-  --positive: oklch(72% 0.14 155);
-  --negative: oklch(70% 0.16 22);
-  --warning: oklch(78% 0.13 75);
-  --shadow-card: none;
 }
 
 @theme inline {
@@ -103,7 +98,7 @@ html {
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-sans);
+  font-family: var(--font-app, var(--font-sans));
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
 }
