@@ -100,15 +100,49 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/*
           pt: Ohne Kopfzeile beginnt der Inhalt ganz oben — auf Geräten mit
           Aussparung liefe er sonst als installierte App unter die Statusleiste.
-          pb-36: Platz für die untere Leiste und den schwebenden Knopf. Der
-          endet 8,25 rem über dem unteren Rand — mit pb-28 (7 rem) lag die
-          letzte Zeile einer Liste dauerhaft darunter.
+
+          Der Platz unten (8,25 rem für untere Leiste und schwebenden Knopf,
+          mit pb-28 lag die letzte Listenzeile dauerhaft darunter) steckt
+          mobil **nicht** mehr im `pb`, sondern in einem Abstandhalter nach
+          der Rechtsleiste. Der Grund steht dort: Ein `sticky` mit `top`
+          greift nur, wenn unter dem Element noch Platz **im Inhaltsfluss**
+          seines Containers ist — Polsterung zählt nicht dazu.
         */}
-        <main className="mx-auto w-full max-w-3xl flex-1 px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-36 md:max-w-4xl md:px-8 md:pt-8 md:pb-10">
+        <main className="mx-auto w-full max-w-3xl flex-1 px-4 pt-[max(1.25rem,env(safe-area-inset-top))] md:max-w-4xl md:px-8 md:pt-8 md:pb-10">
           {children}
-          <footer className="mt-10 pt-4 text-xs text-ink-muted md:hidden">
-            <LegalLinks />
+          {/*
+            Klebt, sobald sie einmal im Bild war — und wandert dann nicht
+            weiter nach oben weg. Vorher stand sie am Ende einer langen Seite
+            und war nur mit viel Scrollen erreichbar.
+
+            **`top` und nicht `bottom`, und das ist der Kern:** `bottom` heftet
+            ein Element von Anfang an an den Fensterboden; die Leiste wäre auf
+            jeder Seite dauerhaft sichtbar und kostete überall eine Zeile. Ein
+            großer `top`-Wert klebt erst, wenn das Element von unten ins Bild
+            gekommen ist — genau das gewünschte Verhalten, und kurze Seiten
+            zahlen nichts dafür.
+
+            `pr-24` hält die rechte Ecke frei: Dort liegt der schwebende Knopf
+            (`z-40`), und diese Leiste liegt darunter auf `z-20`.
+          */}
+          <footer
+            className={[
+              'sticky top-[calc(100dvh_-_var(--legal-bar-h)_-_var(--nav-bar-h))] z-20 md:hidden',
+              'mt-10 -mx-4 pl-4 pr-24',
+              'h-[var(--legal-bar-h)] border-t border-line bg-surface/85 backdrop-blur-md',
+              'text-xs text-ink-muted',
+            ].join(' ')}
+          >
+            <LegalLinks className="py-1.5" />
           </footer>
+          {/*
+            Der Platz, der vorher als `pb-36` am `main` hing — und zugleich
+            das, was die Leiste darüber überhaupt kleben lässt: Ein `sticky`
+            mit `top` kann ein Element nur bis zum Ende des **Inhalts** seines
+            Containers nach unten schieben. Als letztes Kind war die Leiste
+            damit unverschiebbar und klebte nie, obwohl der `top`-Wert stimmte.
+          */}
+          <div aria-hidden className="h-36 md:hidden" />
         </main>
 
         {/*

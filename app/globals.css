@@ -32,6 +32,20 @@
   --pot-rose: oklch(62% 0.16 15);
   --pot-slate: oklch(56% 0.02 250);
 
+  /*
+   * Höhen der klebenden Zeilen. Anders als `--list-toolbar-h` (die setzt
+   * `ListToolbar` per ResizeObserver, weil sie mit aufgeklappter Suche
+   * wächst) sind das feste Werte: Monatskopf und Rechtsleiste sind immer
+   * genau eine Zeile.
+   *
+   * `--nav-bar-h` ist die untere Leiste **plus** dem Abstand, den auch der
+   * schwebende Knopf einhält (`bottom-[calc(4.75rem+…)]`). Wer den Knopf
+   * verschiebt, zieht diesen Wert mit.
+   */
+  --month-head-h: 1.875rem;
+  --legal-bar-h: 1.875rem;
+  --nav-bar-h: calc(4.75rem + env(safe-area-inset-bottom));
+
   --radius: 0.75rem;
   /*
    * Kein Schatten. Bei dieser Dichte trennt er nichts, was Abstand nicht

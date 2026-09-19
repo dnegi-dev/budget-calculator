@@ -9,7 +9,7 @@
 
 import { useMemo } from 'react';
 import { useSnapshot } from '../data/provider';
-import { formatDate } from '../domain/dates';
+import { formatDate, formatMonth } from '../domain/dates';
 import { formatCents, formatCentsCompact, formatCentsPlain } from '../domain/money';
 import { clampPeriodStartDay } from '../domain/period';
 import type { IsoDate } from '../domain/types';
@@ -23,6 +23,8 @@ export interface Formatters {
   moneyCompact: (cents: number) => string;
   moneyPlain: (cents: number) => string;
   day: (date: IsoDate) => string;
+  /** Monat und Jahr, ausgeschrieben — der klebende Kopf über der Buchungsliste. */
+  month: (date: IsoDate) => string;
 }
 
 const FALLBACK = { locale: 'de-DE', currency: 'EUR', periodStartDay: 1 };
@@ -46,6 +48,7 @@ export function useFormat(): Formatters {
       moneyCompact: (cents) => formatCentsCompact(cents, { locale, currency }),
       moneyPlain: (cents) => formatCentsPlain(cents),
       day: (date) => formatDate(date, locale),
+      month: (date) => formatMonth(date, locale),
     };
   }, [household?.locale, household?.currency, household?.periodStartDay]);
 }

@@ -27,8 +27,10 @@ Konto und keine Übertragung.
 | Darstellung hell/dunkel/automatisch                | fertig, pro Gerät im `localStorage`                          |
 | Themes, Akzentfarbe, Symbolstil, echtes Schwarz    | fertig; jede Kombination auf Kontrast geprüft (Test)         |
 | Einstellungen als Unterseiten mit Gefahrenzone     | fertig                                                       |
-| Schwebender Knopf mit Standardaktion               | fertig; allgemein und je Bereich, langes Drücken für die Art |
+| Schwebender Knopf mit Standardaktion               | fertig; immer ein Plus, langes Drücken für die Art           |
 | Klebende Leiste je Liste (Titel, Suche, Filter)    | fertig auf Heute, Buchungen, Wiederkehrend, Töpfe, Ordnen    |
+| Monat und Tag kleben über der Buchungsliste        | fertig, zwei Zeilen unter der Werkzeugleiste                 |
+| Impressum und Datenschutz über der unteren Leiste  | fertig, kleben sobald sie im Bild waren (mobil)              |
 | Bon-Einzelposten, Topf und Tags je Posten          | fertig; Buchungen werden neu gerechnet, Beleg hängt um       |
 | Bon-Profile je Kette (Erkennung, Produkt-Mappings) | fertig ohne Oberfläche; Verwaltung offen                     |
 | Update-Hinweis bei neuer Fassung                   | fertig, Leiste mit „Neu laden“ — kein automatischer Reload   |
@@ -36,10 +38,10 @@ Konto und keine Übertragung.
 | Impressum, Datenschutz                             | **Gerüst mit Platzhaltern — vor Veröffentlichung ausfüllen** |
 | Zentrale Datenbank, SSO                            | vorbereitet, nicht eingeschaltet                             |
 
-**Prüfstand:** 637 Unit-Tests (`npm test`), 38 E2E-Tests auf zwei Viewports
-(`npm run test:e2e`, 71 Läufe und 5 bewusste Auslassungen — den schwebenden
-Knopf gibt es ab `md` nicht), typecheck und lint grün, statischer Build
-erzeugt.
+**Prüfstand:** 641 Unit-Tests (`npm test`), 40 E2E-Tests auf zwei Viewports
+(`npm run test:e2e`, 74 Läufe und 6 bewusste Auslassungen — den schwebenden
+Knopf und die klebende Rechtsleiste gibt es ab `md` nicht), typecheck und lint
+grün, statischer Build erzeugt.
 CI prüft jeden Pull Request, der Deploy-Workflow prüft erneut vor der
 Veröffentlichung.
 

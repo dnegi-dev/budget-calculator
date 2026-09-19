@@ -225,6 +225,20 @@ Hürde erreichbar.
   verschiebt, prüft das `pb-36` am `main` in `AppShell` mit — er endet
   8,25 rem über dem unteren Rand, und darunter darf keine Listenzeile liegen
   bleiben.
+- **Über der Buchungsliste kleben zwei Zeilen**: Monat, darunter Tag. Der
+  Monat war vorher nicht da, und in einer langen Liste stand dann ein Tag
+  ohne Monat darüber. Zwei sind das Maximum — sie kosten zusammen rund
+  3,3 rem, eine dritte Ebene wäre bei 320 px mehr Kopf als Inhalt.
+- **Impressum und Datenschutz kleben über der unteren Leiste**, sobald sie
+  beim Scrollen ins Bild gekommen sind. Und zwar mit `top`, nicht mit
+  `bottom`: `bottom` heftet ein Element von Anfang an an den Fensterboden, es
+  wäre auf jeder Seite dauerhaft sichtbar und kostete überall eine Zeile.
+  Dazu gehört ein Fund, der teuer war: **Ein `sticky` mit `top` schiebt ein
+  Element nur bis zum Ende des Inhalts seines Containers** — Polsterung zählt
+  nicht dazu. Als letztes Kind eines `main` mit `pb-36` klebte die Leiste
+  deshalb nie, obwohl der gerechnete `top`-Wert stimmte. Der Platz steckt nun
+  in einem Abstandhalter **nach** der Leiste; wer ihn verkleinert, verkleinert
+  das Fenster, in dem sie klebt (`pb` minus `--nav-bar-h`).
 - **Suche und Filter liegen hinter je einem Symbol** — in der klebenden Leiste
   über der Liste (`components/lists/ListToolbar.tsx`), an jeder Breite gleich.
   Das Schließen der Suche räumt den Begriff weg; ein aktiver Filter zeigt sich
@@ -275,6 +289,12 @@ in `lib/domain/fab.ts`: `scopeForPath` (Pfad → Bereich), `resolveFabAction`
   der Knopf `useSearchParams` und damit eine `Suspense`-Grenze **um** ihn —
   die steht in `AppShell`. Fehlt sie, scheitert der Build, nicht erst die
   Laufzeit.
+- **Der Knopf trägt immer ein Plus**, auch wenn die Standardaktion „Ausgabe"
+  ist. Ein Minus beschreibt den Betrag, nicht die Handlung — angelegt wird in
+  beiden Fällen etwas. Welche Art es wird, steht im `aria-label`; im Menü und
+  in der Abfrage tragen Ausgabe und Einnahme gegenständliche Symbole
+  (Einkaufswagen, Sparschwein), weil zwei Rechenzeichen nebeneinander wie eine
+  Operation aussehen und nicht wie eine Wahl.
 - **In den Einstellungen und auf den Rechtsseiten erscheint der Knopf nicht.**
   Dort erfasst niemand etwas, und auf den Schaltern lag er im Weg.
 
@@ -298,6 +318,12 @@ Vier Dinge, die beim Anfassen zählen:
   `z-50`, diese Leiste `z-30`, der Datumskopf `z-10`.
 - **`-mx-4 px-4 md:-mx-8 md:px-8`**, sonst scrollt Inhalt sichtbar an ihren
   Rändern vorbei.
+
+Die Höhen der **festen** Klebezeilen stehen als Tokens in `app/globals.css`
+(`--month-head-h`, `--legal-bar-h`, `--nav-bar-h`) — nur die Werkzeugleiste
+meldet ihre Höhe zur Laufzeit, weil sie mit aufgeklappter Suche wächst.
+`--nav-bar-h` ist die untere Leiste **plus** dem Abstand, den auch der
+schwebende Knopf einhält; wer den Knopf verschiebt, zieht den Wert mit.
 
 Im Einsatz auf Heute, Buchungen, Wiederkehrend, Töpfe, Topf-Detail,
 Auswertung (nur Titel) und über `SettingsPage` auf allen
