@@ -35,6 +35,8 @@ const EMPTY_SNAPSHOT: Snapshot = {
   recurringRules: [],
   itemRules: [],
   receipts: [],
+  purchases: [],
+  purchaseItems: [],
 };
 
 export interface DataContextValue {

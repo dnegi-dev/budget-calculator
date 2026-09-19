@@ -47,6 +47,7 @@ function entry(potId: string | null, kind: EntryKind, amountCents: number, date:
     merchant: null,
     recurringRuleId: null,
     splitGroupId: null,
+    purchaseId: null,
     tags: [],
     createdBy: 'u1',
   };

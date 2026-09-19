@@ -30,7 +30,7 @@
  */
 
 /** Hochzählen, wenn alte Einträge weg sollen — `activate` räumt dann auf. */
-const CACHE = 'haushalt-v3';
+const CACHE = 'haushalt-v4';
 
 /** '/' lokal, '/budget-calculator/' auf GitHub Pages. */
 const SCOPE = new URL('./', self.location).pathname;
@@ -40,6 +40,7 @@ const APP_SHELL = [
   `${SCOPE}toepfe/`,
   `${SCOPE}buchungen/`,
   `${SCOPE}buchungen/wiederkehrend/`,
+  `${SCOPE}buchungen/einkauf/`,
   `${SCOPE}auswertung/`,
   `${SCOPE}einstellungen/`,
   `${SCOPE}einstellungen/haushalt/`,

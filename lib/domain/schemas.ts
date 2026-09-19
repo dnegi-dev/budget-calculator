@@ -33,6 +33,8 @@ export const TEXT_LIMITS = {
   note: 500,
   merchant: 120,
   keyword: 60,
+  /** Die Bezeichnung eines Bon-Postens — so lang wie eine Kassenzeile wird. */
+  itemLabel: 120,
 } as const;
 
 /**
@@ -53,6 +55,7 @@ export const potKindSchema = z.enum(['budget', 'envelope', 'category']);
 export const entryKindSchema = z.enum(['expense', 'income']);
 export const frequencySchema = z.enum(['weekly', 'monthly', 'yearly']);
 export const fabActionSchema = z.enum(['expense', 'income', 'ask']);
+export const parseQualitySchema = z.enum(['exakt', 'geprüft', 'unsicher']);
 export const fabScopeSchema = z.enum([
   'home',
   'pots',
@@ -144,8 +147,37 @@ export const entrySchema = z.object({
   // Ältere Sicherungen kennen das Feld nicht — ohne den Standardwert
   // ließe sich keine davon mehr einlesen.
   splitGroupId: idSchema.nullable().default(null),
+  // Dasselbe für den Einkauf: Sicherungen von vor den Bon-Posten kennen ihn
+  // nicht, und ohne Einkauf ist die Buchung schlicht eine für sich.
+  purchaseId: idSchema.nullable().default(null),
   tags: tagsSchema,
   createdBy: idSchema,
+});
+
+export const purchaseSchema = z.object({
+  ...recordMetaShape,
+  merchant: z.string().max(TEXT_LIMITS.merchant).nullable(),
+  date: isoDateSchema,
+  /**
+   * Die Endsumme des Bons. Anders als `Entry.amountCents` **nicht** über
+   * `amountCentsSchema`: Ein Bon, dessen Posten sich zu einer Gutschrift
+   * summieren, hat eine negative Summe, und die soll einlesbar bleiben.
+   */
+  totalCents: z.number().int().nullable(),
+  quality: parseQualitySchema,
+  tags: tagsSchema,
+});
+
+export const purchaseItemSchema = z.object({
+  ...recordMetaShape,
+  purchaseId: idSchema,
+  label: z.string().min(1).max(TEXT_LIMITS.itemLabel),
+  /** Vorzeichenbehaftet — Rabatt und Pfandrückgabe sind negativ. */
+  amountCents: z.number().int(),
+  quantity: z.number().nullable(),
+  potId: idSchema.nullable(),
+  tags: tagsSchema,
+  sortIndex: z.number().int(),
 });
 
 export const itemRuleSchema = z.object({
@@ -203,8 +235,11 @@ export const exportFileSchema = z.object({
   recurringRules: z.array(recurringRuleSchema),
   receipts: z.array(receiptExportSchema),
   // Erst mit dem Bon-Import dazugekommen, deshalb mit Standardwert:
-  // Sicherungen von vorher sollen weiter einlesbar sein.
+  // Sicherungen von vorher sollen weiter einlesbar sein. Dasselbe gilt für
+  // die Einkäufe und ihre Posten, die noch später dazukamen.
   itemRules: z.array(itemRuleSchema).default([]),
+  purchases: z.array(purchaseSchema).default([]),
+  purchaseItems: z.array(purchaseItemSchema).default([]),
 });
 
 export type ExportFile = z.infer<typeof exportFileSchema>;

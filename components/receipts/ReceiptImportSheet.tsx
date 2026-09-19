@@ -19,11 +19,11 @@
  * existiert.
  */
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Info, TriangleAlert } from 'lucide-react';
 import { useCan } from '../../lib/auth/provider';
 import { useData } from '../../lib/data/provider';
-import { newId } from '../../lib/domain/ids';
 import { todayIso } from '../../lib/domain/dates';
 import {
   groupItemsByPot,
@@ -33,8 +33,7 @@ import {
   suggestPot,
   type ParsedReceipt,
 } from '../../lib/domain/receipt-parse';
-import { collectTags, dedupeTags } from '../../lib/domain/tags';
-import { TEXT_LIMITS } from '../../lib/domain/schemas';
+import { collectTags } from '../../lib/domain/tags';
 import type { Pot } from '../../lib/domain/types';
 import { extractPdf, PdfReadError } from '../../lib/pdf/extract';
 import { Banner } from '../../lib/ui/Banner';
@@ -74,6 +73,10 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
   const [offeneTagFelder, setOffeneTagFelder] = useState<number[]>([]);
   const [fehler, setFehler] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  /** Nach dem Buchen: was entstanden ist, und der Weg dorthin. */
+  const [gebucht, setGebucht] = useState<{ purchaseId: string | null; anzahl: number } | null>(
+    null,
+  );
 
   const tagsEnabled = snapshot.household?.tagsEnabled ?? false;
   const vorschlaege = useMemo(
@@ -152,44 +155,54 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
         return;
       }
 
-      // Die Kennung klammert die Buchungen eines Einkaufs. Bei nur einer
-      // Buchung bleibt sie leer — da gibt es nichts zu klammern.
-      const splitGroupId = groups.length > 1 ? newId() : null;
+      /*
+        Zwei Wege, und der Unterschied ist nicht Bequemlichkeit:
 
-      const entries =
-        groups.length > 0
-          ? await repository.createEntries(
-              groups.map((group) => ({
-                potId: group.potId,
-                kind: group.kind,
-                amountCents: group.amountCents,
-                date,
-                merchant,
-                note: group.labels.join(', ').slice(0, TEXT_LIMITS.note),
-                splitGroupId,
-                // Tags des Einkaufs plus die der Posten, die in diese Buchung
-                // eingegangen sind. `dedupeTags` deckelt auch die Anzahl.
-                tags: tagsEnabled
-                  ? dedupeTags([
-                      ...einkaufTags,
-                      ...group.indices.flatMap((index) => postenTags[index] ?? []),
-                    ])
-                  : [],
-              })),
-            )
-          : [
-              await repository.createEntry({
-                potId: null,
-                kind: 'expense',
-                amountCents: parsed.totalCents ?? 0,
-                date,
-                merchant,
-                tags: tagsEnabled ? einkaufTags : [],
-              }),
-            ];
+        Gibt es Posten, entsteht ein **Einkauf** — Einkauf, Posten und
+        Buchungen in einer Transaktion, gerechnet im Repository. Die
+        Aufteilung auf Töpfe passiert dort und nicht hier, damit eine
+        künftige API denselben Weg nimmt.
+
+        Bleibt die Summenprobe unklar (`quality: 'unsicher'`), gibt es keine
+        Posten — dann auch keinen Einkauf, sondern eine einzelne Buchung über
+        die Endsumme. Ein Einkauf ohne Posten wäre eine leere Hülle, die in
+        der Einkaufsansicht nichts zu zeigen hätte.
+      */
+      let purchaseId: string | null = null;
+      let entries;
+      if (groups.length > 0) {
+        const ergebnis = await repository.createPurchase({
+          merchant,
+          date,
+          totalCents: parsed.totalCents,
+          quality: parsed.quality,
+          tags: tagsEnabled ? einkaufTags : [],
+          items: parsed.items.map((item, index) => ({
+            label: item.label,
+            amountCents: item.amountCents,
+            quantity: item.quantity,
+            potId: potIds[index] ?? null,
+            tags: tagsEnabled ? (postenTags[index] ?? []) : [],
+          })),
+        });
+        purchaseId = ergebnis.purchase.id;
+        entries = ergebnis.entries;
+      } else {
+        entries = [
+          await repository.createEntry({
+            potId: null,
+            kind: 'expense',
+            amountCents: parsed.totalCents ?? 0,
+            date,
+            merchant,
+            tags: tagsEnabled ? einkaufTags : [],
+          }),
+        ];
+      }
 
       // Der Beleg hängt an der ersten Buchung; über die Gruppe ist er für alle
-      // Buchungen des Einkaufs auffindbar.
+      // Buchungen des Einkaufs auffindbar. Wandert diese Buchung später weg,
+      // hängt `updatePurchaseItem` ihn um.
       const erste = entries[0];
       if (erste && can('receipt.upload')) {
         await repository.addReceipt(erste.id, {
@@ -209,7 +222,8 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
         if (keyword !== '') await repository.rememberItemRule(keyword, potId);
       }
 
-      onImported();
+      setGebucht({ purchaseId, anzahl: entries.length });
+      setSaving(false);
     } catch (caught) {
       setFehler(caught instanceof Error ? caught.message : 'Buchen fehlgeschlagen.');
       setSaving(false);
@@ -220,6 +234,49 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
     ? parsed.items.filter((_, index) => (potIds[index] ?? null) === null)
     : [];
   const groups = parsed ? groupItemsByPot(parsed.items, potIds) : [];
+
+  /*
+    Nach dem Buchen bleibt das Sheet kurz stehen, statt sofort zu schließen.
+    Der Grund ist der Weg zum Einkauf: Wer die Posten nachher noch braucht,
+    findet sie sonst nur über eine Buchung und deren Detailschritt — und
+    weiß in dem Moment noch gar nicht, dass es sie gibt.
+  */
+  if (gebucht) {
+    return (
+      <Sheet
+        open
+        onClose={onImported}
+        title="Gebucht"
+        description={file.name}
+        footer={
+          <Button variant="primary" block onClick={onImported}>
+            Fertig
+          </Button>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sm">
+            {gebucht.anzahl === 1
+              ? 'Eine Buchung ist entstanden.'
+              : `${gebucht.anzahl} Buchungen sind entstanden — eine je Topf.`}
+          </p>
+          {gebucht.purchaseId && (
+            <p className="text-sm text-ink-muted">
+              Die Einzelposten bleiben erhalten.{' '}
+              <Link
+                href={`/buchungen/einkauf?einkauf=${gebucht.purchaseId}`}
+                className="text-accent hover:underline"
+                onClick={onImported}
+              >
+                Einkauf ansehen
+              </Link>{' '}
+              — dort lässt sich der Topf je Posten noch ändern.
+            </p>
+          )}
+        </div>
+      </Sheet>
+    );
+  }
 
   return (
     <Sheet

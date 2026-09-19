@@ -20,6 +20,7 @@ import { newId } from '../../domain/ids';
 import { nowIso, todayIso } from '../../domain/dates';
 import { clampPeriodStartDay } from '../../domain/period';
 import { applyPotKindPreset } from '../../domain/pot-kinds';
+import { planPurchaseEntries } from '../../domain/purchase';
 import { materializeRule } from '../../domain/recurrence';
 import { dedupeTags, hasTag, normalizeTag, removeTag, tagKey } from '../../domain/tags';
 import {
@@ -37,8 +38,11 @@ import type {
   IsoDate,
   NewEntryInput,
   NewPotInput,
+  NewPurchaseInput,
   NewRecurringRuleInput,
   Pot,
+  Purchase,
+  PurchaseItem,
   Receipt,
   ReceiptMeta,
   RecurringRule,
@@ -109,16 +113,27 @@ export class DexieBudgetRepository implements BudgetRepository {
   // --------------------------------------------------------------- Snapshot
 
   async loadSnapshot(): Promise<Snapshot> {
-    const [household, users, pots, entries, recurringRules, receipts, itemRules] =
-      await Promise.all([
-        this.getHousehold(),
-        this.db.users.toArray(),
-        this.db.pots.toArray(),
-        this.db.entries.toArray(),
-        this.db.recurringRules.toArray(),
-        this.db.receipts.toArray(),
-        this.db.itemRules.toArray(),
-      ]);
+    const [
+      household,
+      users,
+      pots,
+      entries,
+      recurringRules,
+      receipts,
+      itemRules,
+      purchases,
+      purchaseItems,
+    ] = await Promise.all([
+      this.getHousehold(),
+      this.db.users.toArray(),
+      this.db.pots.toArray(),
+      this.db.entries.toArray(),
+      this.db.recurringRules.toArray(),
+      this.db.receipts.toArray(),
+      this.db.itemRules.toArray(),
+      this.db.purchases.toArray(),
+      this.db.purchaseItems.toArray(),
+    ]);
 
     return {
       household,
@@ -129,6 +144,10 @@ export class DexieBudgetRepository implements BudgetRepository {
       // Blobs werden hier absichtlich abgeworfen: Listen brauchen nur Metadaten.
       receipts: receipts.filter(alive).map(stripBlobs),
       itemRules: itemRules.filter(alive),
+      purchases: purchases.filter(alive),
+      // Nach `sortIndex`, damit die Einkaufsansicht die Reihenfolge des Bons
+      // zeigt und nicht die der Datenbank.
+      purchaseItems: purchaseItems.filter(alive).sort((a, b) => a.sortIndex - b.sortIndex),
     };
   }
 
@@ -527,10 +546,7 @@ export class DexieBudgetRepository implements BudgetRepository {
      * schon immer übersprungen. Und nur, wenn der Topf noch existiert: Auf
      * einen gelöschten Topf zu buchen, wäre schlimmer als kein Topf.
      */
-    const fallbackPotId =
-      household.defaultPotId !== null && (await this.getPot(household.defaultPotId)) !== null
-        ? household.defaultPotId
-        : null;
+    const fallbackPotId = await this.resolveFallbackPot(household);
 
     const entries: Entry[] = inputs.map((input) => ({
       id: newId(),
@@ -547,6 +563,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       merchant: clampText(input.merchant, TEXT_LIMITS.merchant),
       tags: dedupeTags(input.tags ?? []),
       splitGroupId: input.splitGroupId ?? null,
+      purchaseId: input.purchaseId ?? null,
       recurringRuleId: input.recurringRuleId ?? null,
       createdBy: principal?.userId ?? 'unbekannt',
     }));
@@ -865,6 +882,8 @@ export class DexieBudgetRepository implements BudgetRepository {
             // in STATE.md notiert, nicht vergessen.
             tags: [],
             splitGroupId: null,
+            // Eine Regel erzeugt eine Summe, keinen Einkauf.
+            purchaseId: null,
             recurringRuleId: rule.id,
             createdBy: principal?.userId ?? rule.householdId,
           }));
@@ -896,6 +915,345 @@ export class DexieBudgetRepository implements BudgetRepository {
 
     if (created > 0) await this.notify();
     return created;
+  }
+
+  // --------------------------------------------------------------- Einkäufe
+
+  /**
+   * Ein eingelesener Bon.
+   *
+   * Einkauf, Posten und Buchungen entstehen in **einer** Transaktion. Ginge
+   * das in drei Schritten, hinterließe ein Abbruch Buchungen ohne Einkauf
+   * oder Posten ohne Buchungen — und beides sähe in der Liste aus wie ein
+   * richtiger Einkauf.
+   *
+   * Die Buchungen rechnet `planPurchaseEntries`; hier steht nur, wie sie in
+   * die Datenbank kommen.
+   */
+  async createPurchase(input: NewPurchaseInput): Promise<{ purchase: Purchase; entries: Entry[] }> {
+    this.assert('entry.create');
+    const household = await this.requireHousehold();
+    const principal = this.principalResolver();
+    const at = nowIso();
+
+    const purchase: Purchase = {
+      id: newId(),
+      householdId: household.id,
+      createdAt: at,
+      updatedAt: at,
+      revision: 1,
+      deletedAt: null,
+      merchant: clampText(input.merchant, TEXT_LIMITS.merchant),
+      date: input.date,
+      totalCents: input.totalCents,
+      quality: input.quality,
+      tags: household.tagsEnabled ? dedupeTags(input.tags ?? []) : [],
+    };
+
+    const items: PurchaseItem[] = input.items.map((item, index) => ({
+      id: newId(),
+      householdId: household.id,
+      createdAt: at,
+      updatedAt: at,
+      revision: 1,
+      deletedAt: null,
+      purchaseId: purchase.id,
+      label: clampText(item.label, TEXT_LIMITS.itemLabel) ?? '—',
+      // Nicht über `Math.abs`: Das Vorzeichen ist hier die Information.
+      amountCents: Math.round(item.amountCents),
+      quantity: item.quantity ?? null,
+      potId: item.potId ?? null,
+      tags: dedupeTags(item.tags ?? []),
+      sortIndex: index,
+    }));
+
+    const plan = planPurchaseEntries(purchase, items, [], {
+      tagsEnabled: household.tagsEnabled,
+      purchaseTags: purchase.tags,
+    });
+
+    const fallbackPotId = await this.resolveFallbackPot(household);
+    const entries: Entry[] = plan.create.map((entry) => ({
+      id: newId(),
+      householdId: household.id,
+      createdAt: at,
+      updatedAt: at,
+      revision: 1,
+      deletedAt: null,
+      potId: entry.potId ?? (entry.kind === 'expense' ? fallbackPotId : null),
+      kind: entry.kind,
+      amountCents: entry.amountCents,
+      date: entry.date,
+      note: clampText(entry.note, TEXT_LIMITS.note),
+      merchant: clampText(entry.merchant, TEXT_LIMITS.merchant),
+      tags: entry.tags ?? [],
+      splitGroupId: entry.splitGroupId ?? null,
+      purchaseId: purchase.id,
+      recurringRuleId: null,
+      createdBy: principal?.userId ?? 'unbekannt',
+    }));
+
+    await this.db.transaction(
+      'rw',
+      this.db.purchases,
+      this.db.purchaseItems,
+      this.db.entries,
+      this.db.changeLog,
+      async () => {
+        await this.db.purchases.add(purchase);
+        await this.log('purchase', purchase.id, 'upsert', 1, household.id, at);
+
+        await this.db.purchaseItems.bulkAdd(items);
+        for (const item of items) {
+          await this.log('purchaseItem', item.id, 'upsert', 1, household.id, at);
+        }
+
+        if (entries.length > 0) {
+          await this.db.entries.bulkAdd(entries);
+          for (const entry of entries) {
+            await this.log('entry', entry.id, 'upsert', 1, household.id, at);
+          }
+        }
+      },
+    );
+
+    await this.notify();
+    return { purchase, entries };
+  }
+
+  /**
+   * Topf oder Tags eines Postens ändern und die Buchungen nachziehen.
+   *
+   * Die Reihenfolge in der Transaktion ist nicht beliebig: Der Beleg wird
+   * **umgehängt, bevor** eine Buchung verschwindet. `deleteEntry` nimmt die
+   * Belege seiner Buchung mit, und wenn gerade der letzte Posten aus der
+   * Buchung wandert, an der der Bon hängt, wäre er sonst weg.
+   */
+  async updatePurchaseItem(
+    id: string,
+    patch: { potId?: string | null; tags?: string[] },
+  ): Promise<Entry[]> {
+    const item = await this.db.purchaseItems.get(id);
+    if (!item || !alive(item)) throw new Error('Posten nicht gefunden.');
+    this.assert('entry.edit.any', { householdId: item.householdId });
+
+    const household = await this.requireHousehold();
+    const at = nowIso();
+    const principal = this.principalResolver();
+
+    const purchase = await this.db.purchases.get(item.purchaseId);
+    if (!purchase || !alive(purchase)) throw new Error('Einkauf nicht gefunden.');
+
+    const geaendert: PurchaseItem = {
+      ...item,
+      potId: patch.potId === undefined ? item.potId : patch.potId,
+      tags: patch.tags === undefined ? item.tags : dedupeTags(patch.tags),
+      updatedAt: at,
+      revision: item.revision + 1,
+    };
+
+    const alle = (await this.db.purchaseItems.where('purchaseId').equals(purchase.id).toArray())
+      .filter(alive)
+      .map((candidate) => (candidate.id === geaendert.id ? geaendert : candidate));
+
+    const bestehende = (await this.db.entries.toArray())
+      .filter(alive)
+      .filter((entry) => entry.purchaseId === purchase.id)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+    const plan = planPurchaseEntries(purchase, alle, bestehende, {
+      tagsEnabled: household.tagsEnabled,
+      purchaseTags: purchase.tags ?? [],
+    });
+
+    const fallbackPotId = await this.resolveFallbackPot(household);
+    const neue: Entry[] = plan.create.map((entry) => ({
+      id: newId(),
+      householdId: household.id,
+      createdAt: at,
+      updatedAt: at,
+      revision: 1,
+      deletedAt: null,
+      potId: entry.potId ?? (entry.kind === 'expense' ? fallbackPotId : null),
+      kind: entry.kind,
+      amountCents: entry.amountCents,
+      date: entry.date,
+      note: clampText(entry.note, TEXT_LIMITS.note),
+      merchant: clampText(entry.merchant, TEXT_LIMITS.merchant),
+      tags: entry.tags ?? [],
+      splitGroupId: entry.splitGroupId ?? null,
+      purchaseId: purchase.id,
+      recurringRuleId: null,
+      createdBy: principal?.userId ?? 'unbekannt',
+    }));
+
+    const byId = new Map(bestehende.map((entry) => [entry.id, entry]));
+    const geaenderte: Entry[] = [];
+    for (const change of plan.update) {
+      const vorher = byId.get(change.id);
+      if (!vorher) continue;
+      geaenderte.push({
+        ...vorher,
+        potId: change.potId,
+        kind: change.kind,
+        amountCents: change.amountCents,
+        note: clampText(change.note, TEXT_LIMITS.note),
+        tags: change.tags,
+        splitGroupId: change.splitGroupId,
+        updatedAt: at,
+        revision: vorher.revision + 1,
+      });
+    }
+
+    await this.db.transaction(
+      'rw',
+      this.db.purchaseItems,
+      this.db.entries,
+      this.db.receipts,
+      this.db.changeLog,
+      async () => {
+        await this.db.purchaseItems.put(geaendert);
+        await this.log(
+          'purchaseItem',
+          geaendert.id,
+          'upsert',
+          geaendert.revision,
+          household.id,
+          at,
+        );
+
+        if (neue.length > 0) {
+          await this.db.entries.bulkAdd(neue);
+          for (const entry of neue) {
+            await this.log('entry', entry.id, 'upsert', 1, household.id, at);
+          }
+        }
+
+        for (const entry of geaenderte) {
+          await this.db.entries.put(entry);
+          await this.log('entry', entry.id, 'upsert', entry.revision, household.id, at);
+        }
+
+        // Erst umhängen, dann löschen — die Reihenfolge ist der Punkt.
+        const anker = plan.receiptAnchorId ?? neue[0]?.id ?? null;
+        if (plan.remove.length > 0 && anker !== null) {
+          for (const verlorene of plan.remove) {
+            const belege = (
+              await this.db.receipts.where('entryId').equals(verlorene).toArray()
+            ).filter(alive);
+            for (const beleg of belege) {
+              const umgehaengt = {
+                ...beleg,
+                entryId: anker,
+                updatedAt: at,
+                revision: beleg.revision + 1,
+              };
+              await this.db.receipts.put(umgehaengt);
+              await this.log('receipt', beleg.id, 'upsert', umgehaengt.revision, household.id, at);
+            }
+          }
+        }
+
+        for (const verlorene of plan.remove) {
+          const entry = byId.get(verlorene);
+          if (!entry) continue;
+          await this.db.entries.put({
+            ...entry,
+            deletedAt: at,
+            updatedAt: at,
+            revision: entry.revision + 1,
+          });
+          await this.log('entry', entry.id, 'delete', entry.revision + 1, household.id, at);
+        }
+      },
+    );
+
+    await this.notify();
+    return [...geaenderte, ...neue];
+  }
+
+  /** Einkauf, Posten, Buchungen und Beleg. Nicht rückgängig zu machen. */
+  async deletePurchase(id: string): Promise<void> {
+    const purchase = await this.db.purchases.get(id);
+    if (!purchase || !alive(purchase)) return;
+    this.assert('entry.edit.any', { householdId: purchase.householdId });
+
+    const at = nowIso();
+    const items = (await this.db.purchaseItems.where('purchaseId').equals(id).toArray()).filter(
+      alive,
+    );
+    const entries = (await this.db.entries.toArray())
+      .filter(alive)
+      .filter((entry) => entry.purchaseId === id);
+
+    await this.db.transaction(
+      'rw',
+      this.db.purchases,
+      this.db.purchaseItems,
+      this.db.entries,
+      this.db.receipts,
+      this.db.changeLog,
+      async () => {
+        for (const entry of entries) {
+          await this.db.entries.put({
+            ...entry,
+            deletedAt: at,
+            updatedAt: at,
+            revision: entry.revision + 1,
+          });
+          await this.log('entry', entry.id, 'delete', entry.revision + 1, purchase.householdId, at);
+
+          // Hart löschen wie in `deleteEntry`: Der Sinn ist, den Platz
+          // freizugeben; die Spur im changeLog genügt für den Sync.
+          const belege = await this.db.receipts.where('entryId').equals(entry.id).toArray();
+          for (const beleg of belege) {
+            await this.db.receipts.delete(beleg.id);
+            await this.log(
+              'receipt',
+              beleg.id,
+              'delete',
+              beleg.revision + 1,
+              purchase.householdId,
+              at,
+            );
+          }
+        }
+
+        for (const item of items) {
+          await this.db.purchaseItems.put({
+            ...item,
+            deletedAt: at,
+            updatedAt: at,
+            revision: item.revision + 1,
+          });
+          await this.log(
+            'purchaseItem',
+            item.id,
+            'delete',
+            item.revision + 1,
+            purchase.householdId,
+            at,
+          );
+        }
+
+        await this.db.purchases.put({
+          ...purchase,
+          deletedAt: at,
+          updatedAt: at,
+          revision: purchase.revision + 1,
+        });
+        await this.log(
+          'purchase',
+          purchase.id,
+          'delete',
+          purchase.revision + 1,
+          purchase.householdId,
+          at,
+        );
+      },
+    );
+
+    await this.notify();
   }
 
   // ----------------------------------------------------------- Zuordnungen
@@ -1034,14 +1392,17 @@ export class DexieBudgetRepository implements BudgetRepository {
   async exportAll(options: { includeReceipts: boolean }): Promise<ExportFile> {
     this.assert('data.export');
     const household = await this.requireHousehold();
-    const [users, pots, entries, recurringRules, receipts, itemRules] = await Promise.all([
-      this.listUsers(),
-      this.listPots({ includeArchived: true }),
-      this.listEntries(),
-      this.listRecurringRules(),
-      this.db.receipts.toArray(),
-      this.listItemRules(),
-    ]);
+    const [users, pots, entries, recurringRules, receipts, itemRules, purchases, purchaseItems] =
+      await Promise.all([
+        this.listUsers(),
+        this.listPots({ includeArchived: true }),
+        this.listEntries(),
+        this.listRecurringRules(),
+        this.db.receipts.toArray(),
+        this.listItemRules(),
+        this.db.purchases.toArray(),
+        this.db.purchaseItems.toArray(),
+      ]);
 
     const receiptExports: ReceiptExport[] = options.includeReceipts
       ? await Promise.all(
@@ -1064,6 +1425,10 @@ export class DexieBudgetRepository implements BudgetRepository {
       recurringRules,
       receipts: receiptExports,
       itemRules,
+      // Ohne die Posten wäre die Sicherung eine Stufe gröber als der Bestand:
+      // Die Buchungen kämen zurück, die Zeilen dahinter nicht.
+      purchases: purchases.filter(alive),
+      purchaseItems: purchaseItems.filter(alive),
     };
   }
 
@@ -1100,6 +1465,8 @@ export class DexieBudgetRepository implements BudgetRepository {
           this.db.recurringRules.clear(),
           this.db.receipts.clear(),
           this.db.itemRules.clear(),
+          this.db.purchases.clear(),
+          this.db.purchaseItems.clear(),
         ]);
         await this.db.households.put(file.household);
         await this.db.users.bulkPut(file.users);
@@ -1161,6 +1528,18 @@ export class DexieBudgetRepository implements BudgetRepository {
         }
       }
 
+      for (const purchase of file.purchases) {
+        if (mode === 'replace' || (await this.shouldWrite(this.db.purchases, purchase))) {
+          await this.db.purchases.put(purchase);
+        }
+      }
+
+      for (const item of file.purchaseItems) {
+        if (mode === 'replace' || (await this.shouldWrite(this.db.purchaseItems, item))) {
+          await this.db.purchaseItems.put(item);
+        }
+      }
+
       await this.log(
         'household',
         file.household.id,
@@ -1185,6 +1564,8 @@ export class DexieBudgetRepository implements BudgetRepository {
         this.db.recurringRules.clear(),
         this.db.receipts.clear(),
         this.db.itemRules.clear(),
+        this.db.purchases.clear(),
+        this.db.purchaseItems.clear(),
         this.db.changeLog.clear(),
       ]);
     });
@@ -1214,6 +1595,8 @@ export class DexieBudgetRepository implements BudgetRepository {
       this.db.recurringRules,
       this.db.receipts,
       this.db.itemRules,
+      this.db.purchases,
+      this.db.purchaseItems,
       this.db.changeLog,
     ] as unknown as Table[];
   }
@@ -1238,6 +1621,19 @@ export class DexieBudgetRepository implements BudgetRepository {
     };
     await this.db.households.put(updated);
     await this.log('household', updated.id, 'upsert', updated.revision, updated.id);
+  }
+
+  /**
+   * Der Standardtopf als Auffangnetz — oder `null`, wenn es ihn nicht mehr
+   * gibt. Auf einen gelöschten Topf zu buchen wäre schlimmer als kein Topf.
+   *
+   * Steht hier und nicht in `createEntries`, weil `createPurchase` denselben
+   * Weg nimmt: Der Bon-Import geht an jedem Formular vorbei, und das
+   * Auffangnetz darf dort keine Lücke haben.
+   */
+  private async resolveFallbackPot(household: Household): Promise<string | null> {
+    if (household.defaultPotId === null) return null;
+    return (await this.getPot(household.defaultPotId)) !== null ? household.defaultPotId : null;
   }
 
   private async requireHousehold(): Promise<Household> {

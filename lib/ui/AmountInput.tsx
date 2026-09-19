@@ -34,6 +34,13 @@ export interface AmountInputProps {
   autoFocus?: boolean;
   large?: boolean;
   placeholder?: string;
+  /**
+   * Nur lesen. Für Buchungen, deren Betrag sich aus Bon-Posten ergibt: Ein
+   * Wert, den die nächste Postenänderung still überschreibt, wäre ein
+   * unsichtbarer Fehler. `readOnly` statt `disabled`, damit der Betrag
+   * markierbar und für Screenreader erreichbar bleibt.
+   */
+  readOnly?: boolean;
 }
 
 export function AmountInput({
@@ -44,6 +51,7 @@ export function AmountInput({
   autoFocus = false,
   large = false,
   placeholder = '0,00',
+  readOnly = false,
 }: AmountInputProps) {
   const id = useId();
   const mode = useAmountMode();
@@ -70,10 +78,11 @@ export function AmountInput({
               mode === 'cents' ? formatDigitsAsAmount(event.target.value) : event.target.value,
             )
           }
+          readOnly={readOnly}
           inputMode={mode === 'cents' ? 'numeric' : 'decimal'}
           autoComplete="off"
           // Im Erfassungs-Sheet ist der Betrag das erste und einzige Feld.
-          autoFocus={autoFocus}
+          autoFocus={autoFocus && !readOnly}
           placeholder={placeholder}
           aria-invalid={invalid}
           aria-describedby={invalid ? `${id}-error` : undefined}

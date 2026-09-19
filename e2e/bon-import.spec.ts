@@ -77,9 +77,16 @@ test.describe('Bon einlesen', () => {
     await optionWaehlen(page, 'Topf für Kaffee to go', 'Mobilität');
 
     await page.getByRole('button', { name: '2 Buchungen anlegen' }).click();
-    // Zwei Dialoge sind offen — der Bon liegt über dem Erfassen-Sheet. Nach
-    // dem Buchen müssen beide weg sein.
-    await expect(page.getByRole('dialog', { name: 'Bon einlesen' })).toBeHidden();
+
+    // Nach dem Buchen bleibt das Sheet mit dem Weg zum Einkauf stehen.
+    const gebucht = page.getByRole('dialog', { name: 'Gebucht' });
+    await expect(gebucht).toBeVisible();
+    await expect(gebucht.getByRole('link', { name: 'Einkauf ansehen' })).toBeVisible();
+    await gebucht.getByRole('button', { name: 'Fertig' }).click();
+
+    // Zwei Dialoge waren offen — der Bon lag über dem Erfassen-Sheet. Danach
+    // müssen beide weg sein.
+    await expect(page.getByRole('dialog', { name: 'Gebucht' })).toBeHidden();
     await expect(page.getByRole('dialog', { name: 'Ausgabe erfassen' })).toBeHidden();
 
     // Zwei Buchungen, als ein Einkauf erkennbar, mit einem Beleg.
@@ -153,7 +160,11 @@ test.describe('Bon einlesen', () => {
 
     // Ohne Zuordnung wird daraus eine Buchung ohne Topf — nichts wird geraten.
     await page.getByRole('button', { name: 'Buchung anlegen' }).click();
-    await expect(page.getByRole('dialog', { name: 'Bon einlesen' })).toBeHidden();
+    await page
+      .getByRole('dialog', { name: 'Gebucht' })
+      .getByRole('button', { name: 'Fertig' })
+      .click();
+    await expect(page.getByRole('dialog', { name: 'Gebucht' })).toBeHidden();
     await expect(page.getByRole('dialog', { name: 'Ausgabe erfassen' })).toBeHidden();
 
     await page.getByRole('link', { name: 'Buchungen' }).first().click();

@@ -15,6 +15,8 @@ import type {
   Household,
   ItemRule,
   Pot,
+  Purchase,
+  PurchaseItem,
   Receipt,
   RecurringRule,
   User,
@@ -30,6 +32,8 @@ export class BudgetDatabase extends Dexie {
   recurringRules!: EntityTable<RecurringRule, 'id'>;
   receipts!: EntityTable<Receipt, 'id'>;
   itemRules!: EntityTable<ItemRule, 'id'>;
+  purchases!: EntityTable<Purchase, 'id'>;
+  purchaseItems!: EntityTable<PurchaseItem, 'id'>;
   changeLog!: EntityTable<ChangeLogEntry, 'id'>;
 
   constructor(name: string = DB_NAME) {
@@ -60,6 +64,23 @@ export class BudgetDatabase extends Dexie {
      */
     this.version(2).stores({
       itemRules: 'id, householdId, keyword, potId, deletedAt',
+    });
+
+    /**
+     * Version 3: die Einzelposten eines Bons.
+     *
+     * Wieder nur neue Tabellen, wieder ohne `upgrade()`: Ein bestehender
+     * Bestand hat keine Einkäufe, und es gibt nichts umzurechnen. Alte Bons
+     * bekommen **keine** Posten nachträglich — aus der verketteten Notiz
+     * ließen sie sich nicht zurückgewinnen, und geraten wäre schlimmer als
+     * leer.
+     *
+     * `Entry.purchaseId` kam im selben Schritt dazu und steht hier bewusst
+     * nicht: nicht indiziert, also keine Migration.
+     */
+    this.version(3).stores({
+      purchases: 'id, householdId, date, deletedAt',
+      purchaseItems: 'id, householdId, purchaseId, potId, deletedAt',
     });
   }
 }
