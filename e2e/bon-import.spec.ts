@@ -144,6 +144,54 @@ test.describe('Bon einlesen', () => {
     await expect(page.getByLabel('Topf für Brötchen')).toBeVisible();
   });
 
+  /**
+   * Der Bon, dessen Werbezeile als Händler in der Überschrift landete. Geprüft
+   * wird beides: dass der Händler stimmt, und dass die Zuordnung aus dem
+   * Profil vorbelegt ist — ohne dass irgendwo „Profil" steht.
+   */
+  test('liest den Bon mit Werbekopf und belegt die Zuordnung vor', async ({ page }) => {
+    await einrichten(page);
+
+    await erfassenOeffnen(page, 'Ausgabe');
+    await page.getByRole('button', { name: /Aus PDF-Bon einlesen/ }).click();
+    await page.setInputFiles(
+      'input[type="file"][accept="application/pdf"]',
+      'e2e/fixtures/bon-werbekopf.pdf',
+    );
+
+    await expect(page.getByText('Erkannt — die Posten gehen auf die Endsumme auf.')).toBeVisible();
+    // Die Werbezeile steht nicht als Händler da.
+    await expect(page.getByText('Musterkette', { exact: false }).first()).toBeVisible();
+    await expect(page.getByText(/Treuepunkte/)).toHaveCount(0);
+
+    // Die Menge klebt nicht im Namen: „Schokolinsen", nicht „Schokolinsen 2 * 0,95".
+    await expect(page.getByLabel('Topf für Schokolinsen')).toBeVisible();
+
+    /*
+      Aus dem Profil vorbelegt, ohne dass der Nutzer etwas getan hat:
+      „Gewebeband" ist Werkzeug und landet auf „Sonstiges", „Cola-Mix" auf
+      „Lebensmittel". Beide Töpfe gibt es aus der Ersteinrichtung.
+    */
+    await expect(page.getByLabel('Topf für Gewebeband schwarz')).toHaveValue(/.+/);
+    await expect(page.getByLabel('Topf für Cola-Mix Flasche')).toHaveValue(/.+/);
+
+    await page.getByRole('button', { name: /Buchungen anlegen/ }).click();
+    await page
+      .getByRole('dialog', { name: 'Gebucht' })
+      .getByRole('button', { name: 'Fertig' })
+      .click();
+
+    await page.getByRole('link', { name: 'Buchungen' }).first().click();
+    await expect(page.getByText('27,56', { exact: false }).first()).toBeVisible();
+
+    /*
+      Und der Vorschlag wird **nicht** gelernt: Unter „Ordnen" steht nach
+      diesem Einkauf keine Zuordnung, die der Nutzer nie angelegt hat.
+    */
+    await einstellungOeffnen(page, 'Ordnen');
+    await expect(page.getByText('gewebeband')).toHaveCount(0);
+  });
+
   test('liest einen Bon ohne Anhang aus der Textschicht', async ({ page }) => {
     await einrichten(page);
 

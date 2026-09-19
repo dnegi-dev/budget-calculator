@@ -1,3 +1,4 @@
+import { POT_CATEGORY_NAMES, type PotCategory } from '../../lib/domain/pot-categories';
 import type { NewPotInput } from '../../lib/domain/types';
 
 /**
@@ -8,7 +9,14 @@ import type { NewPotInput } from '../../lib/domain/types';
  * bewusst runde Platzhalter und im Wizard änderbar.
  */
 export interface SuggestedPot extends NewPotInput {
-  key: string;
+  /**
+   * Der Schlüssel der Kategorie — dieselbe Liste, auf die sich die
+   * mitgelieferten Bon-Zuordnungen beziehen. Der **Name** kommt aus
+   * `POT_CATEGORY_NAMES`, damit es nicht zwei Listen gibt, von denen eine
+   * irgendwann falsch ist: `resolveCategoryPot` sucht den Topf über genau
+   * diesen Namen.
+   */
+  key: PotCategory;
   icon: string;
   color: string;
   /** Voraktiviert, weil fast jeder Haushalt diesen Topf braucht. */
@@ -18,7 +26,7 @@ export interface SuggestedPot extends NewPotInput {
 export const SUGGESTED_POTS: readonly SuggestedPot[] = [
   {
     key: 'lebensmittel',
-    name: 'Lebensmittel',
+    name: POT_CATEGORY_NAMES.lebensmittel,
     icon: '🛒',
     color: 'emerald',
     kind: 'budget',
@@ -28,7 +36,7 @@ export const SUGGESTED_POTS: readonly SuggestedPot[] = [
   },
   {
     key: 'wohnen',
-    name: 'Wohnen',
+    name: POT_CATEGORY_NAMES.wohnen,
     icon: '🏠',
     color: 'sky',
     kind: 'budget',
@@ -38,7 +46,7 @@ export const SUGGESTED_POTS: readonly SuggestedPot[] = [
   },
   {
     key: 'mobilitaet',
-    name: 'Mobilität',
+    name: POT_CATEGORY_NAMES.mobilitaet,
     icon: '🚗',
     color: 'amber',
     kind: 'budget',
@@ -48,7 +56,7 @@ export const SUGGESTED_POTS: readonly SuggestedPot[] = [
   },
   {
     key: 'sport',
-    name: 'Sport',
+    name: POT_CATEGORY_NAMES.sport,
     icon: '🏋️',
     color: 'violet',
     kind: 'envelope',
@@ -58,7 +66,7 @@ export const SUGGESTED_POTS: readonly SuggestedPot[] = [
   },
   {
     key: 'freizeit',
-    name: 'Freizeit',
+    name: POT_CATEGORY_NAMES.freizeit,
     icon: '🎬',
     color: 'rose',
     kind: 'envelope',
@@ -68,7 +76,7 @@ export const SUGGESTED_POTS: readonly SuggestedPot[] = [
   },
   {
     key: 'sonstiges',
-    name: 'Sonstiges',
+    name: POT_CATEGORY_NAMES.sonstiges,
     icon: '🧾',
     color: 'slate',
     kind: 'category',

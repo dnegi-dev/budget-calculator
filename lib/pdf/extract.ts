@@ -19,9 +19,9 @@
  * eine sehr junge JS-Methode. Fehlt sie im Browser, wirft der XRef-Cache
  * `TypeError: getOrInsertComputed is not a function`, pdf.js fällt auf
  * „Indexing all PDF objects" zurück und liefert bei einem echten Bon nichts
- * Brauchbares mehr. Die handgebauten Muster überlebten diesen Rückfall, ein
- * REWE-Beleg nicht — der Fehler war also mit den Mustern allein nicht zu
- * sehen. Der Legacy-Build ist transpiliert und genau für solche Browser da.
+ * Brauchbares mehr. Die handgebauten Muster überlebten diesen Rückfall, der
+ * Beleg einer Supermarktkette nicht — der Fehler war also mit den Mustern
+ * allein nicht zu sehen. Der Legacy-Build ist transpiliert und genau für solche Browser da.
  *
  * Aus demselben Grund liest diese Hülle die Textschicht selbst über
  * `streamTextContent().getReader()` statt über `page.getTextContent()`: siehe

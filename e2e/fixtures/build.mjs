@@ -1,5 +1,5 @@
 /**
- * Erzeugt die beiden PDF-Muster für den Bon-Import.
+ * Erzeugt die PDF-Muster für den Bon-Import.
  *
  *   node e2e/fixtures/build.mjs
  *
@@ -26,6 +26,13 @@
  * Beträgen, eine Rabattzeile, eine Mengenzeile ohne eigenen Artikel, und eine
  * **Fußzeile mit Beträgen** (Bonus-Guthaben, Coupons). Die Artikel sind
  * erfunden — ein echter Bon gehört niemandem außer seinem Besitzer.
+ *
+ * `bon-werbekopf.pdf` hat den Aufbau einer vierten Kette, und der brachte zwei
+ * Fehler ans Licht: eine **Werbezeile über dem Namen** (die als Händler in der
+ * Überschrift landete) und die Menge **hinter** der Bezeichnung
+ * (`Schokolinsen 2 * 0,95  1,90 B`), die im Namen klebte. Dazu Name und
+ * Anschrift in einer Kopfzeile und ein Datum mit zweistelligem Jahr direkt
+ * hinter „Datum:". Auch hier: Aufbau echt, Artikel und Händler erfunden.
  */
 
 import { writeFileSync } from 'node:fs';
@@ -147,6 +154,38 @@ const DROGERIE = [
   ['Oeffnungszeiten auf example.de', null],
 ];
 
+/**
+ * Ein Bon mit Werbezeile im Kopf und der Menge hinter der Bezeichnung.
+ *
+ * Die 10 Posten ergeben genau 27,56 € — dieselbe Zahl steht als „Summe". Die
+ * Steuertabelle darunter trägt weitere Beträge und darf nicht mitzählen.
+ */
+const WERBEKOPF = [
+  ['Du hast 27 Treuepunkte gesammelt.', null],
+  ['Musterkette - Beispielstrasse 96', null],
+  ['12345 Musterstadt', null],
+  ['Tel. 0521/000000', null],
+  ['DE123456789', null],
+  ['Preis EUR', null],
+  ['Gewebeband schwarz', '1,99 A'],
+  ['Brausepulver', '1,49 B'],
+  ['Servierschale gross', '2,99 A'],
+  ['Abisolier-Set', '5,99 A'],
+  ['Bit-Satz klein', '0,99 A'],
+  ['Cola-Mix Flasche', '0,99 A'],
+  ['Pfandartikel', '0,25 A'],
+  ['Schokolinsen 2 * 0,95', '1,90 B'],
+  ['Schoko-Ei 2 * 3,99', '7,98 B'],
+  ['Servierschale klein', '2,99 A'],
+  ['Summe', '27,56'],
+  ['Kartenzahlung', '27,56'],
+  ['Steuer % Brutto Netto Steuer', null],
+  ['A 19,00% 16,19 13,61 2,58', null],
+  ['B 7,00% 11,37 10,63 0,74', null],
+  ['Datum:07.09.26 Zeit: 18:04:39 Bon:83860', null],
+  ['Filiale: 4073 Kasse: 32', null],
+];
+
 function escapeText(text) {
   return text.replace(/([\\()])/g, '\\$1');
 }
@@ -265,4 +304,19 @@ writeFileSync(
   ),
 );
 
-console.log('vier Muster geschrieben');
+// --- Werbekopf und Menge hinter der Bezeichnung ---------------------------
+writeFileSync(
+  join(HIER, 'bon-werbekopf.pdf'),
+  buildPdf(
+    [
+      '<< /Type /Catalog /Pages 2 0 R >>',
+      '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+      '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 320 460] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+      stream(contentStream(WERBEKOPF, 440)),
+      schrift,
+    ],
+    1,
+  ),
+);
+
+console.log('fünf Muster geschrieben');

@@ -204,7 +204,7 @@ describe('Buchungen', () => {
       kind: 'expense',
       amountCents: 100,
       date: '2026-08-01',
-      merchant: 'Rewe',
+      merchant: 'Musterwelt',
     });
     await repo.createEntry({
       potId: null,
@@ -218,7 +218,7 @@ describe('Buchungen', () => {
     expect(await repo.listEntries({ fromDate: '2026-09-01' })).toHaveLength(2);
     expect(await repo.listEntries({ kind: 'income' })).toHaveLength(1);
     expect(await repo.listEntries({ search: 'bäck' })).toHaveLength(1);
-    expect(await repo.listEntries({ search: 'rewe' })).toHaveLength(1);
+    expect(await repo.listEntries({ search: 'musterw' })).toHaveLength(1);
     expect(await repo.listEntries({ limit: 1 })).toHaveLength(1);
   });
 

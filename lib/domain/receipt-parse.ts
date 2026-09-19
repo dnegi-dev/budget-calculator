@@ -61,7 +61,7 @@ const NON_ITEM_PATTERNS: readonly RegExp[] = [
   /\b(bar|ec[\s-]*(cash|karte)?|girocard|kreditkarte|visa|mastercard|maestro|paypal|unbar)\b/i,
   /\b(tse|signatur|transaktion|seriennummer|pr[üu]fwert|zertifikat)\b/i,
   // „Markt" und „Filiale" stehen hier bewusst **nicht**: Sie kommen im Namen
-  // des Händlers vor („REWE Markt GmbH"), und der wird mit derselben Liste
+  // des Händlers vor („… Markt GmbH"), und der wird mit derselben Liste
   // gesucht. Zeilen mit diesen Wörtern tragen ohnehin selten einen Betrag.
   /\b(beleg(nr|nummer)?|bon(nr|nummer)?|kasse|kassier|bedien|steuernr|ust-?idnr)\b/i,
   /\b(datum|uhrzeit|zeit)\b/i,
@@ -71,11 +71,31 @@ const NON_ITEM_PATTERNS: readonly RegExp[] = [
 ];
 
 /**
+ * Kopfzeilen, die keine Händler sind.
+ *
+ * Teuer gelernt an einem echten Bon: Ganz oben stand „Du hast 27 Treuepunkte
+ * gesammelt.", und weil `findMerchant` schlicht die erste Zeile mit
+ * Buchstaben und ohne Betrag nimmt, hieß der Einkauf danach so. Der Bon war
+ * sonst vollständig richtig gelesen — Summe, Datum und alle zehn Posten.
+ *
+ * Getrennt von `NON_ITEM_PATTERNS`, weil es um etwas anderes geht: Diese
+ * Zeilen dürfen durchaus einen Betrag tragen („Sie sparen 2,40 €") und sind
+ * trotzdem kein Händler. Umgekehrt ist „Summe" kein Geplauder.
+ */
+const HEADER_CHATTER: readonly RegExp[] = [
+  /\b(treue|bonus|extra)?punkte?\b/i,
+  /\b(gesammelt|gespart|sie sparen|ersparnis)\b/i,
+  /\b(willkommen|herzlich|vielen dank|danke|auf wiedersehen|tsch[üu]ss)\b/i,
+  /\b(ihr einkauf|ihre ersparnis|unser angebot|jetzt neu)\b/i,
+  /\b(gewinnspiel|app|coupon|rabattheft)\b/i,
+];
+
+/**
  * Betrag am Zeilenende, mit den Schreibweisen, die Kassen wirklich drucken.
  *
  * Hinter dem Betrag steht oft die Steuerklasse — bei einem Händler als
  * Buchstabe (`2,75 B`), beim nächsten als Ziffer (`2,75 1`). Ohne die Ziffer
- * passte auf einem dm-Bon keine einzige Zeile.
+ * passte auf dem Bon einer Drogeriekette keine einzige Zeile.
  */
 const TRAILING_AMOUNT =
   /(-?\d{1,3}(?:[.\s]\d{3})*[.,]\d{2})\s*(-)?\s*(?:€|EUR)?\s*(?:[A-Z]{1,2}|\d)?\s*$/;
@@ -88,6 +108,17 @@ const TRAILING_AMOUNT =
  */
 const LEADING_QUANTITY =
   /^\s*(\d{1,3}(?:[.,]\d{1,3})?)\s*(?:kg|g|ml|l|stk\.?|st\.?)?\s*[x*]\s*(?:\d{1,3}[.,]\d{2}\s+)?/i;
+
+/**
+ * Die Menge **hinter** dem Namen: `Ü-Ei 2 * 0,95` — Menge und Einzelpreis
+ * stehen zwischen Bezeichnung und Gesamtbetrag.
+ *
+ * `LEADING_QUANTITY` fängt das nicht: Es greift nur am Anfang. Ohne diese
+ * zweite Form hieß der Posten „Ü-Ei 2 * 0,95" und `quantity` blieb leer — die
+ * Rechenaufgabe klebte im Namen, und die Menge fehlte trotzdem.
+ */
+const TRAILING_QUANTITY =
+  /\s(\d{1,3}(?:[.,]\d{1,3})?)\s*(?:kg|g|ml|l|stk\.?|st\.?)?\s*[x*]\s*\d{1,3}(?:[.,]\d{2})\s*$/i;
 
 const GERMAN_DATE = /\b(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})\b/;
 const ISO_DATE_IN_TEXT = /\b(\d{4}-\d{2}-\d{2})\b/;
@@ -120,10 +151,19 @@ export function splitItemLine(line: string): ParsedItem | null {
   const signed = trailingMinus === '-' ? -Math.abs(cents) : cents;
 
   const rest = line.slice(0, line.length - full.length).trim();
-  const quantityMatch = LEADING_QUANTITY.exec(rest);
-  const label = (quantityMatch ? rest.slice(quantityMatch[0].length) : rest)
-    .replace(/[\s.·:-]+$/, '')
-    .trim();
+
+  // Zwei Schreibweisen, beide echt: Menge vor dem Namen (`2x 1,55 Apfelsaft`)
+  // und Menge dahinter (`Apfelsaft 2 * 1,55`). Geprüft wird die vordere
+  // zuerst — nur eine von beiden kann zutreffen.
+  const vorne = LEADING_QUANTITY.exec(rest);
+  const hinten = vorne ? null : TRAILING_QUANTITY.exec(rest);
+  const quantityRaw = vorne?.[1] ?? hinten?.[1] ?? null;
+
+  let ohneMenge = rest;
+  if (vorne) ohneMenge = rest.slice(vorne[0].length);
+  else if (hinten) ohneMenge = rest.slice(0, rest.length - hinten[0].length);
+
+  const label = ohneMenge.replace(/[\s.·:-]+$/, '').trim();
 
   // Ohne Buchstaben ist es keine Bezeichnung, sondern eine Nummer.
   if (!/\p{L}{2}/u.test(label)) return null;
@@ -131,7 +171,7 @@ export function splitItemLine(line: string): ParsedItem | null {
   return {
     label,
     amountCents: signed,
-    quantity: quantityMatch ? parseQuantity(quantityMatch[1] ?? '') : null,
+    quantity: quantityRaw === null ? null : parseQuantity(quantityRaw),
   };
 }
 
@@ -178,7 +218,7 @@ function findDate(lines: readonly string[]): IsoDate | null {
 }
 
 /**
- * Gesperrt gesetzte Kopfzeilen zusammenziehen: „R E W E" → „REWE".
+ * Gesperrt gesetzte Kopfzeilen zusammenziehen: „M A R K T" → „MARKT".
  *
  * Kassen setzen den Namen des Händlers gern mit Leerzeichen zwischen den
  * Buchstaben. Ohne diese Zeile fällt er durch jede Prüfung auf
@@ -188,14 +228,31 @@ function unspace(line: string): string {
   return /^(?:\p{L}\s+){2,}\p{L}\.?$/u.test(line) ? line.replace(/\s+/g, '') : line;
 }
 
+/**
+ * Schneidet die Anschrift vom Namen ab: „Name - Teutoburger Str. 96" → „Name".
+ *
+ * Nur wenn hinter dem Trenner etwas mit einer Ziffer steht — dann ist es eine
+ * Hausnummer und kein Namensteil. „Müller - Bio & Frische" bleibt ganz.
+ */
+function stripAddress(line: string): string {
+  const match = /^(.{3,}?)\s+[-–—]\s+(.*\d.*)$/u.exec(line);
+  return match?.[1]?.trim() ?? line;
+}
+
+function isChatter(line: string): boolean {
+  return HEADER_CHATTER.some((pattern) => pattern.test(line));
+}
+
 function findMerchant(lines: readonly string[]): string | null {
-  // Der Händler steht im Kopf: die erste Zeile mit Buchstaben und ohne Betrag.
+  // Der Händler steht im Kopf: die erste Zeile mit Buchstaben und ohne Betrag
+  // — und ohne Werbung. Mehr als sechs Zeilen werden nicht angesehen, sonst
+  // landet irgendwann ein Artikel als Händler in der Überschrift.
   for (const line of lines.slice(0, 6)) {
     const trimmed = unspace(line.trim());
     if (trimmed === '' || TRAILING_AMOUNT.test(trimmed)) continue;
     if (!/\p{L}{3}/u.test(trimmed)) continue;
-    if (isNonItem(trimmed)) continue;
-    return trimmed.slice(0, 60);
+    if (isNonItem(trimmed) || isChatter(trimmed)) continue;
+    return stripAddress(trimmed).slice(0, 60);
   }
   return null;
 }
@@ -214,8 +271,8 @@ export function parseTextLines(lines: readonly string[]): ParsedReceipt {
 
   // Posten stehen **vor** der Summe. Was danach kommt, ist Fußzeile — und die
   // trägt Beträge: Bonus-Guthaben, Coupons, Rückgeld, Steuertabelle. Sie
-  // mitzulesen war der Grund, warum ein echter REWE-Bon die Summenprobe
-  // gerissen hat (22,24 € Bonus-Zeilen über der Endsumme).
+  // mitzulesen war der Grund, warum der Bon einer Supermarktkette die
+  // Summenprobe gerissen hat (22,24 € Bonus-Zeilen über der Endsumme).
   const itemLines = total ? lines.slice(0, total.index) : lines;
 
   const items: ParsedItem[] = [];

@@ -11,7 +11,7 @@ import {
 
 /** Ein Bon, wie ihn ein Supermarkt druckt — Posten gehen auf die Summe auf. */
 const SUPERMARKT = [
-  'REWE Markt GmbH',
+  'Musterwelt Markt GmbH',
   'Musterstraße 1, 12345 Musterstadt',
   '',
   'Bio-Vollmilch 3,5%            1,29 A',
@@ -25,6 +25,29 @@ const SUPERMARKT = [
   'MwSt 7,00%   Netto 5,25  Steuer 0,37',
   'Datum 18.09.2026  Uhrzeit 17:42',
   'TSE-Signatur ABC123',
+];
+
+/**
+ * Ein Bon mit dem Layout, an dem zwei Fehler sichtbar wurden: Werbezeile über
+ * dem Namen, Anschrift in derselben Kopfzeile, und die Menge **hinter** der
+ * Bezeichnung statt davor.
+ */
+const MIT_WERBEZEILE = [
+  'Du hast 27 Treuepunkte gesammelt.',
+  'Musterkette - Musterstraße 96',
+  '12345 Musterstadt',
+  'Tel. 0521/000000',
+  'DE123456789',
+  'Preis EUR',
+  'Gewebeband schw. 1,99 A',
+  'Brausepulver 1,49 B',
+  'Servierschale 2,99 A',
+  'Pfandartikel 0,25 A',
+  'Schokolinsen 2 * 0,95 1,90 B',
+  'Summe 8,62',
+  'Steuer % Brutto Netto Steuer',
+  'A 19,00% 4,98 4,18 0,80',
+  'Datum:07.09.26 Zeit: 18:04:39 Bon:83860',
 ];
 
 describe('splitItemLine', () => {
@@ -47,6 +70,29 @@ describe('splitItemLine', () => {
       amountCents: 142,
       quantity: 0.568,
     });
+  });
+
+  /**
+   * Die zweite Stellung der Menge. Vorher hieß der Posten
+   * „Schokolinsen 2 * 0,95" und `quantity` blieb leer: Die Rechenaufgabe
+   * klebte im Namen, und die Menge fehlte trotzdem.
+   */
+  it('liest die Menge auch hinter dem Namen', () => {
+    expect(splitItemLine('Schokolinsen 2 * 0,95 1,90 B')).toEqual({
+      label: 'Schokolinsen',
+      amountCents: 190,
+      quantity: 2,
+    });
+    expect(splitItemLine('Äpfel 0,568 kg x 2,50   1,42')).toEqual({
+      label: 'Äpfel',
+      amountCents: 142,
+      quantity: 0.568,
+    });
+  });
+
+  it('hält eine Bezeichnung mit Sternchen aus', () => {
+    // Kein Einzelpreis hinter dem Stern: dann ist es Teil des Namens.
+    expect(splitItemLine('Aktion *** Kaffee   4,99 A')?.label).toBe('Aktion *** Kaffee');
   });
 
   it('versteht beide Stellungen des Minus', () => {
@@ -72,12 +118,48 @@ describe('parseTextLines', () => {
     expect(result.quality).toBe('geprüft');
     expect(result.totalCents).toBe(562);
     expect(result.date).toBe('2026-09-18');
-    expect(result.merchant).toBe('REWE Markt GmbH');
+    expect(result.merchant).toBe('Musterwelt Markt GmbH');
     expect(result.items.map((item) => [item.label, item.amountCents])).toEqual([
       ['Bio-Vollmilch 3,5%', 129],
       ['Butter', 458],
       ['Pfand', 25],
       ['Rabatt Coupon', -50],
+    ]);
+  });
+
+  /**
+   * Der Fehler, der diese Runde ausgelöst hat: Der Bon war vollständig
+   * richtig gelesen — Summe, Datum, alle Posten — und hieß trotzdem „Du hast
+   * 27 Treuepunkte gesammelt.", weil das die erste Zeile ohne Betrag war.
+   */
+  it('nimmt keine Werbezeile als Händler', () => {
+    const result = parseTextLines(MIT_WERBEZEILE);
+    expect(result.merchant).toBe('Musterkette');
+    expect(result.merchant).not.toMatch(/Treuepunkte/);
+  });
+
+  it('schneidet die Anschrift vom Namen ab', () => {
+    expect(
+      parseTextLines(['Musterkette - Musterstraße 96', 'Brot 1,00', 'Summe 1,00']).merchant,
+    ).toBe('Musterkette');
+    // Ohne Hausnummer hinter dem Trenner bleibt der Name ganz: Ein
+    // Bindestrich im Namen ist häufiger als eine Anschrift ohne Ziffer.
+    expect(parseTextLines(['Müller - Bio und Frische', 'Brot 1,00', 'Summe 1,00']).merchant).toBe(
+      'Müller - Bio und Frische',
+    );
+  });
+
+  it('liest das Layout mit Steuerklasse hinter dem Betrag vollständig', () => {
+    const result = parseTextLines(MIT_WERBEZEILE);
+    expect(result.quality).toBe('geprüft');
+    expect(result.totalCents).toBe(862);
+    expect(result.date).toBe('2026-09-07');
+    expect(result.items.map((item) => [item.label, item.amountCents, item.quantity])).toEqual([
+      ['Gewebeband schw', 199, null],
+      ['Brausepulver', 149, null],
+      ['Servierschale', 299, null],
+      ['Pfandartikel', 25, null],
+      ['Schokolinsen', 190, 2],
     ]);
   });
 

@@ -11,32 +11,33 @@ Die Anwendung ist funktionsfähig und wird über GitHub Pages veröffentlicht.
 Sie speichert ausschließlich lokal im Browser; es gibt keinen Server, kein
 Konto und keine Übertragung.
 
-| Bereich                                          | Stand                                                        |
-| ------------------------------------------------ | ------------------------------------------------------------ |
-| Töpfe (Monatsbudget, Übertrag, reine Kategorie)  | fertig                                                       |
-| Buchungen erfassen, bearbeiten, filtern          | fertig                                                       |
-| Kassenzettel als Nachweis                        | fertig; Fotos bewusst ohne Auswertung des Inhalts            |
-| PDF-Bon einlesen, Posten auf Töpfe verteilen     | fertig, mit Summenprobe und gelernten Zuordnungen            |
-| Standardtopf für Ausgaben ohne Zuordnung         | fertig, schaltbar samt Topf-Abfrage beim Erfassen            |
-| Tags als zweite Achse, mit Auswertung je Tag     | fertig, abschaltbar; an Buchung und Bon-Posten               |
-| Wiederkehrende Buchungen                         | fertig, Materialisierung beim App-Start                      |
-| Auswertung (Kennzahlen, Verlauf, Töpfe, Anteile) | fertig                                                       |
-| Export/Import (JSON, CSV)                        | fertig                                                       |
-| Rollen Admin/Nutzer/Nur Lesen                    | wirksam, im Repository erzwungen                             |
-| Anmeldung (`admin`/`admin`)                      | vorhanden — **Abschreckung, kein Zugriffsschutz**            |
-| Darstellung hell/dunkel/automatisch              | fertig, pro Gerät im `localStorage`                          |
-| Themes, Akzentfarbe, Symbolstil, echtes Schwarz  | fertig; jede Kombination auf Kontrast geprüft (Test)         |
-| Einstellungen als Unterseiten mit Gefahrenzone   | fertig                                                       |
-| Schwebender Knopf mit Standardaktion             | fertig; allgemein und je Bereich, langes Drücken für die Art |
-| Klebende Leiste je Liste (Titel, Suche, Filter)  | fertig auf Heute, Buchungen, Wiederkehrend, Töpfe, Ordnen    |
-| Bon-Einzelposten, Topf und Tags je Posten        | fertig; Buchungen werden neu gerechnet, Beleg hängt um       |
-| Update-Hinweis bei neuer Fassung                 | fertig, Leiste mit „Neu laden“ — kein automatischer Reload   |
-| PWA (Manifest, Icons, Offline-Start)             | fertig                                                       |
-| Impressum, Datenschutz                           | **Gerüst mit Platzhaltern — vor Veröffentlichung ausfüllen** |
-| Zentrale Datenbank, SSO                          | vorbereitet, nicht eingeschaltet                             |
+| Bereich                                            | Stand                                                        |
+| -------------------------------------------------- | ------------------------------------------------------------ |
+| Töpfe (Monatsbudget, Übertrag, reine Kategorie)    | fertig                                                       |
+| Buchungen erfassen, bearbeiten, filtern            | fertig                                                       |
+| Kassenzettel als Nachweis                          | fertig; Fotos bewusst ohne Auswertung des Inhalts            |
+| PDF-Bon einlesen, Posten auf Töpfe verteilen       | fertig, mit Summenprobe und gelernten Zuordnungen            |
+| Standardtopf für Ausgaben ohne Zuordnung           | fertig, schaltbar samt Topf-Abfrage beim Erfassen            |
+| Tags als zweite Achse, mit Auswertung je Tag       | fertig, abschaltbar; an Buchung und Bon-Posten               |
+| Wiederkehrende Buchungen                           | fertig, Materialisierung beim App-Start                      |
+| Auswertung (Kennzahlen, Verlauf, Töpfe, Anteile)   | fertig                                                       |
+| Export/Import (JSON, CSV)                          | fertig                                                       |
+| Rollen Admin/Nutzer/Nur Lesen                      | wirksam, im Repository erzwungen                             |
+| Anmeldung (`admin`/`admin`)                        | vorhanden — **Abschreckung, kein Zugriffsschutz**            |
+| Darstellung hell/dunkel/automatisch                | fertig, pro Gerät im `localStorage`                          |
+| Themes, Akzentfarbe, Symbolstil, echtes Schwarz    | fertig; jede Kombination auf Kontrast geprüft (Test)         |
+| Einstellungen als Unterseiten mit Gefahrenzone     | fertig                                                       |
+| Schwebender Knopf mit Standardaktion               | fertig; allgemein und je Bereich, langes Drücken für die Art |
+| Klebende Leiste je Liste (Titel, Suche, Filter)    | fertig auf Heute, Buchungen, Wiederkehrend, Töpfe, Ordnen    |
+| Bon-Einzelposten, Topf und Tags je Posten          | fertig; Buchungen werden neu gerechnet, Beleg hängt um       |
+| Bon-Profile je Kette (Erkennung, Produkt-Mappings) | fertig ohne Oberfläche; Verwaltung offen                     |
+| Update-Hinweis bei neuer Fassung                   | fertig, Leiste mit „Neu laden“ — kein automatischer Reload   |
+| PWA (Manifest, Icons, Offline-Start)               | fertig                                                       |
+| Impressum, Datenschutz                             | **Gerüst mit Platzhaltern — vor Veröffentlichung ausfüllen** |
+| Zentrale Datenbank, SSO                            | vorbereitet, nicht eingeschaltet                             |
 
-**Prüfstand:** 619 Unit-Tests (`npm test`), 37 E2E-Tests auf zwei Viewports
-(`npm run test:e2e`, 69 Läufe und 5 bewusste Auslassungen — den schwebenden
+**Prüfstand:** 637 Unit-Tests (`npm test`), 38 E2E-Tests auf zwei Viewports
+(`npm run test:e2e`, 71 Läufe und 5 bewusste Auslassungen — den schwebenden
 Knopf gibt es ab `md` nicht), typecheck und lint grün, statischer Build
 erzeugt.
 CI prüft jeden Pull Request, der Deploy-Workflow prüft erneut vor der
@@ -87,11 +88,14 @@ Rollen-Code hinaus.
    unbegrenzt ab und räumt sie erst beim Hochzählen von `CACHE` weg. Bei dieser
    Größe unkritisch, aber es wächst.
 8. **Bon-Import an weiteren Händlern prüfen.** Gegen zwei echte Bons geprüft,
-   beide ohne `ekabs.json`, beide mit lesbarer Textschicht: REWE (18 Posten auf
-   den Cent) und dm (17 Posten, 30,75 € auf den Cent). Jeder der beiden hat
+   beide ohne `ekabs.json`, beide mit lesbarer Textschicht: eine Supermarkt-
+   kette (18 Posten auf den Cent) und eine Drogeriekette (17 Posten, 30,75 €
+   auf den Cent). Jeder der beiden hat
    einen eigenen Fehler aufgedeckt — beim ersten zählten die Bonus-Beträge der
    Fußzeile mit, beim zweiten passte wegen der Steuerklasse als Ziffer keine
-   einzige Zeile. Wie ein dritter Händler druckt, ist offen; die Muster unter
+   einzige Zeile. Ein dritter Bon hat inzwischen zwei weitere gebracht: eine
+   Werbezeile über dem Händlernamen und die Menge hinter der Bezeichnung. Wie
+   ein vierter Händler druckt, ist offen; die Muster unter
    `e2e/fixtures/` halten beide Aufbauten als Struktur fest.
 9. **Tags an wiederkehrenden Regeln.** Eine Regel trägt heute keine Tags, die
    daraus erzeugten Buchungen also auch nicht. Das Feld an `RecurringRule`
