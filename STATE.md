@@ -42,8 +42,8 @@ Konto und keine Übertragung.
 | Impressum, Datenschutz                             | **Gerüst mit Platzhaltern — vor Veröffentlichung ausfüllen** |
 | Zentrale Datenbank, SSO                            | vorbereitet, nicht eingeschaltet                             |
 
-**Prüfstand:** 678 Unit-Tests (`npm test`), 55 E2E-Tests auf zwei Viewports
-(`npm run test:e2e`, 110 Läufe, davon 104 bestanden und 6 bewusste
+**Prüfstand:** 678 Unit-Tests (`npm test`), 56 E2E-Tests auf zwei Viewports
+(`npm run test:e2e`, 112 Läufe, davon 106 bestanden und 6 bewusste
 Auslassungen — den schwebenden Knopf und die klebende Rechtsleiste gibt es ab
 `md` nicht), typecheck und lint grün, statischer Build erzeugt.
 CI prüft jeden Pull Request, der Deploy-Workflow prüft erneut vor der
