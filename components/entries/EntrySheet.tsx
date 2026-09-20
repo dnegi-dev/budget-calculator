@@ -19,7 +19,9 @@ import { useMemo, useRef, useState } from 'react';
 import { useCan } from '../../lib/auth/provider';
 import { useData } from '../../lib/data/provider';
 import { todayIso } from '../../lib/domain/dates';
+import { entryKindActionLabel, entryKindLabel } from '../../lib/domain/entry-kinds';
 import { canDeleteEntryDirectly } from '../../lib/domain/ledger';
+import { goalPhaseOf } from '../../lib/domain/pot-kinds';
 import { useDeleteButton } from '../../lib/prefs/useDevicePref';
 import { parseAmountToCents } from '../../lib/domain/money';
 import { TEXT_LIMITS } from '../../lib/domain/schemas';
@@ -209,13 +211,7 @@ function EntryForm({
     <Sheet
       open
       onClose={onClose}
-      title={
-        editing
-          ? 'Buchung bearbeiten'
-          : kind === 'expense'
-            ? 'Ausgabe erfassen'
-            : 'Einnahme erfassen'
-      }
+      title={editing ? 'Buchung bearbeiten' : entryKindActionLabel(kind, selectedPot)}
       footer={
         <div className="flex gap-3">
           {step !== 'amount' && (
@@ -260,8 +256,8 @@ function EntryForm({
               value={kind}
               onChange={(next) => setKind(next)}
               options={[
-                { value: 'expense', label: 'Ausgabe' },
-                { value: 'income', label: 'Einnahme' },
+                { value: 'expense', label: entryKindLabel('expense', selectedPot) },
+                { value: 'income', label: entryKindLabel('income', selectedPot) },
               ]}
             />
           )}
@@ -295,7 +291,15 @@ function EntryForm({
           )}
           {selectedPot && (
             <p className="text-sm text-ink-muted">
-              Wird auf „{selectedPot.name}“ gebucht.{' '}
+              {goalPhaseOf(selectedPot) !== null ? (
+                kind === 'expense' ? (
+                  <>Wird auf „{selectedPot.name}“ eingezahlt.</>
+                ) : (
+                  <>Wird von „{selectedPot.name}“ ausgegeben.</>
+                )
+              ) : (
+                <>Wird auf „{selectedPot.name}“ gebucht.</>
+              )}{' '}
               {potStepActive ? 'Im nächsten Schritt änderbar.' : 'In den Details änderbar.'}
             </p>
           )}
@@ -426,7 +430,7 @@ function EntryForm({
 
       {step === 'details' && (
         <div className="flex flex-col gap-4">
-          {kind === 'expense' && (
+          {(kind === 'expense' || goalPhaseOf(selectedPot) !== null) && (
             <div className="flex items-center justify-between gap-3 rounded-xl border border-line px-3 py-2.5">
               <span className="min-w-0 truncate text-sm">
                 {selectedPot ? (

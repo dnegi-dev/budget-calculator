@@ -353,6 +353,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       goalCents: input.kind === 'goal' ? (input.goalCents ?? null) : null,
       targetDate: input.kind === 'goal' ? (input.targetDate ?? null) : null,
       lockedAt: null,
+      goalPhase: input.kind === 'goal' ? (input.goalPhase ?? 'saving') : null,
     };
 
     await this.db.transaction('rw', this.db.pots, this.db.changeLog, async () => {
@@ -373,6 +374,7 @@ export class DexieBudgetRepository implements BudgetRepository {
     const limitCents = patch.limitCents === undefined ? pot.limitCents : patch.limitCents;
     const goalCents = patch.goalCents === undefined ? pot.goalCents : patch.goalCents;
     const targetDate = patch.targetDate === undefined ? pot.targetDate : patch.targetDate;
+    const goalPhase = patch.goalPhase === undefined ? (pot.goalPhase ?? 'saving') : patch.goalPhase;
 
     /**
      * Entsperren ist ein bewusster Schritt, kein Knopf: Erst eine neue, in
@@ -395,6 +397,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       goalCents: kind === 'goal' ? goalCents : null,
       targetDate: kind === 'goal' ? targetDate : null,
       lockedAt,
+      goalPhase: kind === 'goal' ? goalPhase : null,
       updatedAt: nowIso(),
       revision: pot.revision + 1,
     };

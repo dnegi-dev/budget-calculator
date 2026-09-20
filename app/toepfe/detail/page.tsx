@@ -25,20 +25,23 @@ import { PotSettingsForm } from '../../../components/pots/PotSettingsForm';
 import { useCan } from '../../../lib/auth/provider';
 import { useData, useSnapshot } from '../../../lib/data/provider';
 import { todayIso } from '../../../lib/domain/dates';
+import { entryKindLabel, kindForGoalPhase } from '../../../lib/domain/entry-kinds';
 import {
   computeGoalState,
   computePotPeriodState,
   entriesInPeriod,
 } from '../../../lib/domain/ledger';
 import { periodForDate } from '../../../lib/domain/period';
-import { describePotConfig, matchesPreset } from '../../../lib/domain/pot-kinds';
+import { describePotConfig, goalPhaseOf, matchesPreset } from '../../../lib/domain/pot-kinds';
 import { collectTags } from '../../../lib/domain/tags';
+import type { GoalPhase } from '../../../lib/domain/types';
 import { CircleHelp, Lock, Settings } from 'lucide-react';
 import { Icon } from '../../../lib/ui/Icon';
 import { Banner } from '../../../lib/ui/Banner';
 import { Button } from '../../../lib/ui/Button';
 import { Card, CardHeader } from '../../../lib/ui/Card';
 import { ProgressBar } from '../../../lib/ui/ProgressBar';
+import { SegmentedControl } from '../../../lib/ui/SegmentedControl';
 import { Sheet } from '../../../lib/ui/Sheet';
 import { potColorVar } from '../../../lib/ui/colors';
 import { useFormat } from '../../../lib/ui/useFormat';
@@ -120,6 +123,7 @@ function PotDetail() {
     (candidate) => candidate.archivedAt === null && candidate.lockedAt === null,
   );
   const locked = pot.lockedAt !== null;
+  const phase = goalPhaseOf(pot);
 
   const tagsEnabled = snapshot.household?.tagsEnabled ?? false;
 
@@ -152,6 +156,10 @@ function PotDetail() {
             tags={alleTags}
             tagsEnabled={tagsEnabled}
             withPot={false}
+            kindLabels={{
+              expense: entryKindLabel('expense', pot),
+              income: entryKindLabel('income', pot),
+            }}
           />
         }
         filtersActive={filters.active}
@@ -190,6 +198,7 @@ function PotDetail() {
               {!matchesPreset(pot) ? ' · angepasst' : ''}
               {pot.archivedAt !== null ? ' · archiviert' : ''}
               {locked ? ' · gesperrt' : ''}
+              {!locked && phase === 'spending' ? ' · Auszahlphase' : ''}
             </p>
           </div>
         </div>
@@ -230,6 +239,26 @@ function PotDetail() {
                 <p className="mt-3 text-center text-xs text-ink-muted">
                   Frist: {format.day(pot.targetDate)}
                 </p>
+              )}
+              {!locked && can('pot.edit') && (
+                <div className="mt-4 border-t border-line pt-4">
+                  <SegmentedControl
+                    label="Phase dieses Sparziels"
+                    value={phase ?? 'saving'}
+                    onChange={(next: GoalPhase) =>
+                      void repository.updatePot(pot.id, { goalPhase: next })
+                    }
+                    options={[
+                      { value: 'saving', label: 'Einzahlen' },
+                      { value: 'spending', label: 'Ausgeben' },
+                    ]}
+                  />
+                  <p className="mt-1.5 text-xs text-ink-muted">
+                    {phase === 'spending'
+                      ? 'Der Knopf nimmt Geld vom Gesparten — der Balken leert sich.'
+                      : 'Der Knopf legt Geld beiseite.'}
+                  </p>
+                </div>
               )}
             </div>
           </div>
@@ -294,7 +323,11 @@ function PotDetail() {
         {can('entry.create') && pot.archivedAt === null && !locked && (
           <div className="mt-4 hidden md:block">
             <Button variant="primary" block onClick={() => setEntryOpen(true)}>
-              Auf „{pot.name}“ buchen
+              {phase === 'spending' ? (
+                <>Von „{pot.name}“ ausgeben</>
+              ) : (
+                <>In „{pot.name}“ einzahlen</>
+              )}
             </Button>
           </div>
         )}
@@ -381,6 +414,7 @@ function PotDetail() {
         onClose={() => setEntryOpen(false)}
         pots={activePots}
         defaultPotId={pot.id}
+        defaultKind={phase !== null ? kindForGoalPhase(phase) : undefined}
       />
     </div>
   );

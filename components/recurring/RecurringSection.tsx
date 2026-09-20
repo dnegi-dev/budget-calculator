@@ -19,6 +19,7 @@ import { RefreshCw } from 'lucide-react';
 import { useCan } from '../../lib/auth/provider';
 import { useData, useSnapshot } from '../../lib/data/provider';
 import { todayIso } from '../../lib/domain/dates';
+import { entryKindLabel } from '../../lib/domain/entry-kinds';
 import { parseAmountToCents } from '../../lib/domain/money';
 import { TEXT_LIMITS } from '../../lib/domain/schemas';
 import { describeRecurrence, nextOccurrenceAfter } from '../../lib/domain/recurrence';
@@ -119,7 +120,7 @@ export function RecurringSection({
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">
-                    {rule.note || pot?.name || (rule.kind === 'income' ? 'Einnahme' : 'Ausgabe')}
+                    {rule.note || pot?.name || entryKindLabel(rule.kind, pot ?? null)}
                   </p>
                   <p className="truncate text-xs text-ink-muted">
                     {describeRecurrence(rule)}
@@ -197,6 +198,7 @@ function RecurringSheet({
 
   const amountCents = parseAmountToCents(amountRaw);
   const valid = amountCents !== null && amountCents > 0;
+  const selectedPot = potId === '' ? null : (snapshot.pots.find((pot) => pot.id === potId) ?? null);
 
   async function save() {
     if (!valid) return;
@@ -250,8 +252,8 @@ function RecurringSheet({
           value={kind}
           onChange={setKind}
           options={[
-            { value: 'expense', label: 'Ausgabe' },
-            { value: 'income', label: 'Einnahme' },
+            { value: 'expense', label: entryKindLabel('expense', selectedPot) },
+            { value: 'income', label: entryKindLabel('income', selectedPot) },
           ]}
         />
 

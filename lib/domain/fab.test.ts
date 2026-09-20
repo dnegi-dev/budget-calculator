@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { fabLabel, fabVisibleOnPath, resolveFabAction, scopeForPath } from './fab';
-import type { Household } from './types';
+import {
+  fabLabel,
+  fabVisibleOnPath,
+  resolveFabAction,
+  resolveGoalFabAction,
+  scopeForPath,
+} from './fab';
+import type { Household, Pot } from './types';
 
 /** Nur die zwei Felder, die `resolveFabAction` liest. */
 function haushalt(patch: Partial<Pick<Household, 'fabDefault' | 'fabScopes'>> = {}) {
@@ -85,6 +91,28 @@ describe('resolveFabAction', () => {
       'fabDefault' | 'fabScopes'
     >;
     expect(resolveFabAction(alt, 'entries')).toBe('expense');
+  });
+});
+
+describe('resolveGoalFabAction', () => {
+  function topf(goalPhase: Pot['goalPhase']): Pick<Pot, 'kind' | 'goalPhase'> {
+    return { kind: 'goal', goalPhase };
+  }
+
+  it('legt in der Einzahlphase auf Ausgabe, in der Auszahlphase auf Einnahme fest', () => {
+    expect(resolveGoalFabAction('expense', topf('saving'))).toBe('expense');
+    expect(resolveGoalFabAction('income', topf('saving'))).toBe('expense');
+    expect(resolveGoalFabAction('expense', topf('spending'))).toBe('income');
+    expect(resolveGoalFabAction('income', topf('spending'))).toBe('income');
+  });
+
+  it('lässt „ask" unangetastet', () => {
+    expect(resolveGoalFabAction('ask', topf('spending'))).toBe('ask');
+  });
+
+  it('lässt Nicht-Sparziel-Töpfe und „kein Topf" unverändert', () => {
+    expect(resolveGoalFabAction('income', { kind: 'budget', goalPhase: null })).toBe('income');
+    expect(resolveGoalFabAction('expense', null)).toBe('expense');
   });
 });
 

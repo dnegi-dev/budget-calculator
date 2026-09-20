@@ -24,12 +24,18 @@ export function EntryFilterFields({
   tagsEnabled,
   /** Auf einer Topf-Seite steht der Topf fest — dort wäre das Feld sinnlos. */
   withPot = true,
+  /**
+   * Wortpaar für „Ausgaben"/„Einnahmen" — auf einem Sparziel-Topf „Einzahlen"/
+   * „Ausgeben" statt der sonst üblichen Wörter (`lib/domain/entry-kinds.ts`).
+   */
+  kindLabels = { expense: 'Ausgaben', income: 'Einnahmen' },
 }: {
   filters: EntryFilters;
   pots: readonly Pot[];
   tags: readonly string[];
   tagsEnabled: boolean;
   withPot?: boolean;
+  kindLabels?: { expense: string; income: string };
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -39,8 +45,8 @@ export function EntryFilterFields({
         onChange={filters.setKind}
         options={[
           { value: 'all', label: 'Alle' },
-          { value: 'expense', label: 'Ausgaben' },
-          { value: 'income', label: 'Einnahmen' },
+          { value: 'expense', label: kindLabels.expense },
+          { value: 'income', label: kindLabels.income },
         ]}
       />
       {withPot && (

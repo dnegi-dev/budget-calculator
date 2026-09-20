@@ -274,6 +274,34 @@ describe('Sparziel-Töpfe', () => {
     expect((await repo.getPot(pot.id))?.lockedAt).toBeNull();
   });
 
+  it('setzt die Einzahlphase beim Anlegen, aber nur bei „goal"', async () => {
+    const sparziel = await goalPot('2099-01-01');
+    expect(sparziel.goalPhase).toBe('saving');
+
+    const budget = await repo.createPot({
+      name: 'Lebensmittel',
+      kind: 'budget',
+      limitCents: 40_000,
+      carryOver: false,
+    });
+    expect(budget.goalPhase).toBeNull();
+  });
+
+  it('schaltet die Phase um und räumt sie beim Wechsel der Art auf', async () => {
+    const pot = await goalPot('2099-01-01');
+    expect(pot.goalPhase).toBe('saving');
+
+    const umgeschaltet = await repo.updatePot(pot.id, { goalPhase: 'spending' });
+    expect(umgeschaltet.goalPhase).toBe('spending');
+
+    const alsBudget = await repo.updatePot(pot.id, {
+      kind: 'budget',
+      limitCents: 10_000,
+      carryOver: false,
+    });
+    expect(alsBudget.goalPhase).toBeNull();
+  });
+
   it('überspringt eine wiederkehrende Regel auf einen gesperrten Topf', async () => {
     const pot = await goalPot('2026-01-01');
     await repo.createRecurringRule({
