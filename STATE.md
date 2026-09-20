@@ -3,7 +3,7 @@
 Kurzer, pflegbarer Überblick: was steht, was bewusst fehlt, was als Nächstes
 ansteht. Bei größeren Änderungen mitführen.
 
-**Stand:** 19.09.2026 · **Version:** 0.1.0 · **Zweig:** `main`
+**Stand:** 20.09.2026 · **Version:** 0.1.0 · **Zweig:** `main`
 
 ## Wo das Projekt steht
 
@@ -14,6 +14,7 @@ Konto und keine Übertragung.
 | Bereich                                            | Stand                                                        |
 | -------------------------------------------------- | ------------------------------------------------------------ |
 | Töpfe (Monatsbudget, Übertrag, reine Kategorie)    | fertig                                                       |
+| Sparziel-Topf (Betrag, Frist, automatische Sperre) | fertig; Sperre über `lockedAt`, getrennt vom Archivieren     |
 | Buchungen erfassen, bearbeiten, filtern            | fertig                                                       |
 | Kassenzettel als Nachweis                          | fertig; Fotos bewusst ohne Auswertung des Inhalts            |
 | PDF-Bon einlesen, Posten auf Töpfe verteilen       | fertig, mit Summenprobe und gelernten Zuordnungen            |
@@ -41,10 +42,10 @@ Konto und keine Übertragung.
 | Impressum, Datenschutz                             | **Gerüst mit Platzhaltern — vor Veröffentlichung ausfüllen** |
 | Zentrale Datenbank, SSO                            | vorbereitet, nicht eingeschaltet                             |
 
-**Prüfstand:** 654 Unit-Tests (`npm test`), 52 E2E-Tests auf zwei Viewports
-(`npm run test:e2e`, 98 Läufe und 6 bewusste Auslassungen — den schwebenden
-Knopf und die klebende Rechtsleiste gibt es ab `md` nicht), typecheck und lint
-grün, statischer Build erzeugt.
+**Prüfstand:** 678 Unit-Tests (`npm test`), 55 E2E-Tests auf zwei Viewports
+(`npm run test:e2e`, 110 Läufe, davon 104 bestanden und 6 bewusste
+Auslassungen — den schwebenden Knopf und die klebende Rechtsleiste gibt es ab
+`md` nicht), typecheck und lint grün, statischer Build erzeugt.
 CI prüft jeden Pull Request, der Deploy-Workflow prüft erneut vor der
 Veröffentlichung.
 
@@ -115,6 +116,15 @@ Rollen-Code hinaus.
     aber keine Einzelposten; `zxing-wasm` (953 KB) wäre der Weg, weil
     `BarcodeDetector` in Safari und auf iOS fehlt. Einzelposten aus einem Foto
     bräuchten OCR und bleiben unzuverlässig.
+12. **Bon-Import prüft die Sperre eines Sparziel-Topfes nicht.** Die
+    Schreibsperre (`lockedAt`) gilt für `createEntries`, `updateEntry` und den
+    Materialisierer wiederkehrender Buchungen — nicht für `createPurchase`
+    und `updatePurchaseItem`. Das ist dieselbe Lücke, die für `archivedAt`
+    an diesen beiden Stellen schon vorher bestand: Die Zuordnung eines
+    Bon-Postens zu einem Topf prüfte dessen Zustand nie. Praktisch selten,
+    weil ein gesperrter Topf ohnehin nicht mehr in der Auswahl der
+    Bon-Vorschau steht — nur eine bestehende, direkt per ID vorbelegte
+    Zuordnung käme daran vorbei.
 
 ## Orientierung im Code
 

@@ -19,11 +19,12 @@
 
 import { useState } from 'react';
 import { useData } from '../../lib/data/provider';
+import { todayIso } from '../../lib/domain/dates';
 import { parseAmountToCents } from '../../lib/domain/money';
 import { POT_KINDS, matchesPreset, potKindPreset } from '../../lib/domain/pot-kinds';
 import type { Pot, PotKind } from '../../lib/domain/types';
 import { AmountInput } from '../../lib/ui/AmountInput';
-import { Pencil } from 'lucide-react';
+import { Lock, Pencil } from 'lucide-react';
 import { Banner } from '../../lib/ui/Banner';
 import { Icon } from '../../lib/ui/Icon';
 import { Button } from '../../lib/ui/Button';
@@ -53,14 +54,32 @@ function PotFields({ pot }: { pot: Pot }) {
   const [limitRaw, setLimitRaw] = useState(() =>
     pot.limitCents === null ? '' : format.moneyPlain(pot.limitCents),
   );
+  const [goalRaw, setGoalRaw] = useState(() =>
+    pot.goalCents === null ? '' : format.moneyPlain(pot.goalCents),
+  );
+  const [targetDate, setTargetDate] = useState(pot.targetDate ?? '');
   const [carryOver, setCarryOver] = useState(pot.carryOver);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Ein gesperrtes Sparziel bekommt keinen zweiten Weg, seine Frist zu
+  // ändern: der einzige ist das eigene Verlängern-Feld unten.
+  const [extendTo, setExtendTo] = useState('');
+  const [extending, setExtending] = useState(false);
+  const [extendError, setExtendError] = useState<string | null>(null);
+
+  const locked = pot.lockedAt !== null;
   const limitCents = parseAmountToCents(limitRaw);
-  const needsLimit = kind !== 'category';
-  const deviates = !matchesPreset({ kind, limitCents: needsLimit ? limitCents : null, carryOver });
+  const goalCents = parseAmountToCents(goalRaw);
+  const needsLimit = kind !== 'category' && kind !== 'goal';
+  const needsGoal = kind === 'goal';
+  const deviates = !matchesPreset({
+    kind,
+    limitCents: needsLimit ? limitCents : null,
+    carryOver,
+    goalCents: needsGoal ? goalCents : null,
+  });
 
   async function save() {
     setSaving(true);
@@ -74,12 +93,27 @@ function PotFields({ pot }: { pot: Pot }) {
         kind,
         limitCents: needsLimit ? limitCents : null,
         carryOver,
+        goalCents: needsGoal ? goalCents : null,
+        targetDate: needsGoal ? targetDate || null : null,
       });
       setSaved(true);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unbekannter Fehler');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function extend() {
+    setExtending(true);
+    setExtendError(null);
+    try {
+      await repository.updatePot(pot.id, { targetDate: extendTo });
+      setExtendTo('');
+    } catch (caught) {
+      setExtendError(caught instanceof Error ? caught.message : 'Unbekannter Fehler');
+    } finally {
+      setExtending(false);
     }
   }
 
@@ -96,43 +130,95 @@ function PotFields({ pot }: { pot: Pot }) {
         )}
       </Field>
 
-      <Field label="Art" hint={potKindPreset(kind).explanation}>
-        {(props) => (
-          <select
-            {...props}
-            className={selectClass}
-            value={kind}
-            onChange={(event) => {
-              const next = event.target.value as PotKind;
-              setKind(next);
-              // Die Art setzt den Übertrag auf ihren Standard — abweichen kann
-              // man danach bewusst über den Schalter.
-              setCarryOver(potKindPreset(next).carryOver);
-            }}
+      {locked ? (
+        <>
+          <Banner icon={<Icon icon={Lock} size={18} />}>
+            Dieses Sparziel ist am {format.day(pot.targetDate ?? pot.lockedAt ?? todayIso())}{' '}
+            abgelaufen und gesperrt. Neue Buchungen sind nicht mehr möglich.
+          </Banner>
+          <Field label="Neue Frist">
+            {(props) => (
+              <input
+                {...props}
+                type="date"
+                className={inputClass}
+                value={extendTo}
+                onChange={(event) => setExtendTo(event.target.value)}
+              />
+            )}
+          </Field>
+          {extendError && <p className="text-sm text-negative">{extendError}</p>}
+          <Button
+            variant="primary"
+            disabled={extending || extendTo === '' || extendTo <= todayIso()}
+            onClick={() => void extend()}
           >
-            {POT_KINDS.map((option) => (
-              <option key={option} value={option}>
-                {potKindPreset(option).label}
-              </option>
-            ))}
-          </select>
-        )}
-      </Field>
+            {extending ? 'Wird verlängert …' : 'Frist verlängern und entsperren'}
+          </Button>
+        </>
+      ) : (
+        <>
+          <Field label="Art" hint={potKindPreset(kind).explanation}>
+            {(props) => (
+              <select
+                {...props}
+                className={selectClass}
+                value={kind}
+                onChange={(event) => {
+                  const next = event.target.value as PotKind;
+                  setKind(next);
+                  // Die Art setzt den Übertrag auf ihren Standard — abweichen
+                  // kann man danach bewusst über den Schalter.
+                  setCarryOver(potKindPreset(next).carryOver);
+                }}
+              >
+                {POT_KINDS.map((option) => (
+                  <option key={option} value={option}>
+                    {potKindPreset(option).label}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
 
-      {needsLimit && (
-        <AmountInput
-          value={limitRaw}
-          onChange={setLimitRaw}
-          label="Limit pro Periode"
-          currencySymbol={format.currencySymbol}
-        />
-      )}
+          {needsLimit && (
+            <AmountInput
+              value={limitRaw}
+              onChange={setLimitRaw}
+              label="Limit pro Periode"
+              currencySymbol={format.currencySymbol}
+            />
+          )}
 
-      {deviates && (
-        <Banner icon={<Icon icon={Pencil} size={18} />}>
-          Diese Kombination weicht von „{potKindPreset(kind).label}“ ab. Das ist erlaubt — der Topf
-          wird in Listen als angepasst geführt.
-        </Banner>
+          {needsGoal && (
+            <>
+              <AmountInput
+                value={goalRaw}
+                onChange={setGoalRaw}
+                label="Sparziel-Betrag"
+                currencySymbol={format.currencySymbol}
+              />
+              <Field label="Bis wann?">
+                {(props) => (
+                  <input
+                    {...props}
+                    type="date"
+                    className={inputClass}
+                    value={targetDate}
+                    onChange={(event) => setTargetDate(event.target.value)}
+                  />
+                )}
+              </Field>
+            </>
+          )}
+
+          {deviates && (
+            <Banner icon={<Icon icon={Pencil} size={18} />}>
+              Diese Kombination weicht von „{potKindPreset(kind).label}“ ab. Das ist erlaubt — der
+              Topf wird in Listen als angepasst geführt.
+            </Banner>
+          )}
+        </>
       )}
 
       <div>

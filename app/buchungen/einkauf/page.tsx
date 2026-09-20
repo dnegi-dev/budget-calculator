@@ -105,7 +105,9 @@ function PurchaseDetail() {
   }
 
   const potsById = new Map(snapshot.pots.map((pot) => [pot.id, pot]));
-  const aktivePots = snapshot.pots.filter((pot) => pot.archivedAt === null);
+  const aktivePots = snapshot.pots.filter(
+    (pot) => pot.archivedAt === null && pot.lockedAt === null,
+  );
   const summeDerPosten = items.reduce((sum, item) => sum + item.amountCents, 0);
   const darfAendern = can('entry.edit.any');
 
@@ -199,14 +201,16 @@ function PurchaseDetail() {
                   >
                     <option value="">— ohne Topf —</option>
                     {/*
-                      Archivierte Töpfe bleiben in der Liste, solange dieser
-                      Posten auf ihnen liegt: Sonst stände das Feld auf
-                      „ohne Topf", und ein Klick daneben hätte den Topf
-                      stillschweigend entfernt.
+                      Archivierte und gesperrte Töpfe bleiben in der Liste,
+                      solange dieser Posten auf ihnen liegt: Sonst stände das
+                      Feld auf „ohne Topf", und ein Klick daneben hätte den
+                      Topf stillschweigend entfernt.
                     */}
                     {snapshot.pots
                       .filter(
-                        (candidate) => candidate.archivedAt === null || candidate.id === item.potId,
+                        (candidate) =>
+                          (candidate.archivedAt === null && candidate.lockedAt === null) ||
+                          candidate.id === item.potId,
                       )
                       .map((candidate) => (
                         <option key={candidate.id} value={candidate.id}>

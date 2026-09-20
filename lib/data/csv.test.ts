@@ -21,6 +21,9 @@ const pot: Pot = {
   carryOver: false,
   sortIndex: 0,
   archivedAt: null,
+  goalCents: null,
+  targetDate: null,
+  lockedAt: null,
 };
 
 function entry(overrides: Partial<Entry> & { id: string }): Entry {

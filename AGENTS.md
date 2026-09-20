@@ -335,6 +335,46 @@ Jetzt gibt es zwei, und beide braucht es.
   Löschen für alle unterbinden will, nimmt die Rolle „Nur Lesen" — die wirkt
   im Repository.
 
+## Sparziel-Töpfe
+
+Vierte Topf-Art neben Monatsbudget, Budget mit Übertrag und Nur Kategorie:
+sparen auf einen Betrag (`goalCents`) bis zu einer Frist (`targetDate`).
+Fällt bewusst aus dem Preset-Schema der anderen drei heraus
+(`lib/domain/pot-kinds.ts`), weil ein Sparziel nicht periodisch ist — es läuft
+über die gesamte Lebenszeit des Topfes, nicht über einzelne Perioden wie
+`limitCents`/`carryOver`. Der Fortschritt (`computeGoalState` in
+`lib/domain/ledger.ts`) summiert deshalb **alle** Buchungen des Topfes, nicht
+die einer Periode — anders als `computePotPeriodState`.
+
+- **Übertrag entfällt.** `carryOver` beschreibt, was zwischen Perioden
+  übernommen wird; bei einem Sparziel gibt es keine Perioden.
+- **Kein Deckel.** Ein Sparziel zeigt an, es begrenzt nicht — anders als ein
+  Monatsbudget lässt sich über den Zielbetrag hinaus weiter buchen.
+- **Die Sperre nach Ablauf ist datumsgetrieben, nicht betragsgetrieben.**
+  Wird der Zielbetrag vor der Frist erreicht, bucht der Topf normal weiter;
+  erst das Verstreichen von `targetDate` sperrt (`lockDueGoalPots`, einmal
+  pro Sitzung aus `AppGate.tsx` neben `materializeRecurringRules` aufgerufen —
+  gleiche Fehlerbehandlung, gleicher Grund: im schlimmsten Fall sperrt ein
+  fälliges Ziel erst beim nächsten Start).
+- **`lockedAt` ist nicht `archivedAt`.** Zwei unabhängige Felder für zwei
+  verschiedene Dinge: `archivedAt` ist der Nutzerwunsch, jederzeit per Knopf
+  umkehrbar, und blendet nur in der Oberfläche aus — die Buchung selbst bleibt
+  über andere Wege möglich (Bon-Import, Wiederkehrend). `lockedAt` ist eine
+  echte Schreibsperre und sitzt deshalb im Repository, nicht nur in einem
+  ausgeblendeten Formularfeld — `createEntries`, `updateEntry` (nur beim
+  Wechsel des Topfes) und der Materialisierer für wiederkehrende Buchungen
+  prüfen sie. Sie hebt sich außerdem **nicht** über denselben
+  „Wieder aktivieren“-Knopf auf wie das Archivieren, sondern nur über eine
+  neue, in der Zukunft liegende `targetDate` (`updatePot`) — ein bewusster
+  Schritt statt eines einzelnen Knopfes, damit ein abgelaufenes Ziel nicht
+  aus Versehen weiterläuft.
+- **Töpfe-Auswahllisten, die `archivedAt` prüfen, prüfen jetzt auch
+  `lockedAt`** (Erfassen-Sheet, Standardtopf, Bon-Import, wiederkehrende
+  Regeln) — derselbe mechanische Fund-und-Ersetz wie bei jeder neuen
+  Topf-Eigenschaft, die eine Buchung verhindern soll. Ausnahme bewusst: die
+  Töpfe-Übersicht (Heute, Töpfe) blendet einen gesperrten Topf **nicht** aus
+  — anders als ein archivierter bleibt er sichtbar, nur nicht mehr bebuchbar.
+
 ## Klebende Leiste über Listen
 
 `components/lists/ListToolbar.tsx` trägt Überschrift, Suche, Filter, freie

@@ -18,8 +18,12 @@ export type IsoDateTime = string;
 
 export type Role = 'admin' | 'member' | 'viewer';
 
-/** Art eines Topfes. Ein Preset über den flexiblen Feldern `limitCents`/`carryOver`. */
-export type PotKind = 'budget' | 'envelope' | 'category';
+/**
+ * Art eines Topfes. Ein Preset über den flexiblen Feldern
+ * `limitCents`/`carryOver` — außer `goal`, das über eigene Felder
+ * (`goalCents`/`targetDate`) läuft, weil ein Sparziel nicht periodisch ist.
+ */
+export type PotKind = 'budget' | 'envelope' | 'category' | 'goal';
 
 export type EntryKind = 'expense' | 'income';
 
@@ -126,6 +130,17 @@ export interface Pot extends RecordMeta {
   carryOver: boolean;
   sortIndex: number;
   archivedAt: IsoDateTime | null;
+  /** Zielbetrag eines Sparziel-Topfes (`kind: 'goal'`). Sonst `null`. */
+  goalCents: number | null;
+  /** Frist eines Sparziel-Topfes. Sonst `null`. */
+  targetDate: IsoDate | null;
+  /**
+   * Wann die Frist automatisch zugeschlagen hat — getrennt von
+   * `archivedAt`: Das ist die vom Nutzer gewählte, jederzeit per Knopf
+   * umkehrbare Ausblendung; das hier ist eine Sperre, die nur eine neue,
+   * in der Zukunft liegende `targetDate` wieder aufhebt.
+   */
+  lockedAt: IsoDateTime | null;
 }
 
 export interface Entry extends RecordMeta {
@@ -330,7 +345,7 @@ export type NewPurchaseItemInput = Pick<PurchaseItem, 'label' | 'amountCents'> &
   Partial<Pick<PurchaseItem, 'quantity' | 'potId' | 'tags'>>;
 
 export type NewPotInput = Pick<Pot, 'name' | 'kind' | 'limitCents' | 'carryOver'> &
-  Partial<Pick<Pot, 'icon' | 'color' | 'sortIndex'>>;
+  Partial<Pick<Pot, 'icon' | 'color' | 'sortIndex' | 'goalCents' | 'targetDate'>>;
 
 export type NewRecurringRuleInput = Pick<
   RecurringRule,

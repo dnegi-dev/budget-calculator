@@ -132,6 +132,9 @@ describe('resolveCategoryPot', () => {
       carryOver: false,
       sortIndex: 0,
       archivedAt: archived ? '2026-09-01T00:00:00.000Z' : null,
+      goalCents: null,
+      targetDate: null,
+      lockedAt: null,
     };
   }
 

@@ -285,7 +285,9 @@ function RecurringSheet({
             >
               <option value="">Kein Topf</option>
               {snapshot.pots
-                .filter((pot) => pot.archivedAt === null)
+                .filter(
+                  (pot) => (pot.archivedAt === null && pot.lockedAt === null) || pot.id === potId,
+                )
                 .map((pot) => (
                   <option key={pot.id} value={pot.id}>
                     {pot.icon} {pot.name}

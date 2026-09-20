@@ -47,7 +47,7 @@ export default function EntriesPage() {
   const [entryOpen, setEntryOpen] = useState(false);
 
   const activePots = useMemo(
-    () => snapshot.pots.filter((pot) => pot.archivedAt === null),
+    () => snapshot.pots.filter((pot) => pot.archivedAt === null && pot.lockedAt === null),
     [snapshot.pots],
   );
 

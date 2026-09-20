@@ -219,6 +219,8 @@ export interface BudgetRepository {
   deleteRecurringRule(id: string): Promise<void>;
   /** Erzeugt fällige Buchungen aus allen Regeln. Idempotent, darf beliebig oft laufen. */
   materializeRecurringRules(today: IsoDate): Promise<number>;
+  /** Sperrt jeden Sparziel-Topf, dessen Frist verstrichen ist. Idempotent. */
+  lockDueGoalPots(today: IsoDate): Promise<number>;
 
   /**
    * Benennt einen Tag in allen Buchungen um, in einer Transaktion. Rückgabe:

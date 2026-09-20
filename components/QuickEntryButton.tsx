@@ -74,7 +74,9 @@ export function QuickEntryButton() {
   if (!can('entry.create')) return null;
   if (!fabVisibleOnPath(pathname)) return null;
 
-  const activePots = snapshot.pots.filter((pot) => pot.archivedAt === null);
+  const activePots = snapshot.pots.filter(
+    (pot) => pot.archivedAt === null && pot.lockedAt === null,
+  );
 
   /**
    * Der Topf aus der Adresse, aber nur dort, wo er etwas bedeutet. Ein

@@ -188,6 +188,62 @@ export function computePotPeriodState(
   };
 }
 
+export interface GoalState {
+  potId: string;
+  /** Summe aller Buchungen dieses Topfes über seine gesamte Lebenszeit. */
+  savedCents: number;
+  goalCents: number | null;
+  /** `null`, solange kein Zielbetrag gesetzt ist. */
+  remainingCents: number | null;
+  /** 0–1, für den Balken geklemmt. `null` ohne Zielbetrag. */
+  progress: number | null;
+  locked: boolean;
+}
+
+/**
+ * Fortschritt eines Sparziel-Topfes — **nicht** periodengebunden, anders als
+ * `computePotPeriodState`: Ein Sparziel läuft über die gesamte Lebenszeit des
+ * Topfes bis zur Frist, nicht über eine einzelne Periode. `entriesOfPot`
+ * unverändert über alle Perioden hinweg (wie aus `groupEntriesByPot`).
+ *
+ * **Eine Ausgabe zählt als Einzahlung, eine Einnahme als Entnahme** — genau
+ * dieselbe Vorzeichen-Richtung wie `netCents` bei jedem anderen Topf. Das ist
+ * kein Sonderfall: Auf einen Topf zu buchen heißt in dieser Anwendung immer
+ * „Ausgabe", und der Topf-Schritt beim Erfassen erscheint nur bei Ausgaben
+ * (`EntrySheet.potStepActive`) — eine Einnahme ließe sich also gar nicht
+ * gezielt einem Sparziel zuordnen. Für „Geld beiseitelegen" bucht man wie für
+ * jeden anderen Topf auch: eine Ausgabe auf „Urlaub".
+ */
+export function computeGoalState(
+  pot: Pick<Pot, 'id' | 'goalCents' | 'lockedAt'>,
+  entriesOfPot: readonly Entry[],
+): GoalState {
+  let savedCents = 0;
+  for (const entry of entriesOfPot) {
+    savedCents += entry.kind === 'expense' ? entry.amountCents : -entry.amountCents;
+  }
+
+  const goalCents = pot.goalCents;
+  const remainingCents = goalCents === null ? null : goalCents - savedCents;
+  const progress =
+    goalCents === null
+      ? null
+      : goalCents > 0
+        ? Math.min(1, Math.max(0, savedCents / goalCents))
+        : savedCents > 0
+          ? 1
+          : 0;
+
+  return {
+    potId: pot.id,
+    savedCents,
+    goalCents,
+    remainingCents,
+    progress,
+    locked: pot.lockedAt !== null,
+  };
+}
+
 /** Zustände aller Töpfe für eine Periode. Gruppiert die Buchungen genau einmal. */
 export function computePotStates(
   pots: readonly Pot[],

@@ -33,7 +33,7 @@ export function CaptureSection() {
   if (!household) return null;
 
   const darf = can('settings.manage');
-  const pots = snapshot.pots.filter((pot) => pot.archivedAt === null);
+  const pots = snapshot.pots.filter((pot) => pot.archivedAt === null && pot.lockedAt === null);
   const standard = pots.find((pot) => pot.id === household.defaultPotId) ?? null;
 
   async function speichern(patch: { defaultPotId?: string | null; askForPot?: boolean }) {
