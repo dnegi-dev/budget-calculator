@@ -19,6 +19,19 @@ const WERBEKOPF = [
   'Filiale: 4073 Kasse: 32',
 ];
 
+/**
+ * Die Kopfzeilen des Formats, das `ott` erkennt — dieselben wie in
+ * `lib/domain/receipt-parse.test.ts` (`ZWEIZEILIGE_MENGE`).
+ */
+const ZWEITAUSDRUCK = [
+  'This is a duplicate of the original receipt',
+  'Musterhaus GmbH & Co. KG',
+  'Ordernummer: 1631303135',
+  'KENNZ RATE NETTO STEUER',
+  'Datum Uhrzeit EH KA Bon',
+  'Rechnungsdatum = Lieferdatum',
+];
+
 /** Ein Bon eines anderen Formats — Steuerklasse als Ziffer, Menge vorne. */
 const ANDERES_FORMAT = [
   '18.09.2026 20:00 A1BC/1 123456/2 4711',
@@ -34,6 +47,12 @@ describe('matchProfile', () => {
     expect(hit?.profile.id).toBe('lux');
     // Alle vier Merkmale stehen im Muster.
     expect(hit?.hits).toBe(4);
+  });
+
+  it('erkennt ein zweites Format am eigenen Fingerabdruck', () => {
+    const hit = matchProfile(ZWEITAUSDRUCK, CHAIN_PROFILES);
+    expect(hit?.profile.id).toBe('ott');
+    expect(hit?.hits).toBe(5);
   });
 
   /**
