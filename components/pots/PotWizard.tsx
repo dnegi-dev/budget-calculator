@@ -11,6 +11,7 @@
 
 import { useState } from 'react';
 import { useData } from '../../lib/data/provider';
+import { todayIso } from '../../lib/domain/dates';
 import { parseAmountToCents } from '../../lib/domain/money';
 import { POT_KINDS, potKindPreset } from '../../lib/domain/pot-kinds';
 import type { PotKind } from '../../lib/domain/types';
@@ -30,6 +31,8 @@ export function PotWizard({ open, onClose }: { open: boolean; onClose: () => voi
   const [name, setName] = useState('');
   const [kind, setKind] = useState<PotKind>('budget');
   const [limitRaw, setLimitRaw] = useState('');
+  const [goalRaw, setGoalRaw] = useState('');
+  const [targetDate, setTargetDate] = useState('');
   const [icon, setIcon] = useState<string>('🧺');
   const [color, setColor] = useState<string>('emerald');
   const [saving, setSaving] = useState(false);
@@ -37,18 +40,24 @@ export function PotWizard({ open, onClose }: { open: boolean; onClose: () => voi
 
   const preset = potKindPreset(kind);
   // Bei 'category' entfällt der Limit-Schritt — eine Frage, auf die es keine
-  // Antwort gibt, wird nicht gestellt.
-  const steps: readonly ('name' | 'kind' | 'limit' | 'look')[] = preset.requiresLimit
+  // Antwort gibt, wird nicht gestellt. Bei 'goal' tritt ein eigener Schritt
+  // (Betrag + Frist) an die Stelle des Limit-Schritts.
+  const steps: readonly ('name' | 'kind' | 'limit' | 'goal' | 'look')[] = preset.requiresLimit
     ? ['name', 'kind', 'limit', 'look']
-    : ['name', 'kind', 'look'];
+    : preset.requiresGoal
+      ? ['name', 'kind', 'goal', 'look']
+      : ['name', 'kind', 'look'];
   const currentStep = steps[Math.min(step, steps.length - 1)];
   const limitCents = parseAmountToCents(limitRaw);
+  const goalCents = parseAmountToCents(goalRaw);
 
   function reset() {
     setStep(0);
     setName('');
     setKind('budget');
     setLimitRaw('');
+    setGoalRaw('');
+    setTargetDate('');
     setIcon('🧺');
     setColor('emerald');
     setError(null);
@@ -65,7 +74,9 @@ export function PotWizard({ open, onClose }: { open: boolean; onClose: () => voi
       ? name.trim().length > 0
       : currentStep === 'limit'
         ? limitCents !== null && limitCents > 0
-        : true;
+        : currentStep === 'goal'
+          ? goalCents !== null && goalCents > 0 && targetDate !== '' && targetDate > todayIso()
+          : true;
 
   async function save() {
     setSaving(true);
@@ -78,6 +89,8 @@ export function PotWizard({ open, onClose }: { open: boolean; onClose: () => voi
         kind,
         limitCents: preset.requiresLimit ? limitCents : null,
         carryOver: preset.carryOver,
+        goalCents: preset.requiresGoal ? goalCents : null,
+        targetDate: preset.requiresGoal ? targetDate : null,
       });
       close();
     } catch (caught) {
@@ -194,6 +207,35 @@ export function PotWizard({ open, onClose }: { open: boolean; onClose: () => voi
         </div>
       )}
 
+      {currentStep === 'goal' && (
+        <div className="flex flex-col gap-4">
+          <AmountInput
+            value={goalRaw}
+            onChange={setGoalRaw}
+            label={`Sparziel-Betrag für „${name.trim()}“`}
+            currencySymbol={format.currencySymbol}
+            large
+            autoFocus
+          />
+          <Field label="Bis wann?">
+            {(props) => (
+              <input
+                {...props}
+                type="date"
+                className={inputClass}
+                value={targetDate}
+                onChange={(event) => setTargetDate(event.target.value)}
+                min={todayIso()}
+              />
+            )}
+          </Field>
+          <p className="text-sm text-ink-muted">
+            Danach ist der Topf gesperrt, egal wie viel zusammenkam — verlängern lässt sich die
+            Frist später in den Topf-Einstellungen.
+          </p>
+        </div>
+      )}
+
       {currentStep === 'look' && (
         <div className="flex flex-col gap-6">
           <div>
@@ -250,7 +292,9 @@ export function PotWizard({ open, onClose }: { open: boolean; onClose: () => voi
               <p className="text-sm text-ink-muted">
                 {preset.requiresLimit && limitCents !== null
                   ? `${format.money(limitCents)} pro Periode${preset.carryOver ? ', mit Übertrag' : ''}`
-                  : 'Ohne Limit'}
+                  : preset.requiresGoal && goalCents !== null
+                    ? `Ziel: ${format.money(goalCents)}${targetDate ? ` bis ${format.day(targetDate)}` : ''}`
+                    : 'Ohne Limit'}
               </p>
             </div>
           </div>

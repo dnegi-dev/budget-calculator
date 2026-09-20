@@ -206,6 +206,10 @@ export class HttpBudgetRepository implements BudgetRepository {
     throw new NotImplementedError('Zentrale Datenhaltung');
   }
 
+  lockDueGoalPots(_today: IsoDate): Promise<number> {
+    throw new NotImplementedError('Zentrale Datenhaltung');
+  }
+
   listItemRules(): Promise<ItemRule[]> {
     throw new NotImplementedError('Zentrale Datenhaltung');
   }

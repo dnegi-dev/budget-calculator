@@ -19,7 +19,7 @@ import { getDatabase, type BudgetDatabase } from './db';
 import { newId } from '../../domain/ids';
 import { nowIso, todayIso } from '../../domain/dates';
 import { clampPeriodStartDay } from '../../domain/period';
-import { applyPotKindPreset } from '../../domain/pot-kinds';
+import { applyPotKindPreset, isGoalDue } from '../../domain/pot-kinds';
 import { planPurchaseEntries } from '../../domain/purchase';
 import { materializeRule } from '../../domain/recurrence';
 import { dedupeTags, hasTag, normalizeTag, removeTag, tagKey } from '../../domain/tags';
@@ -350,6 +350,9 @@ export class DexieBudgetRepository implements BudgetRepository {
       // Eine abweichende Kombination aus Limit und Übertrag ist erlaubt — das
       // Preset ist nur der Startpunkt.
       carryOver: input.carryOver,
+      goalCents: input.kind === 'goal' ? (input.goalCents ?? null) : null,
+      targetDate: input.kind === 'goal' ? (input.targetDate ?? null) : null,
+      lockedAt: null,
     };
 
     await this.db.transaction('rw', this.db.pots, this.db.changeLog, async () => {
@@ -368,15 +371,30 @@ export class DexieBudgetRepository implements BudgetRepository {
 
     const kind = patch.kind ?? pot.kind;
     const limitCents = patch.limitCents === undefined ? pot.limitCents : patch.limitCents;
+    const goalCents = patch.goalCents === undefined ? pot.goalCents : patch.goalCents;
+    const targetDate = patch.targetDate === undefined ? pot.targetDate : patch.targetDate;
+
+    /**
+     * Entsperren ist ein bewusster Schritt, kein Knopf: Erst eine neue, in
+     * der Zukunft liegende Frist hebt die Sperre auf. Ohne neue Frist bleibt
+     * `lockedAt` unangetastet — ein Nutzer kann es nicht direkt anfassen.
+     */
+    const unlocking = pot.lockedAt !== null && targetDate !== null && targetDate > todayIso();
+    const lockedAt = unlocking ? null : pot.lockedAt;
+
     const updated: Pot = {
       ...pot,
       ...patch,
       name: (patch.name ?? pot.name).trim(),
       kind,
-      // Limit und Übertrag bleiben frei einstellbar; nur bei 'category' erzwingt
-      // das Preset „kein Limit“, weil sonst widersprüchliche Zustände entstehen.
-      limitCents: kind === 'category' ? null : limitCents,
+      // Limit und Übertrag bleiben frei einstellbar; nur bei 'category' und
+      // 'goal' erzwingt das Preset „kein Limit“, weil sonst widersprüchliche
+      // Zustände entstehen.
+      limitCents: kind === 'category' || kind === 'goal' ? null : limitCents,
       carryOver: patch.carryOver ?? pot.carryOver,
+      goalCents: kind === 'goal' ? goalCents : null,
+      targetDate: kind === 'goal' ? targetDate : null,
+      lockedAt,
       updatedAt: nowIso(),
       revision: pot.revision + 1,
     };
@@ -417,6 +435,35 @@ export class DexieBudgetRepository implements BudgetRepository {
 
     await this.notify();
     return updated;
+  }
+
+  /**
+   * Sperrt jeden Sparziel-Topf, dessen Frist verstrichen ist — gebaut wie
+   * `materializeRecurringRules`, gleicher Aufrufort (`AppGate.tsx`, einmal
+   * pro Sitzung), gleiche Fehlerbehandlung.
+   *
+   * Setzt `lockedAt`, nicht `archivedAt`: Die Sperre ist eine automatische
+   * Folge der Frist, kein Nutzerwunsch, und sie hebt sich nur durch eine neue
+   * Frist wieder auf (`updatePot`) — nicht durch den „Wieder aktivieren“-
+   * Knopf des Archivierens.
+   */
+  async lockDueGoalPots(today: IsoDate = todayIso()): Promise<number> {
+    const pots = (await this.listPots({ includeArchived: true })).filter(
+      (pot) => pot.lockedAt === null && isGoalDue(pot, today),
+    );
+    if (pots.length === 0) return 0;
+
+    const at = nowIso();
+    await this.db.transaction('rw', this.db.pots, this.db.changeLog, async () => {
+      for (const pot of pots) {
+        const updated: Pot = { ...pot, lockedAt: at, updatedAt: at, revision: pot.revision + 1 };
+        await this.db.pots.put(updated);
+        await this.log('pot', updated.id, 'upsert', updated.revision, updated.householdId);
+      }
+    });
+
+    await this.notify();
+    return pots.length;
   }
 
   /**
@@ -570,6 +617,10 @@ export class DexieBudgetRepository implements BudgetRepository {
       createdBy: principal?.userId ?? 'unbekannt',
     }));
 
+    for (const potId of new Set(entries.map((entry) => entry.potId))) {
+      await this.assertPotOpen(potId);
+    }
+
     await this.db.transaction('rw', this.db.entries, this.db.changeLog, async () => {
       await this.db.entries.bulkAdd(entries);
       for (const entry of entries) {
@@ -585,6 +636,14 @@ export class DexieBudgetRepository implements BudgetRepository {
     const entry = await this.getEntry(id);
     if (!entry) throw new Error('Buchung nicht gefunden.');
     this.assert('entry.edit.any', { ownerId: entry.createdBy, householdId: entry.householdId });
+
+    // Nur prüfen, wenn sich der Topf tatsächlich ändert — eine Buchung, die
+    // schon vor der Sperre auf diesem Topf stand, darf weiter bearbeitet
+    // werden (Notiz, Betrag), nur nicht auf einen neuen gesperrten Topf
+    // wandern.
+    if (patch.potId !== undefined && patch.potId !== entry.potId) {
+      await this.assertPotOpen(patch.potId);
+    }
 
     const updated: Entry = {
       ...entry,
@@ -860,6 +919,11 @@ export class DexieBudgetRepository implements BudgetRepository {
       household.defaultPotId !== null && (await this.getPot(household.defaultPotId)) !== null
         ? household.defaultPotId
         : null;
+    const lockedPotIds = new Set(
+      (await this.listPots({ includeArchived: true }))
+        .filter((pot) => pot.lockedAt !== null)
+        .map((pot) => pot.id),
+    );
 
     await this.db.transaction(
       'rw',
@@ -868,6 +932,11 @@ export class DexieBudgetRepository implements BudgetRepository {
       this.db.changeLog,
       async () => {
         for (const rule of rules) {
+          // Eine Regel auf einen inzwischen gesperrten Sparziel-Topf läuft
+          // nicht weiter — `lastMaterializedDate` bleibt stehen, damit sie
+          // von dort fortsetzt, falls der Topf je entsperrt wird.
+          if (rule.potId !== null && lockedPotIds.has(rule.potId)) continue;
+
           const result = materializeRule(rule, today);
           if (!result) continue;
 
@@ -1642,7 +1711,25 @@ export class DexieBudgetRepository implements BudgetRepository {
    */
   private async resolveFallbackPot(household: Household): Promise<string | null> {
     if (household.defaultPotId === null) return null;
-    return (await this.getPot(household.defaultPotId)) !== null ? household.defaultPotId : null;
+    const pot = await this.getPot(household.defaultPotId);
+    return pot !== null && pot.lockedAt === null ? household.defaultPotId : null;
+  }
+
+  /**
+   * Wirft, wenn `potId` auf einen gesperrten Sparziel-Topf zeigt. `null`
+   * (keine Zuordnung) ist immer erlaubt.
+   *
+   * Anders als `archivedAt` — das blendet nur in der Oberfläche aus — ist
+   * `lockedAt` eine echte Schreibsperre: Sie gehört ins Repository, nicht in
+   * ein ausgeblendetes Formularfeld, sonst käme eine Buchung über einen
+   * zweiten Weg (Wiederkehrend, Bon-Import) trotzdem durch.
+   */
+  private async assertPotOpen(potId: string | null): Promise<void> {
+    if (potId === null) return;
+    const pot = await this.getPot(potId);
+    if (pot?.lockedAt != null) {
+      throw new Error('Dieses Sparziel ist gesperrt — es lässt sich nicht mehr bebuchen.');
+    }
   }
 
   private async requireHousehold(): Promise<Household> {

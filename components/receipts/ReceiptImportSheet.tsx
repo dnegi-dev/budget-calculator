@@ -119,7 +119,9 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
           dass Topf und Tags schon ausgefüllt sind.
         */
         const profil = matchProfile(lines, CHAIN_PROFILES)?.profile ?? null;
-        const aktivePots = snapshot.pots.filter((pot) => pot.archivedAt === null);
+        const aktivePots = snapshot.pots.filter(
+          (pot) => pot.archivedAt === null && pot.lockedAt === null,
+        );
 
         const vorschlag = ergebnis.items.map((item) => {
           const gelernt = suggestPot(item.label, snapshot.itemRules);

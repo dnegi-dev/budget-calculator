@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   canDeleteEntryDirectly,
+  computeGoalState,
   computeHouseholdSummary,
   computePotPeriodState,
   computePotStates,
@@ -26,6 +27,9 @@ function pot(overrides: Partial<Pot> & { id: string; kind: PotKind }): Pot {
     carryOver: false,
     sortIndex: 0,
     archivedAt: null,
+    goalCents: null,
+    targetDate: null,
+    lockedAt: null,
     ...overrides,
   };
 }
@@ -281,5 +285,51 @@ describe('canDeleteEntryDirectly', () => {
    */
   it('behandelt ein fehlendes Feld wie „von Hand erfasst"', () => {
     expect(canDeleteEntryDirectly({ purchaseId: undefined } as unknown as Entry)).toBe(true);
+  });
+});
+
+describe('computeGoalState', () => {
+  const goal = { id: 'g1', goalCents: 100_000, lockedAt: null as string | null };
+
+  /**
+   * Eine Ausgabe ist die Einzahlung — genau wie bei jedem anderen Topf, und
+   * aus demselben Grund: Der Topf-Schritt beim Erfassen erscheint nur bei
+   * Ausgaben (`EntrySheet.potStepActive`), eine Einnahme ließe sich gar
+   * nicht gezielt zuordnen. Eine Einnahme auf dem Sparziel ist die Entnahme.
+   */
+  it('summiert über die gesamte Lebenszeit, nicht nur eine Periode', () => {
+    const state = computeGoalState(goal, [
+      entry('g1', 'expense', 30_000, '2026-01-05'),
+      entry('g1', 'income', 5_000, '2026-03-10'),
+      entry('g1', 'expense', 20_000, '2026-08-20'),
+    ]);
+    expect(state.savedCents).toBe(45_000);
+    expect(state.remainingCents).toBe(55_000);
+    expect(state.progress).toBeCloseTo(0.45);
+    expect(state.locked).toBe(false);
+  });
+
+  it('klemmt den Fortschritt bei 100 %, wenn das Ziel überschritten ist', () => {
+    const state = computeGoalState(goal, [entry('g1', 'expense', 150_000, '2026-01-05')]);
+    expect(state.savedCents).toBe(150_000);
+    expect(state.progress).toBe(1);
+    // Das Geld ist trotzdem da — „offen" wird nicht negativ dargestellt,
+    // aber der rohe Wert bleibt ehrlich negativ für alles, was ihn weiter
+    // verrechnet.
+    expect(state.remainingCents).toBe(-50_000);
+  });
+
+  it('meldet null statt einer Zahl, solange kein Zielbetrag gesetzt ist', () => {
+    const state = computeGoalState({ id: 'g1', goalCents: null, lockedAt: null }, [
+      entry('g1', 'expense', 1_000, '2026-01-05'),
+    ]);
+    expect(state.goalCents).toBeNull();
+    expect(state.remainingCents).toBeNull();
+    expect(state.progress).toBeNull();
+  });
+
+  it('liest die Sperre aus dem Topf, nicht aus der Frist', () => {
+    const state = computeGoalState({ ...goal, lockedAt: '2026-06-01T00:00:00.000Z' }, []);
+    expect(state.locked).toBe(true);
   });
 });

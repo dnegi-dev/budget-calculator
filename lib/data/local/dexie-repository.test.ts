@@ -187,6 +187,111 @@ describe('Töpfe', () => {
   });
 });
 
+describe('Sparziel-Töpfe', () => {
+  async function goalPot(targetDate: string) {
+    return repo.createPot({
+      name: 'Urlaub',
+      kind: 'goal',
+      limitCents: null,
+      carryOver: false,
+      goalCents: 100_000,
+      targetDate,
+    });
+  }
+
+  it('sperrt einen Sparziel-Topf, dessen Frist verstrichen ist — und nur diesen', async () => {
+    const abgelaufen = await goalPot('2026-01-01');
+    const laufend = await goalPot('2099-01-01');
+
+    const gesperrt = await repo.lockDueGoalPots('2026-06-01');
+    expect(gesperrt).toBe(1);
+
+    expect((await repo.getPot(abgelaufen.id))?.lockedAt).not.toBeNull();
+    expect((await repo.getPot(laufend.id))?.lockedAt).toBeNull();
+  });
+
+  it('ist idempotent — ein zweiter Lauf sperrt nichts erneut', async () => {
+    await goalPot('2026-01-01');
+    expect(await repo.lockDueGoalPots('2026-06-01')).toBe(1);
+    expect(await repo.lockDueGoalPots('2026-06-01')).toBe(0);
+  });
+
+  it('lehnt neue Buchungen auf einen gesperrten Topf ab', async () => {
+    const pot = await goalPot('2026-01-01');
+    await repo.lockDueGoalPots('2026-06-01');
+
+    await expect(
+      repo.createEntry({ potId: pot.id, kind: 'income', amountCents: 5_000, date: '2026-06-02' }),
+    ).rejects.toThrow(/gesperrt/);
+  });
+
+  it('lässt eine Buchung auf einem gesperrten Topf weiter bearbeiten, solange der Topf nicht wechselt', async () => {
+    const pot = await goalPot('2026-01-01');
+    const entry = await repo.createEntry({
+      potId: pot.id,
+      kind: 'income',
+      amountCents: 5_000,
+      date: '2026-06-02',
+    });
+    await repo.lockDueGoalPots('2026-06-02');
+    expect((await repo.getPot(pot.id))?.lockedAt).not.toBeNull();
+
+    const updated = await repo.updateEntry(entry.id, { amountCents: 6_000 });
+    expect(updated.amountCents).toBe(6_000);
+  });
+
+  it('lehnt es ab, eine bestehende Buchung auf einen gesperrten Topf umzuhängen', async () => {
+    const offen = await repo.createPot({
+      name: 'Sonstiges',
+      kind: 'category',
+      limitCents: null,
+      carryOver: false,
+    });
+    const entry = await repo.createEntry({
+      potId: offen.id,
+      kind: 'expense',
+      amountCents: 1_000,
+      date: '2026-06-02',
+    });
+    const gesperrterTopf = await goalPot('2026-01-01');
+    await repo.lockDueGoalPots('2026-06-01');
+
+    await expect(repo.updateEntry(entry.id, { potId: gesperrterTopf.id })).rejects.toThrow(
+      /gesperrt/,
+    );
+  });
+
+  it('entsperrt erst mit einer neuen, in der Zukunft liegenden Frist', async () => {
+    const pot = await goalPot('2026-01-01');
+    await repo.lockDueGoalPots('2026-06-01');
+    expect((await repo.getPot(pot.id))?.lockedAt).not.toBeNull();
+
+    // Eine Vergangenheits-Frist entsperrt nicht.
+    await repo.updatePot(pot.id, { targetDate: '2026-02-01' });
+    expect((await repo.getPot(pot.id))?.lockedAt).not.toBeNull();
+
+    await repo.updatePot(pot.id, { targetDate: '2099-01-01' });
+    expect((await repo.getPot(pot.id))?.lockedAt).toBeNull();
+  });
+
+  it('überspringt eine wiederkehrende Regel auf einen gesperrten Topf', async () => {
+    const pot = await goalPot('2026-01-01');
+    await repo.createRecurringRule({
+      potId: pot.id,
+      kind: 'income',
+      amountCents: 10_000,
+      freq: 'monthly',
+      interval: 1,
+      dayOfMonth: 1,
+      startDate: '2026-01-01',
+    });
+    await repo.lockDueGoalPots('2026-06-01');
+
+    expect(await repo.materializeRecurringRules('2026-09-18')).toBe(0);
+    expect(await repo.listEntries()).toHaveLength(0);
+  });
+});
+
 describe('Buchungen', () => {
   it('speichert Beträge immer positiv', async () => {
     const entry = await repo.createEntry({

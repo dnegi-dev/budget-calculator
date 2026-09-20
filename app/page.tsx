@@ -47,6 +47,13 @@ export default function HomePage() {
     () => snapshot.pots.filter((pot) => pot.archivedAt === null),
     [snapshot.pots],
   );
+  // Ein gesperrtes Sparziel bleibt sichtbar (anders als ein archivierter
+  // Topf), lässt sich aber nicht mehr bebuchen — deshalb ein eigener,
+  // engerer Filter nur für die Auswahl im Erfassen-Sheet.
+  const bookablePots = useMemo(
+    () => activePots.filter((pot) => pot.lockedAt === null),
+    [activePots],
+  );
 
   const states = useMemo(
     () => computePotStates(activePots, snapshot.entries, periodKey, format.periodStartDay),
@@ -121,7 +128,7 @@ export default function HomePage() {
         )}
       </Card>
 
-      <EntrySheet open={entryOpen} onClose={() => setEntryOpen(false)} pots={activePots} />
+      <EntrySheet open={entryOpen} onClose={() => setEntryOpen(false)} pots={bookablePots} />
       <PotWizard open={potWizardOpen} onClose={() => setPotWizardOpen(false)} />
     </div>
   );

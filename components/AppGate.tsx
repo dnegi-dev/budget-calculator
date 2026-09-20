@@ -59,6 +59,9 @@ export function AppGate({ children }: { children: ReactNode }) {
     void repository.materializeRecurringRules(todayIso()).catch(() => {
       materializedRef.current = false;
     });
+    // Dieselbe Begründung gilt für abgelaufene Sparziele: Im schlimmsten Fall
+    // sperrt eines erst beim nächsten Start.
+    void repository.lockDueGoalPots(todayIso()).catch(() => {});
   }, [repository, setupComplete, unlocked]);
 
   // Vor allem anderen — auch vor dem Ladezustand, denn diese Seiten brauchen

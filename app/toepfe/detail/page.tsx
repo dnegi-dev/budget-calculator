@@ -25,11 +25,15 @@ import { PotSettingsForm } from '../../../components/pots/PotSettingsForm';
 import { useCan } from '../../../lib/auth/provider';
 import { useData, useSnapshot } from '../../../lib/data/provider';
 import { todayIso } from '../../../lib/domain/dates';
-import { computePotPeriodState, entriesInPeriod } from '../../../lib/domain/ledger';
+import {
+  computeGoalState,
+  computePotPeriodState,
+  entriesInPeriod,
+} from '../../../lib/domain/ledger';
 import { periodForDate } from '../../../lib/domain/period';
 import { describePotConfig, matchesPreset } from '../../../lib/domain/pot-kinds';
 import { collectTags } from '../../../lib/domain/tags';
-import { CircleHelp, Settings } from 'lucide-react';
+import { CircleHelp, Lock, Settings } from 'lucide-react';
 import { Icon } from '../../../lib/ui/Icon';
 import { Banner } from '../../../lib/ui/Banner';
 import { Button } from '../../../lib/ui/Button';
@@ -76,6 +80,11 @@ function PotDetail() {
     [pot, potEntries, periodKey, format.periodStartDay],
   );
 
+  const goalState = useMemo(
+    () => (pot && pot.kind === 'goal' ? computeGoalState(pot, potEntries) : null),
+    [pot, potEntries],
+  );
+
   const entriesOfPeriod = useMemo(
     () => entriesInPeriod(potEntries, periodKey, format.periodStartDay),
     [potEntries, periodKey, format.periodStartDay],
@@ -107,7 +116,10 @@ function PotDetail() {
 
   const color = potColorVar(pot.color);
   const hasLimit = state.availableCents !== null;
-  const activePots = snapshot.pots.filter((candidate) => candidate.archivedAt === null);
+  const activePots = snapshot.pots.filter(
+    (candidate) => candidate.archivedAt === null && candidate.lockedAt === null,
+  );
+  const locked = pot.lockedAt !== null;
 
   const tagsEnabled = snapshot.household?.tagsEnabled ?? false;
 
@@ -174,51 +186,101 @@ function PotDetail() {
           <div className="min-w-0 flex-1">
             <p className="truncate font-medium">{pot.name}</p>
             <p className="text-sm text-ink-muted">
-              {describePotConfig(pot, format.money)}
+              {describePotConfig(pot, format.money, format.day)}
               {!matchesPreset(pot) ? ' · angepasst' : ''}
               {pot.archivedAt !== null ? ' · archiviert' : ''}
+              {locked ? ' · gesperrt' : ''}
             </p>
           </div>
         </div>
 
-        <div className="mt-4">
-          <PeriodSwitcher periodKey={periodKey} onChange={setPeriodKey} currentKey={currentKey} />
-        </div>
+        {goalState ? (
+          <div className="mt-4">
+            {locked && (
+              <Banner icon={<Icon icon={Lock} size={18} />}>
+                Die Frist ist am {pot.targetDate ? format.day(pot.targetDate) : ''} abgelaufen —
+                gesperrt, keine neuen Buchungen mehr.
+              </Banner>
+            )}
+            <div className={locked ? 'mt-3' : ''}>
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-sm text-ink-muted">Gespart</span>
+                <span className="tabular text-2xl font-semibold">
+                  {format.money(goalState.savedCents)}
+                </span>
+              </div>
+              <div className="mt-2">
+                <ProgressBar progress={goalState.progress ?? 0} color={color} overspent={false} />
+              </div>
+              <dl className="mt-3 grid grid-cols-2 gap-2 text-center text-xs">
+                <div>
+                  <dt className="text-ink-muted">Ziel</dt>
+                  <dd className="tabular mt-0.5 font-medium">
+                    {format.money(goalState.goalCents ?? 0)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-ink-muted">Noch offen</dt>
+                  <dd className="tabular mt-0.5 font-medium">
+                    {format.money(Math.max(0, goalState.remainingCents ?? 0))}
+                  </dd>
+                </div>
+              </dl>
+              {pot.targetDate && (
+                <p className="mt-3 text-center text-xs text-ink-muted">
+                  Frist: {format.day(pot.targetDate)}
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="mt-4">
+              <PeriodSwitcher
+                periodKey={periodKey}
+                onChange={setPeriodKey}
+                currentKey={currentKey}
+              />
+            </div>
 
-        <div className="mt-4">
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="text-sm text-ink-muted">{hasLimit ? 'Noch übrig' : 'Ausgegeben'}</span>
-            <span
-              className={[
-                'tabular text-2xl font-semibold',
-                state.overspent ? 'text-negative' : '',
-              ].join(' ')}
-            >
-              {format.money(hasLimit ? (state.availableCents ?? 0) : state.netCents)}
-            </span>
-          </div>
-          <div className="mt-2">
-            <ProgressBar progress={state.progress} color={color} overspent={state.overspent} />
-          </div>
-          <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-            <div>
-              <dt className="text-ink-muted">Ausgaben</dt>
-              <dd className="tabular mt-0.5 font-medium">{format.money(state.spentCents)}</dd>
+            <div className="mt-4">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-sm text-ink-muted">
+                  {hasLimit ? 'Noch übrig' : 'Ausgegeben'}
+                </span>
+                <span
+                  className={[
+                    'tabular text-2xl font-semibold',
+                    state.overspent ? 'text-negative' : '',
+                  ].join(' ')}
+                >
+                  {format.money(hasLimit ? (state.availableCents ?? 0) : state.netCents)}
+                </span>
+              </div>
+              <div className="mt-2">
+                <ProgressBar progress={state.progress} color={color} overspent={state.overspent} />
+              </div>
+              <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                <div>
+                  <dt className="text-ink-muted">Ausgaben</dt>
+                  <dd className="tabular mt-0.5 font-medium">{format.money(state.spentCents)}</dd>
+                </div>
+                <div>
+                  <dt className="text-ink-muted">Erstattungen</dt>
+                  <dd className="tabular mt-0.5 font-medium">{format.money(state.refundCents)}</dd>
+                </div>
+                <div>
+                  <dt className="text-ink-muted">{pot.carryOver ? 'Übertrag' : 'Limit'}</dt>
+                  <dd className="tabular mt-0.5 font-medium">
+                    {pot.carryOver
+                      ? format.money(state.carriedInCents)
+                      : format.money(state.limitCents ?? 0)}
+                  </dd>
+                </div>
+              </dl>
             </div>
-            <div>
-              <dt className="text-ink-muted">Erstattungen</dt>
-              <dd className="tabular mt-0.5 font-medium">{format.money(state.refundCents)}</dd>
-            </div>
-            <div>
-              <dt className="text-ink-muted">{pot.carryOver ? 'Übertrag' : 'Limit'}</dt>
-              <dd className="tabular mt-0.5 font-medium">
-                {pot.carryOver
-                  ? format.money(state.carriedInCents)
-                  : format.money(state.limitCents ?? 0)}
-              </dd>
-            </div>
-          </dl>
-        </div>
+          </>
+        )}
 
         {/*
           Nur ab `md`. Mobil macht das der schwebende Knopf, und der weiß,
@@ -229,7 +291,7 @@ function PotDetail() {
           Das `hidden` gehört an die Hülle: `Button` bringt `inline-flex` mit,
           und Tailwind gibt `.inline-flex` nach `.hidden` aus.
         */}
-        {can('entry.create') && pot.archivedAt === null && (
+        {can('entry.create') && pot.archivedAt === null && !locked && (
           <div className="mt-4 hidden md:block">
             <Button variant="primary" block onClick={() => setEntryOpen(true)}>
               Auf „{pot.name}“ buchen
