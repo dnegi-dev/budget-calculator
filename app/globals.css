@@ -93,6 +93,18 @@ html {
   /* Kein horizontales Scrollen, auch nicht bei 320 px Breite. */
   overflow-x: hidden;
   -webkit-text-size-adjust: 100%;
+  /*
+   * Nicht nur auf `body`: `overflow-x: hidden` hier macht `overflow-y` durch
+   * die CSS-Regel „eine Achse hidden, die andere von visible auf auto"
+   * automatisch zu `auto` — `html`, nicht `body`, ist damit der wirkliche
+   * Scrollcontainer (dieselbe Falle wie bei `useScrollLock`). Stand
+   * `overscroll-behavior-y` nur auf `body`, griff es dort nie: Auf kurzen
+   * Seiten wie „Heute" reichte der Finger bis zum Gummiband, und beim
+   * Zurückfedern rendert Safari kurz die Liste über der klebenden Leiste.
+   * Auf langen Listen (Buchungen) reicht der Daumen den Boden praktisch nie,
+   * darum fiel es dort nicht auf.
+   */
+  overscroll-behavior-y: none;
 }
 
 body {
