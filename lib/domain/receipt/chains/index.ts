@@ -11,5 +11,6 @@
 
 import type { ChainProfile } from '../profile';
 import { LUCHS } from './luchs';
+import { OTTER } from './otter';
 
-export const CHAIN_PROFILES: readonly ChainProfile[] = [LUCHS];
+export const CHAIN_PROFILES: readonly ChainProfile[] = [LUCHS, OTTER];

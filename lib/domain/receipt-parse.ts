@@ -88,6 +88,10 @@ const HEADER_CHATTER: readonly RegExp[] = [
   /\b(willkommen|herzlich|vielen dank|danke|auf wiedersehen|tsch[üu]ss)\b/i,
   /\b(ihr einkauf|ihre ersparnis|unser angebot|jetzt neu)\b/i,
   /\b(gewinnspiel|app|coupon|rabattheft)\b/i,
+  // Derselbe Fehler wie bei den Treuepunkten, nur auf Englisch: Ein
+  // Zweitausdruck trägt oft diesen Hinweis als allererste Zeile, noch vor
+  // dem Händlernamen.
+  /this is a (duplicate|copy) of the original/i,
 ];
 
 /**
@@ -125,6 +129,45 @@ const ISO_DATE_IN_TEXT = /\b(\d{4}-\d{2}-\d{2})\b/;
 
 function isNonItem(line: string): boolean {
   return NON_ITEM_PATTERNS.some((pattern) => pattern.test(line));
+}
+
+/**
+ * Eine Zeile aus Menge, Einzelpreis, Gesamtpreis und Steuerklasse — ohne
+ * einen einzigen Buchstaben: `3 * 1,29   3,87   0`.
+ *
+ * Manche Kassen drucken die Bezeichnung eines Postens mit Menge > 1 allein
+ * auf einer Zeile und diese Rechnung auf der nächsten. Für sich genommen
+ * liest sich keine der beiden: Die Bezeichnung trägt keinen Betrag, die
+ * Zahlenzeile keine Bezeichnung — `splitItemLine` verwirft beide.
+ */
+const WRAPPED_QUANTITY_LINE =
+  /^\s*\d{1,3}(?:[.,]\d{1,3})?\s*[x*]\s*\d{1,3}[.,]\d{2}\s+-?\d{1,3}(?:[.\s]\d{3})*[.,]\d{2}\s*-?\s*(?:[A-Z]{1,2}|\d)?\s*$/;
+
+/**
+ * Zieht eine über zwei Zeilen gedruckte Menge zusammen: die Bezeichnung mit
+ * der folgenden `WRAPPED_QUANTITY_LINE`. Zusammengefügt ist es genau die
+ * Form, die `TRAILING_QUANTITY` in `splitItemLine` schon kennt.
+ *
+ * Nur, wenn die vorige Zeile selbst noch keinen Betrag trägt und Buchstaben
+ * hat — sonst zöge das eine Steuertabellen- oder Summenzeile in einen Posten,
+ * der nicht dahintergehört.
+ */
+function joinWrappedQuantityLines(lines: readonly string[]): string[] {
+  const joined: string[] = [];
+  for (const line of lines) {
+    const previous = joined[joined.length - 1];
+    if (
+      previous !== undefined &&
+      WRAPPED_QUANTITY_LINE.test(line) &&
+      /\p{L}{2}/u.test(previous) &&
+      !TRAILING_AMOUNT.test(previous)
+    ) {
+      joined[joined.length - 1] = `${previous} ${line}`;
+    } else {
+      joined.push(line);
+    }
+  }
+  return joined;
 }
 
 /**
@@ -263,7 +306,8 @@ function findMerchant(lines: readonly string[]): string | null {
  * Gibt immer ein Ergebnis zurück — im schlechtesten Fall mit leerer
  * Postenliste und `quality: 'unsicher'`.
  */
-export function parseTextLines(lines: readonly string[]): ParsedReceipt {
+export function parseTextLines(rawLines: readonly string[]): ParsedReceipt {
+  const lines = joinWrappedQuantityLines(rawLines);
   const total = findTotal(lines);
   const totalCents = total?.cents ?? null;
   const date = findDate(lines);

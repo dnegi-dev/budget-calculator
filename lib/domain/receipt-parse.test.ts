@@ -50,6 +50,28 @@ const MIT_WERBEZEILE = [
   'Datum:07.09.26 Zeit: 18:04:39 Bon:83860',
 ];
 
+/**
+ * Ein Bon, dessen Kasse die Bezeichnung eines Postens mit Menge > 1 allein
+ * auf eine Zeile setzt und Menge, Einzelpreis, Gesamtpreis und Steuerklasse
+ * auf die nächste — ohne dass diese zweite Zeile einen einzigen Buchstaben
+ * trägt. Dazu ein englischer Hinweis auf einen Zweitausdruck, noch vor dem
+ * Händlernamen — derselbe Fehler wie bei der Werbezeile, nur auf Englisch.
+ */
+const ZWEIZEILIGE_MENGE = [
+  'This is a duplicate of the original receipt',
+  'Musterhaus GmbH & Co. KG',
+  'Beispielweg 1, 12345 Musterstadt',
+  '************',
+  'Artikel 40432479',
+  'Kissenbezug natur',
+  '3 * 1,29 3,87 0',
+  'Badematte groß 6,99 0',
+  'Coupon SPARDICH -2,86',
+  'Summe 8,00',
+  'Datum Uhrzeit EH KA Bon',
+  '19.09.26 13:51:24 119 56 78',
+];
+
 describe('splitItemLine', () => {
   it('trennt Bezeichnung und Betrag', () => {
     expect(splitItemLine('Bio-Vollmilch 3,5%            1,29 A')).toEqual({
@@ -178,6 +200,26 @@ describe('parseTextLines', () => {
     const labels = parseTextLines(SUPERMARKT).items.map((item) => item.label);
     expect(labels).not.toContain('Geg. BAR');
     expect(labels.some((label) => /MwSt|Rückgeld|TSE/.test(label))).toBe(false);
+  });
+
+  /**
+   * Eine Menge über zwei Zeilen: die Bezeichnung allein, darunter Menge,
+   * Einzelpreis, Gesamtpreis und Steuerklasse ohne einen einzigen
+   * Buchstaben. Für sich genommen liest sich keine der beiden Zeilen.
+   */
+  it('zieht eine über zwei Zeilen gedruckte Menge zusammen', () => {
+    const result = parseTextLines(ZWEIZEILIGE_MENGE);
+    expect(result.quality).toBe('geprüft');
+    expect(result.totalCents).toBe(800);
+    expect(result.items.map((item) => [item.label, item.amountCents, item.quantity])).toEqual([
+      ['Kissenbezug natur', 387, 3],
+      ['Badematte groß', 699, null],
+      ['Coupon SPARDICH', -286, null],
+    ]);
+  });
+
+  it('nimmt keinen englischen Hinweis auf einen Zweitausdruck als Händler', () => {
+    expect(parseTextLines(ZWEIZEILIGE_MENGE).merchant).toBe('Musterhaus GmbH & Co. KG');
   });
 
   it('nimmt die Endsumme, nicht die Zwischensumme', () => {
