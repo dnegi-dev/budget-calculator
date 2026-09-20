@@ -13,7 +13,7 @@
  * zur Frist.
  */
 
-import type { Pot, PotKind } from './types';
+import type { GoalPhase, Pot, PotKind } from './types';
 
 export interface PotKindPreset {
   kind: PotKind;
@@ -120,6 +120,18 @@ export function matchesPreset(
  */
 export function isGoalDue(pot: Pick<Pot, 'kind' | 'targetDate'>, today: string): boolean {
   return pot.kind === 'goal' && pot.targetDate !== null && today > pot.targetDate;
+}
+
+/**
+ * Lebensabschnitt eines Sparziel-Topfes; `null` bei jeder anderen Art.
+ *
+ * Töpfe aus der Zeit vor diesem Feld lesen `goalPhase` als `undefined` — der
+ * Rückfall auf `'saving'` steht genau hier, damit er nicht an jeder
+ * Verwendungsstelle einzeln nachgebaut wird.
+ */
+export function goalPhaseOf(pot: Pick<Pot, 'kind' | 'goalPhase'> | null): GoalPhase | null {
+  if (pot === null || pot.kind !== 'goal') return null;
+  return pot.goalPhase ?? 'saving';
 }
 
 /** Kurzbeschreibung der tatsächlichen Konfiguration, unabhängig vom Preset. */

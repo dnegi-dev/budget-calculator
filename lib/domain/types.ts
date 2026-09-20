@@ -27,6 +27,9 @@ export type PotKind = 'budget' | 'envelope' | 'category' | 'goal';
 
 export type EntryKind = 'expense' | 'income';
 
+/** Lebensabschnitt eines Sparziel-Topfes (`kind: 'goal'`). */
+export type GoalPhase = 'saving' | 'spending';
+
 export type Frequency = 'weekly' | 'monthly' | 'yearly';
 
 /**
@@ -141,6 +144,17 @@ export interface Pot extends RecordMeta {
    * in der Zukunft liegende `targetDate` wieder aufhebt.
    */
   lockedAt: IsoDateTime | null;
+  /**
+   * Lebensabschnitt eines Sparziel-Topfes (`kind: 'goal'`). Sonst `null`.
+   *
+   * Steuert ausschließlich, welche Buchungsart vorbelegt wird und welches
+   * Wort dafür erscheint — an der Rechnung in `computeGoalState` ändert sie
+   * nichts: Einzahlung und Auszahlung unterscheiden sich schon an
+   * `Entry.kind`. Töpfe aus der Zeit vor diesem Feld lesen es als
+   * `undefined`; `goalPhaseOf` in `lib/domain/pot-kinds.ts` fängt das als
+   * `'saving'` ab.
+   */
+  goalPhase: GoalPhase | null;
 }
 
 export interface Entry extends RecordMeta {
@@ -345,7 +359,7 @@ export type NewPurchaseItemInput = Pick<PurchaseItem, 'label' | 'amountCents'> &
   Partial<Pick<PurchaseItem, 'quantity' | 'potId' | 'tags'>>;
 
 export type NewPotInput = Pick<Pot, 'name' | 'kind' | 'limitCents' | 'carryOver'> &
-  Partial<Pick<Pot, 'icon' | 'color' | 'sortIndex' | 'goalCents' | 'targetDate'>>;
+  Partial<Pick<Pot, 'icon' | 'color' | 'sortIndex' | 'goalCents' | 'targetDate' | 'goalPhase'>>;
 
 export type NewRecurringRuleInput = Pick<
   RecurringRule,

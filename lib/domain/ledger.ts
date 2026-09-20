@@ -207,12 +207,15 @@ export interface GoalState {
  * unverändert über alle Perioden hinweg (wie aus `groupEntriesByPot`).
  *
  * **Eine Ausgabe zählt als Einzahlung, eine Einnahme als Entnahme** — genau
- * dieselbe Vorzeichen-Richtung wie `netCents` bei jedem anderen Topf. Das ist
- * kein Sonderfall: Auf einen Topf zu buchen heißt in dieser Anwendung immer
- * „Ausgabe", und der Topf-Schritt beim Erfassen erscheint nur bei Ausgaben
- * (`EntrySheet.potStepActive`) — eine Einnahme ließe sich also gar nicht
- * gezielt einem Sparziel zuordnen. Für „Geld beiseitelegen" bucht man wie für
- * jeden anderen Topf auch: eine Ausgabe auf „Urlaub".
+ * dieselbe Vorzeichen-Richtung wie `netCents` bei jedem anderen Topf. Auf
+ * einen Topf zu buchen heißt in dieser Anwendung immer „Ausgabe", und der
+ * Topf-Schritt beim Erfassen erscheint nur bei Ausgaben
+ * (`EntrySheet.potStepActive`) — außer auf einem Sparziel: Dort öffnet ihn
+ * auch eine Einnahme, denn genau die ist die Auszahlung (im Urlaub Geld
+ * ausgeben). `lib/domain/entry-kinds.ts` übersetzt die Wörter dafür
+ * („Einzahlen"/„Ausgeben" statt „Ausgabe"/„Einnahme"), ohne diese Rechnung
+ * anzufassen: Eine Ausgabe erhöht das Gesparte, eine Einnahme senkt es, wie
+ * schon immer.
  */
 export function computeGoalState(
   pot: Pick<Pot, 'id' | 'goalCents' | 'lockedAt'>,
@@ -257,6 +260,15 @@ export function computePotStates(
   );
 }
 
+/**
+ * Töpfe, deren Einnahmen in `computeHouseholdSummary` und `periodTotals`
+ * nicht als Zufluss zählen — siehe die Begründung dort. Ein Helfer, damit
+ * beide Stellen dieselbe Menge lesen statt sie zweimal zu bilden.
+ */
+function goalPotIds(pots: readonly Pot[]): ReadonlySet<string> {
+  return new Set(pots.filter((pot) => pot.kind === 'goal').map((pot) => pot.id));
+}
+
 export function computeHouseholdSummary(
   pots: readonly Pot[],
   entries: readonly Entry[],
@@ -264,11 +276,18 @@ export function computeHouseholdSummary(
   periodStartDay: number,
 ): HouseholdSummary {
   const inPeriod = entriesInPeriod(entries, periodKey, periodStartDay);
+  const goalPots = goalPotIds(pots);
   let incomeCents = 0;
   let expenseCents = 0;
   for (const entry of inPeriod) {
-    if (entry.kind === 'income') incomeCents += entry.amountCents;
-    else expenseCents += entry.amountCents;
+    if (entry.kind === 'income') {
+      // Eine Einnahme auf einem Sparziel-Topf ist eine Auszahlung des schon
+      // Ersparten (`kindForGoalPhase` legt sie in der Auszahlphase vor), kein
+      // Zufluss — sie war beim Ansparen schon eine Ausgabe. Sie bleibt hier
+      // wie dort aus der Rechnung heraus, statt ein zweites Mal zu zählen.
+      if (entry.potId !== null && goalPots.has(entry.potId)) continue;
+      incomeCents += entry.amountCents;
+    } else expenseCents += entry.amountCents;
   }
   const plannedCents = pots
     .filter((pot) => pot.archivedAt === null && pot.deletedAt === null && hasLimit(pot))
@@ -318,18 +337,28 @@ export interface PeriodTotals {
   balanceCents: number;
 }
 
-/** Einnahmen/Ausgaben je Periode — Datengrundlage des Verlaufscharts. */
+/**
+ * Einnahmen/Ausgaben je Periode — Datengrundlage des Verlaufscharts.
+ *
+ * `pots` nur, um Einnahmen auf Sparziel-Töpfen herauszurechnen — dieselbe
+ * Sonderregel wie in `computeHouseholdSummary`, sonst zeigt der Verlauf im
+ * Monat einer Auszahlung eine Einnahmespitze, die keine ist.
+ */
 export function periodTotals(
   entries: readonly Entry[],
   periodKeys: readonly string[],
   periodStartDay: number,
+  pots: readonly Pot[] = [],
 ): PeriodTotals[] {
+  const goalPots = goalPotIds(pots);
   return periodKeys.map((periodKey) => {
     let incomeCents = 0;
     let expenseCents = 0;
     for (const entry of entriesInPeriod(entries, periodKey, periodStartDay)) {
-      if (entry.kind === 'income') incomeCents += entry.amountCents;
-      else expenseCents += entry.amountCents;
+      if (entry.kind === 'income') {
+        if (entry.potId !== null && goalPots.has(entry.potId)) continue;
+        incomeCents += entry.amountCents;
+      } else expenseCents += entry.amountCents;
     }
     return { periodKey, incomeCents, expenseCents, balanceCents: incomeCents - expenseCents };
   });

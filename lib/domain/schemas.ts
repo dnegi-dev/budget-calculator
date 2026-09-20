@@ -55,6 +55,7 @@ export const idSchema = z.string().min(1).max(64);
 export const roleSchema = z.enum(['admin', 'member', 'viewer']);
 export const potKindSchema = z.enum(['budget', 'envelope', 'category', 'goal']);
 export const entryKindSchema = z.enum(['expense', 'income']);
+export const goalPhaseSchema = z.enum(['saving', 'spending']);
 export const frequencySchema = z.enum(['weekly', 'monthly', 'yearly']);
 export const fabActionSchema = z.enum(['expense', 'income', 'ask']);
 export const parseQualitySchema = z.enum(['exakt', 'geprüft', 'unsicher']);
@@ -135,12 +136,13 @@ export const potSchema = z.object({
   carryOver: z.boolean(),
   sortIndex: z.number().int(),
   archivedAt: isoDateTimeSchema.nullable(),
-  // Drei Felder für den Sparziel-Topf (`kind: 'goal'`), den es in Version 1
+  // Vier Felder für den Sparziel-Topf (`kind: 'goal'`), den es in Version 1
   // noch nicht gab. Standardwerte, damit ältere Sicherungen einlesbar
   // bleiben — sonst wäre das Feld bei bestehenden Töpfen `undefined`.
   goalCents: amountCentsSchema.nullable().default(null),
   targetDate: isoDateSchema.nullable().default(null),
   lockedAt: isoDateTimeSchema.nullable().default(null),
+  goalPhase: goalPhaseSchema.nullable().default(null),
 });
 
 export const entrySchema = z.object({

@@ -30,6 +30,7 @@ function pot(overrides: Partial<Pot> & { id: string; kind: PotKind }): Pot {
     goalCents: null,
     targetDate: null,
     lockedAt: null,
+    goalPhase: null,
     ...overrides,
   };
 }
@@ -233,6 +234,25 @@ describe('computeHouseholdSummary', () => {
     expect(summary.plannedCents).toBe(40_000); // archivierter Topf zählt nicht
     expect(summary.entryCount).toBe(3);
   });
+
+  /**
+   * Eine Auszahlung aus einem Sparziel ist technisch eine Einnahme
+   * (`computeGoalState`), aber kein Zufluss: Das Geld steckte schon in den
+   * Ausgaben, als es angespart wurde. Sie bleibt deshalb aus der Kennzahl
+   * heraus — eine Einnahme auf einem gewöhnlichen Topf zählt weiter normal.
+   */
+  it('lässt eine Auszahlung aus einem Sparziel-Topf nicht als Einnahme zählen', () => {
+    const pots = [
+      pot({ id: 'g1', kind: 'goal', goalCents: 100_000 }),
+      pot({ id: 'p1', kind: 'budget', limitCents: 10_000 }),
+    ];
+    const entries = [
+      entry('g1', 'income', 20_000, '2026-09-10'), // Auszahlung, kein Zufluss
+      entry('p1', 'income', 5_000, '2026-09-11'), // gewöhnliche Einnahme
+    ];
+    const summary = computeHouseholdSummary(pots, entries, '2026-09', 1);
+    expect(summary.incomeCents).toBe(5_000);
+  });
 });
 
 describe('spendingByPot', () => {
@@ -261,6 +281,21 @@ describe('periodTotals', () => {
     expect(totals).toHaveLength(2);
     expect(totals[0]).toMatchObject({ periodKey: '2026-08', expenseCents: 0 });
     expect(totals[1]).toMatchObject({ periodKey: '2026-09', expenseCents: 1_000 });
+  });
+
+  it('lässt eine Auszahlung aus einem Sparziel-Topf nicht als Einnahme zählen', () => {
+    const pots = [pot({ id: 'g1', kind: 'goal', goalCents: 100_000 })];
+    const entries = [entry('g1', 'income', 20_000, '2026-09-10')];
+    const totals = periodTotals(entries, ['2026-09'], 1, pots);
+    expect(totals[0]).toMatchObject({ incomeCents: 0 });
+  });
+
+  it('zählt eine Auszahlung ohne die Töpfe-Liste weiter als Einnahme', () => {
+    // Der Parameter ist optional — bestehende Aufrufer ohne Sparziel-Kontext
+    // ändern sich nicht.
+    const entries = [entry('g1', 'income', 20_000, '2026-09-10')];
+    const totals = periodTotals(entries, ['2026-09'], 1);
+    expect(totals[0]).toMatchObject({ incomeCents: 20_000 });
   });
 });
 
@@ -292,10 +327,10 @@ describe('computeGoalState', () => {
   const goal = { id: 'g1', goalCents: 100_000, lockedAt: null as string | null };
 
   /**
-   * Eine Ausgabe ist die Einzahlung — genau wie bei jedem anderen Topf, und
-   * aus demselben Grund: Der Topf-Schritt beim Erfassen erscheint nur bei
-   * Ausgaben (`EntrySheet.potStepActive`), eine Einnahme ließe sich gar
-   * nicht gezielt zuordnen. Eine Einnahme auf dem Sparziel ist die Entnahme.
+   * Eine Ausgabe ist die Einzahlung, eine Einnahme die Auszahlung —
+   * `lib/domain/entry-kinds.ts` nennt sie „Einzahlen"/„Ausgeben", die
+   * Rechnung hier bleibt unverändert die von `netCents` bei jedem anderen
+   * Topf.
    */
   it('summiert über die gesamte Lebenszeit, nicht nur eine Periode', () => {
     const state = computeGoalState(goal, [

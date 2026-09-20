@@ -24,6 +24,7 @@ const pot: Pot = {
   goalCents: null,
   targetDate: null,
   lockedAt: null,
+  goalPhase: null,
 };
 
 function entry(overrides: Partial<Entry> & { id: string }): Entry {

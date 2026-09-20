@@ -374,6 +374,42 @@ die einer Periode — anders als `computePotPeriodState`.
   Topf-Eigenschaft, die eine Buchung verhindern soll. Ausnahme bewusst: die
   Töpfe-Übersicht (Heute, Töpfe) blendet einen gesperrten Topf **nicht** aus
   — anders als ein archivierter bleibt er sichtbar, nur nicht mehr bebuchbar.
+- **„Einzahlen"/„Ausgeben" statt „Ausgabe"/„Einnahme" — nur in diesem
+  Kontext.** Auf einen Topf zu buchen heißt in der Anwendung immer „Ausgabe",
+  und `computeGoalState` rechnet entsprechend: Ausgabe erhöht das Gesparte,
+  Einnahme senkt es (eine Auszahlung im Urlaub ist technisch eine Einnahme).
+  Das ist korrekt gerechnet und falsch benannt — „Ausgabe: 200 € auf Urlaub"
+  klingt nach Geld, das weg ist, erhöht aber den Topf. `lib/domain/entry-kinds.ts`
+  übersetzt die Wörter für einen Sparziel-Topf, ohne die Rechnung anzufassen:
+
+  | Buchungsart | im Sparziel-Kontext |
+  | ----------- | ------------------- |
+  | `expense`   | „Einzahlen"         |
+  | `income`    | „Ausgeben"          |
+
+  Gilt nur dort, wo ein Sparziel-Topf feststeht (Topf-Detail, dessen
+  Einstellungen, der schwebende Knopf auf `?pot=`, das Erfassen-Sheet mit
+  vorbelegtem Sparziel-Topf) — die allgemeine Buchungsliste und die
+  Auswertung bleiben bei „Ausgabe"/„Einnahme".
+
+- **`goalPhase` ist reine Vorbelegung, keine zweite Rechnung.** Ein Sparziel
+  hat zwei Lebensabschnitte: erst einzahlen, dann (im Urlaub) ausgeben. Der
+  Schieberegler auf der Topf-Detailseite schaltet `Pot.goalPhase`
+  (`'saving' | 'spending'`) um und legt darüber fest, welche Buchungsart der
+  schwebende Knopf vorbelegt (`resolveGoalFabAction` in `lib/domain/fab.ts`,
+  Topf schlägt Bereich schlägt allgemein) und welches Wort erscheint — an
+  `computeGoalState` ändert sie nichts. Wie `lockedAt` kein zweites
+  `archivedAt` ist, ist `goalPhase` kein zweites `kind`: Sie beschreibt einen
+  Zustand _innerhalb_ der Art „goal", nicht die Art selbst, und ist deshalb
+  `.nullable().default(null)` im Schema wie jedes andere Sparziel-Feld.
+- **Eine Auszahlung zählt in `computeHouseholdSummary`/`periodTotals` nicht
+  als Einnahme.** Das Geld steckte schon in den Ausgaben, als es angespart
+  wurde — ein zweites Mal als Zufluss zu zählen wäre falsch, auch wenn
+  `Entry.kind` technisch `'income'` ist. Die Ausnahme gilt **nur** für diese
+  beiden Kennzahlen der Auswertung; `summarizeByTag` in `lib/domain/tags.ts`
+  bleibt bewusst unberührt — es ist eine Aufschlüsselung je Buchung wie bei
+  jedem anderen Topf, und die schon bestehende Regel, dass sich Tag-Summen
+  nicht zur Gesamtsumme addieren, deckt diesen Fall mit ab.
 
 ## Klebende Leiste über Listen
 

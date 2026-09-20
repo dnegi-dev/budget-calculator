@@ -12,7 +12,9 @@
  * Bereich eine Zeile anzeigt. Zweimal geschrieben wäre sie zweimal zu pflegen.
  */
 
-import type { FabAction, FabScope, Household } from './types';
+import { kindForGoalPhase } from './entry-kinds';
+import { goalPhaseOf } from './pot-kinds';
+import type { FabAction, FabScope, Household, Pot } from './types';
 
 export interface FabScopeInfo {
   scope: FabScope;
@@ -96,6 +98,21 @@ export function resolveFabAction(
   if (!household) return 'expense';
   const eigene = scope ? household.fabScopes?.[scope] : undefined;
   return eigene ?? household.fabDefault ?? 'expense';
+}
+
+/**
+ * Auf einem Sparziel schlägt die Phase des Topfes die Einstellung — sie ist
+ * die jüngere und genauere Aussage des Nutzers (Topf schlägt Bereich, Bereich
+ * schlägt allgemein). `'ask'` bleibt `'ask'`: Wer gefragt werden will, wird
+ * weiter gefragt, nur mit den Sparziel-Wörtern.
+ */
+export function resolveGoalFabAction(
+  action: FabAction,
+  pot: Pick<Pot, 'kind' | 'goalPhase'> | null,
+): FabAction {
+  const phase = goalPhaseOf(pot);
+  if (phase === null || action === 'ask') return action;
+  return kindForGoalPhase(phase);
 }
 
 /**

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyPotKindPreset,
   describePotConfig,
+  goalPhaseOf,
   hasGoal,
   hasLimit,
   isGoalDue,
@@ -67,6 +68,27 @@ describe('isGoalDue', () => {
   it('ist bei anderen Arten und ohne Frist nie fällig', () => {
     expect(isGoalDue({ kind: 'budget', targetDate: '2020-01-01' }, '2026-01-01')).toBe(false);
     expect(isGoalDue({ kind: 'goal', targetDate: null }, '2026-01-01')).toBe(false);
+  });
+});
+
+describe('goalPhaseOf', () => {
+  it('ist null bei jeder anderen Art und ohne Topf', () => {
+    expect(goalPhaseOf({ kind: 'budget', goalPhase: 'spending' })).toBeNull();
+    expect(goalPhaseOf(null)).toBeNull();
+  });
+
+  it('reicht eine gesetzte Phase durch', () => {
+    expect(goalPhaseOf({ kind: 'goal', goalPhase: 'spending' })).toBe('spending');
+    expect(goalPhaseOf({ kind: 'goal', goalPhase: 'saving' })).toBe('saving');
+  });
+
+  it('fällt bei Töpfen aus der Zeit vor diesem Feld auf „saving" zurück', () => {
+    const alt = { kind: 'goal', goalPhase: undefined } as unknown as {
+      kind: 'goal';
+      goalPhase: null;
+    };
+    expect(goalPhaseOf(alt)).toBe('saving');
+    expect(goalPhaseOf({ kind: 'goal', goalPhase: null })).toBe('saving');
   });
 });
 

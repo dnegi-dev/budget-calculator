@@ -103,8 +103,9 @@ export default function AnalyticsPage() {
         snapshot.entries,
         lastPeriodKeys(periodKey, Number(range)),
         format.periodStartDay,
+        snapshot.pots,
       ),
-    [snapshot.entries, periodKey, range, format.periodStartDay],
+    [snapshot.entries, snapshot.pots, periodKey, range, format.periodStartDay],
   );
 
   const tagsEnabled = snapshot.household?.tagsEnabled ?? false;
@@ -163,6 +164,18 @@ export default function AnalyticsPage() {
           tone={summary.balanceCents < 0 ? 'negative' : 'positive'}
         />
       </div>
+
+      {/*
+        Nicht Kosmetik, wie der Hinweis unter „Nach Tag": Eine Auszahlung aus
+        einem Sparziel steckt schon in den Ausgaben früherer Perioden — sie
+        hier als Einnahme zu zählen wäre doppelt gerechnet.
+      */}
+      {snapshot.pots.some((pot) => pot.kind === 'goal') && (
+        <p className="-mt-2 text-xs text-ink-muted">
+          Auszahlungen aus einem Sparziel zählen hier nicht als Einnahme — das Geld steckte schon in
+          den Ausgaben, als es angespart wurde.
+        </p>
+      )}
 
       {!hasData ? (
         <Card>

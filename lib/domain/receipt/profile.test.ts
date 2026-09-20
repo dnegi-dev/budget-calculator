@@ -135,6 +135,7 @@ describe('resolveCategoryPot', () => {
       goalCents: null,
       targetDate: null,
       lockedAt: null,
+      goalPhase: null,
     };
   }
 

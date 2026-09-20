@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { einrichten, entsperren, erfassenOeffnen } from './helpers';
+import { einrichten, entsperren, erfassenOeffnen, schwebenderKnopf } from './helpers';
 
 /**
  * Der Sparziel-Topf: Betrag und Frist statt Perioden-Limit, Fortschritt über
@@ -95,4 +95,72 @@ test.describe('Sparziel-Topf', () => {
     await expect(sheet.getByLabel('Bis wann?')).toHaveValue('2099-06-15');
     await expect(sheet.getByText('Restbetrag übertragen')).toHaveCount(0);
   });
+
+  /**
+   * Der Schieberegler stellt nur die Wortwahl und die vorbelegte Buchungsart
+   * um — an `computeGoalState` ändert sich nichts: Eine Einzahlung ist
+   * weiterhin eine Ausgabe (erhöht „Gespart"), eine Auszahlung weiterhin eine
+   * Einnahme (senkt es). Der schwebende Knopf übernimmt das über
+   * `resolveGoalFabAction`.
+   */
+  test('der Schieberegler stellt auf Ausgeben um, der Knopf übernimmt das', async ({ page }) => {
+    await einrichten(page);
+    await sparzielAnlegen(page, 'Urlaub');
+
+    await page
+      .getByRole('link', { name: /Urlaub/ })
+      .first()
+      .click();
+
+    const gespartDd = page
+      .locator('span', { hasText: 'Gespart' })
+      .locator('xpath=following-sibling::span[1]');
+
+    // Erst einzahlen, damit später etwas zum Ausgeben da ist.
+    await bucheAufSparziel(page, 'saving', '20000');
+    await expect(gespartDd).toHaveText('200,00 €');
+
+    // Auf die Auszahlphase umstellen.
+    await page
+      .getByRole('radiogroup', { name: 'Phase dieses Sparziels' })
+      .getByRole('radio', { name: 'Ausgeben' })
+      .click();
+    await expect(page.getByText(/Auszahlphase/)).toBeVisible();
+
+    // Jetzt ausgeben — der schwebende Knopf fragt nicht mehr nach der Art,
+    // sondern übernimmt „Ausgeben" aus der Phase; „Gespart" sinkt.
+    await bucheAufSparziel(page, 'spending', '5000');
+    await expect(gespartDd).toHaveText('150,00 €');
+  });
 });
+
+/**
+ * Bucht über den schwebenden Knopf (mobil) oder den Knopf auf der
+ * Topf-Detailseite (Desktop). Beide sind auf einem Sparziel-Topf phasen-
+ * bewusst vorbelegt (`resolveGoalFabAction`/`EntrySheet.defaultKind`) — die
+ * Einzahlphase legt „Ausgabe" (Einzahlen) vor, die Auszahlphase „Einnahme"
+ * (Ausgeben). Nur bei einer Einzahlung erscheint zusätzlich der Topf-Schritt
+ * (`EntrySheet.potStepActive`); der Topf ist dort über `defaultPotId` schon
+ * vorbelegt.
+ */
+async function bucheAufSparziel(
+  page: Page,
+  phase: 'saving' | 'spending',
+  betragCents: string,
+): Promise<void> {
+  const breite = page.viewportSize()?.width ?? 768;
+  if (breite < 768) {
+    await schwebenderKnopf(page).click();
+  } else {
+    // Nicht `/Urlaub/` allein: Nach der ersten Buchung trägt auch ihre Zeile
+    // in der Liste darunter den Topfnamen und ist selbst ein Knopf.
+    await page.getByRole('button', { name: /^(In|Von) „Urlaub“/ }).click();
+  }
+  await page.getByLabel('Betrag').fill(betragCents);
+  await page.getByRole('button', { name: 'Weiter' }).click();
+  if (phase === 'saving') {
+    await page.getByRole('button', { name: 'Weiter' }).click();
+  }
+  await page.getByRole('button', { name: 'Fertig' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+}

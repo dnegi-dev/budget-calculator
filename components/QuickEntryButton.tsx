@@ -41,7 +41,15 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { PiggyBank, Plus, ShoppingCart, type LucideIcon } from 'lucide-react';
 import { useCan } from '../lib/auth/provider';
 import { useSnapshot } from '../lib/data/provider';
-import { fabLabel, fabVisibleOnPath, resolveFabAction, scopeForPath } from '../lib/domain/fab';
+import { entryKindActionLabel, entryKindLabel } from '../lib/domain/entry-kinds';
+import {
+  fabLabel,
+  fabVisibleOnPath,
+  resolveFabAction,
+  resolveGoalFabAction,
+  scopeForPath,
+} from '../lib/domain/fab';
+import { goalPhaseOf } from '../lib/domain/pot-kinds';
 import type { EntryKind } from '../lib/domain/types';
 import { Icon } from '../lib/ui/Icon';
 import { Sheet } from '../lib/ui/Sheet';
@@ -69,7 +77,6 @@ export function QuickEntryButton() {
   }, [menuOpen]);
 
   const scope = scopeForPath(pathname);
-  const action = resolveFabAction(snapshot.household, scope);
 
   if (!can('entry.create')) return null;
   if (!fabVisibleOnPath(pathname)) return null;
@@ -81,13 +88,18 @@ export function QuickEntryButton() {
   /**
    * Der Topf aus der Adresse, aber nur dort, wo er etwas bedeutet. Ein
    * `?pot=` auf einer anderen Seite ist kein Auftrag, und ein archivierter
-   * Topf steht nicht zur Wahl.
+   * Topf steht nicht zur Wahl. Als `Pot` und nicht nur als Kennung, damit
+   * `resolveGoalFabAction` seine Art lesen kann.
    */
   const potAusAdresse = scope === 'potDetail' ? (params.get('pot') ?? null) : null;
-  const defaultPotId =
-    potAusAdresse !== null && activePots.some((pot) => pot.id === potAusAdresse)
-      ? potAusAdresse
-      : null;
+  const zielTopf =
+    potAusAdresse !== null ? (activePots.find((pot) => pot.id === potAusAdresse) ?? null) : null;
+  const defaultPotId = zielTopf?.id ?? null;
+
+  const action = resolveGoalFabAction(resolveFabAction(snapshot.household, scope), zielTopf);
+  const fabActionLabel =
+    action === 'ask' ? fabLabel('ask') : entryKindActionLabel(action, zielTopf);
+  const aufSparziel = goalPhaseOf(zielTopf) !== null;
 
   function schliesseMenu(zurueckZumKnopf = true) {
     setMenuOpen(false);
@@ -147,10 +159,14 @@ export function QuickEntryButton() {
             <MenuRow
               ref={firstItemRef}
               icon={PiggyBank}
-              label="Einnahme"
+              label={entryKindLabel('income', zielTopf)}
               onClick={() => starte('income')}
             />
-            <MenuRow icon={ShoppingCart} label="Ausgabe" onClick={() => starte('expense')} />
+            <MenuRow
+              icon={ShoppingCart}
+              label={entryKindLabel('expense', zielTopf)}
+              onClick={() => starte('expense')}
+            />
           </div>
         </>
       )}
@@ -174,7 +190,7 @@ export function QuickEntryButton() {
           „Weiter" — denselben Namen, den jeder Schritt im Erfassen-Sheet
           trägt. Ein Wort, das eine Verwechslung einbaut, ist das falsche Wort.
         */
-        aria-label={`${fabLabel(action)} — lang drücken für mehr`}
+        aria-label={`${fabActionLabel} — lang drücken für mehr`}
         className={[
           'fixed right-4 z-40 grid h-14 w-14 place-items-center rounded-full md:hidden',
           // Über der unteren Leiste, samt Geräte-Sicherheitsbereich.
@@ -197,14 +213,14 @@ export function QuickEntryButton() {
         <div className="flex flex-col gap-2">
           <ChoiceRow
             icon={ShoppingCart}
-            label="Ausgabe"
-            hint="Geht von einem Topf ab"
+            label={entryKindLabel('expense', zielTopf)}
+            hint={aufSparziel ? 'Erhöht das Gesparte' : 'Geht von einem Topf ab'}
             onClick={() => starte('expense')}
           />
           <ChoiceRow
             icon={PiggyBank}
-            label="Einnahme"
-            hint="Kommt dem Haushalt zu"
+            label={entryKindLabel('income', zielTopf)}
+            hint={aufSparziel ? 'Nimmt vom Gesparten' : 'Kommt dem Haushalt zu'}
             onClick={() => starte('income')}
           />
         </div>
