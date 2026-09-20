@@ -3,10 +3,18 @@
 /**
  * Erweiterte Einstellungen eines Topfes.
  *
- * Hier wird sichtbar, dass `kind` nur ein Preset ist: Limit und Übertrag sind
- * einzeln schaltbar. Eine Kombination, die von der gewählten Art abweicht,
- * wird als „angepasst“ markiert statt stillschweigend korrigiert — sonst wäre
- * unklar, warum ein „Monatsbudget“ plötzlich überträgt.
+ * Hier wird sichtbar, dass `kind` nur ein Preset ist: Das Limit bleibt frei
+ * einstellbar. Der Übertrag hat dagegen **keinen eigenen Schalter** mehr —
+ * er hing sonst doppelt an der Bedienung: einmal über die Art
+ * („Monatsbudget“ vs. „Budget mit Übertrag“), einmal über eine zusätzliche
+ * Checkbox, die genau dasselbe Feld (`carryOver`) setzte und dabei
+ * stillschweigend überschrieb, was die Art gerade gewählt hatte. Jetzt setzt
+ * ausschließlich der Wechsel der Art den Übertrag — auf ihren Standard.
+ *
+ * Ein Topf, dessen `carryOver` aus der Zeit vor dieser Änderung noch von
+ * seiner Art abweicht, bleibt unangetastet, solange niemand die Art wechselt
+ * — und wird weiterhin als „angepasst“ markiert statt stillschweigend
+ * korrigiert, damit klar bleibt, warum ein „Monatsbudget“ überträgt.
  */
 
 import { useState } from 'react';
@@ -118,24 +126,6 @@ function PotFields({ pot }: { pot: Pot }) {
           label="Limit pro Periode"
           currencySymbol={format.currencySymbol}
         />
-      )}
-
-      {needsLimit && (
-        <label className="flex items-start gap-3 rounded-xl border border-line bg-surface px-4 py-3">
-          <input
-            type="checkbox"
-            checked={carryOver}
-            onChange={(event) => setCarryOver(event.target.checked)}
-            className="mt-0.5 accent-[var(--accent)]"
-          />
-          <span className="min-w-0">
-            <span className="block font-medium">Restbetrag übertragen</span>
-            <span className="mt-0.5 block text-sm text-ink-muted">
-              Was übrig bleibt, erhöht das Limit der nächsten Periode. Überziehungen werden genauso
-              mitgenommen.
-            </span>
-          </span>
-        </label>
       )}
 
       {deviates && (
