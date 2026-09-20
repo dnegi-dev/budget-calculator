@@ -26,11 +26,28 @@ export function Sheet({ open, onClose, title, description, children, footer }: S
   // Hintergrund nicht mitscrollen lassen, solange das Sheet offen ist.
   useScrollLock(open);
 
+  /**
+   * Nicht `onClose` selbst in die Abhängigkeiten des Effekts unten — einige
+   * Aufrufer (etwa `PotWizard`) reichen keine stabile Prop durch, sondern
+   * eine im Funktionskörper neu gebaute Hülle (`function close() { reset();
+   * onClose(); }`). Die ist bei jedem Rendern eine neue Referenz, und
+   * `PotWizard` rendert bei jedem Tastendruck neu (eigener `name`-State).
+   * Hinge der Effekt an `onClose`, liefe er dann bei jedem Buchstaben erneut
+   * — inklusive `panelRef.current?.focus()`, das den Fokus vom Eingabefeld
+   * zurück auf den Dialograhmen riss und auf dem Telefon die Bildschirm-
+   * tastatur schloss. Über die Ref bleibt der Escape-Handler trotzdem aktuell,
+   * ohne dass seine Identität den Effekt erneut auslöst.
+   */
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   useEffect(() => {
     if (!open) return;
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') onCloseRef.current();
     }
     document.addEventListener('keydown', onKeyDown);
 
@@ -40,7 +57,7 @@ export function Sheet({ open, onClose, title, description, children, footer }: S
     return () => {
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
