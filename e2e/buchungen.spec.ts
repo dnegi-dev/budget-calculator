@@ -19,7 +19,7 @@ test.describe('Buchungen', () => {
     await erfassenOeffnen(page, 'Ausgabe');
     await page.getByLabel('Betrag').fill('1999');
     await page.getByRole('button', { name: 'Weiter' }).click();
-    await page.getByRole('button', { name: /Wohnen/ }).click();
+    await page.getByRole('button', { name: /Haushalt/ }).click();
     await page.getByRole('button', { name: 'Weiter' }).click();
     await page.getByLabel('Firma').fill('Baumarkt');
     await page.getByRole('button', { name: 'Fertig' }).click();

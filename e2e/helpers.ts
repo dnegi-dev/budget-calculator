@@ -88,9 +88,13 @@ export async function erfassenOeffnen(page: Page, art: 'Ausgabe' | 'Einnahme'): 
 /**
  * Ersteinrichtung im Schnelldurchlauf.
  *
- * Die Vorschlagstöpfe bleiben wie sie sind — die Tests, die diesen Helfer
- * benutzen, prüfen nicht den Wizard (das macht `alltag.spec.ts`), sondern
- * brauchen nur einen eingerichteten Haushalt.
+ * Acht Schritte: Name, Währung/Periode, Einkommen (leer gelassen), Betragsart
+ * (bleibt bei der voreingestellten „Frei" — „Fest" ist ohne Einkommen ohnehin
+ * gesperrt), dann je ein Schritt für Lebensmittel, Haushalt, Hobby und
+ * Urlaub. Lebensmittel und Haushalt sind voreingestellt aktiv, Hobby und
+ * Urlaub nicht — die Tests, die diesen Helfer benutzen, prüfen nicht den
+ * Wizard selbst (das macht `alltag.spec.ts`), sondern brauchen nur einen
+ * eingerichteten Haushalt mit den beiden Standard-Töpfen.
  */
 export async function einrichten(page: Page, name = 'Testhaushalt'): Promise<void> {
   await page.goto('/');
@@ -100,13 +104,25 @@ export async function einrichten(page: Page, name = 'Testhaushalt'): Promise<voi
   await expect(page.getByRole('heading', { name: 'Währung und Periode' })).toBeVisible();
   await page.getByRole('button', { name: 'Weiter' }).click();
 
-  await expect(page.getByRole('heading', { name: /Welche T/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Einkommen/ })).toBeVisible();
   await page.getByRole('button', { name: 'Weiter' }).click();
 
-  await expect(page.getByRole('heading', { name: /Einkommen/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Beträge gesetzt/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Weiter' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Lebensmittel' })).toBeVisible();
+  await page.getByRole('button', { name: 'Weiter' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Haushalt' })).toBeVisible();
+  await page.getByRole('button', { name: 'Weiter' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Hobby' })).toBeVisible();
+  await page.getByRole('button', { name: 'Weiter' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Urlaub' })).toBeVisible();
   await page.getByRole('button', { name: /Los geht/ }).click();
 
-  await expect(page.getByRole('link', { name: /Wohnen/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Lebensmittel/ })).toBeVisible();
 }
 
 /** Ob das Fenster schmaler ist als der `md`-Umbruch — mobile Oberfläche. */

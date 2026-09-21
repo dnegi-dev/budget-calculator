@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
   await entsperren(page);
 });
 
-/** Liest das Muster mit `ekabs.json` ein und legt alles auf „Wohnen". */
+/** Liest das Muster mit `ekabs.json` ein und legt alles auf „Lebensmittel". */
 async function bonBuchen(page: Parameters<typeof einrichten>[0]) {
   await erfassenOeffnen(page, 'Ausgabe');
   await page.getByRole('button', { name: /Aus PDF-Bon einlesen/ }).click();
@@ -22,7 +22,7 @@ async function bonBuchen(page: Parameters<typeof einrichten>[0]) {
     'e2e/fixtures/bon-ekabs.pdf',
   );
   await expect(page.getByText('Aus dem Beleg selbst gelesen.')).toBeVisible();
-  await optionWaehlen(page, 'Alles auf einen Topf', 'Wohnen');
+  await optionWaehlen(page, 'Alles auf einen Topf', 'Lebensmittel');
   await page.getByRole('button', { name: 'Buchung anlegen' }).click();
 }
 
@@ -38,12 +38,12 @@ test.describe('Einkauf', () => {
       .click();
     await expect(page.getByRole('heading', { level: 1, name: /Musterbäckerei/ })).toBeVisible();
 
-    // Alles auf „Wohnen": eine Buchung über die Endsumme.
+    // Alles auf „Lebensmittel": eine Buchung über die Endsumme.
     await expect(page.getByText('1 Buchung', { exact: true })).toBeVisible();
     await expect(page.getByText('4,50', { exact: false }).first()).toBeVisible();
 
-    // „Kaffee to go" gehört zu Mobilität.
-    await optionWaehlen(page, 'Topf für „Kaffee to go“', 'Mobilität');
+    // „Kaffee to go" gehört zu Haushalt.
+    await optionWaehlen(page, 'Topf für „Kaffee to go“', 'Haushalt');
 
     // Jetzt sind es zwei Buchungen: 2,50 € und 2,00 €.
     await expect(page.getByText('2 Buchungen', { exact: true })).toBeVisible();

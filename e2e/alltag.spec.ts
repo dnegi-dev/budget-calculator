@@ -31,18 +31,30 @@ test.describe('Haushalt einrichten und buchen', () => {
     await expect(page.getByRole('heading', { name: 'Währung und Periode' })).toBeVisible();
     await page.getByRole('button', { name: 'Weiter' }).click();
 
-    // Vorgeschlagene Töpfe: "Lebensmittel" ist voraktiviert und wird abgewählt,
-    // damit der eigene Topf im Test eindeutig ist.
-    await expect(page.getByRole('heading', { name: /Welche T/ })).toBeVisible();
-    await page.getByRole('button', { name: /Lebensmittel/ }).click();
+    await expect(page.getByRole('heading', { name: /Einkommen/ })).toBeVisible();
     await page.getByRole('button', { name: 'Weiter' }).click();
 
-    await expect(page.getByRole('heading', { name: /Einkommen/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Beträge gesetzt/ })).toBeVisible();
+    await page.getByRole('button', { name: 'Weiter' }).click();
+
+    // Vorgeschlagener Topf "Lebensmittel" ist voraktiviert und wird
+    // abgewählt, damit der eigene Topf weiter unten im Test eindeutig ist.
+    await expect(page.getByRole('heading', { name: 'Lebensmittel' })).toBeVisible();
+    await page.getByRole('button', { name: 'Diesen Topf anlegen' }).click();
+    await page.getByRole('button', { name: 'Weiter' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Haushalt' })).toBeVisible();
+    await page.getByRole('button', { name: 'Weiter' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Hobby' })).toBeVisible();
+    await page.getByRole('button', { name: 'Weiter' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Urlaub' })).toBeVisible();
     await page.getByRole('button', { name: /Los geht/ }).click();
 
     // --- Startseite ------------------------------------------------------
     // Die im Wizard gewählten Töpfe stehen jetzt hier.
-    await expect(page.getByRole('link', { name: /Wohnen/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Haushalt/ })).toBeVisible();
 
     // --- Topf anlegen ----------------------------------------------------
     // Über die Zeile unter der Liste — der Weg, den es mobil wie auf dem
@@ -146,10 +158,14 @@ test.describe('Haushalt einrichten und buchen', () => {
     await page.goto('/');
 
     await page.getByLabel('Name des Haushalts').fill('Sicherungstest');
-    await page.getByRole('button', { name: 'Weiter' }).click();
-    await page.getByRole('button', { name: 'Weiter' }).click();
-    await page.getByRole('button', { name: 'Weiter' }).click();
-    await page.getByRole('button', { name: /Los geht/ }).click();
+    await page.getByRole('button', { name: 'Weiter' }).click(); // Name
+    await page.getByRole('button', { name: 'Weiter' }).click(); // Währung/Periode
+    await page.getByRole('button', { name: 'Weiter' }).click(); // Einkommen, leer
+    await page.getByRole('button', { name: 'Weiter' }).click(); // Betragsart, „Frei"
+    await page.getByRole('button', { name: 'Weiter' }).click(); // Lebensmittel, an
+    await page.getByRole('button', { name: 'Weiter' }).click(); // Haushalt, an
+    await page.getByRole('button', { name: 'Weiter' }).click(); // Hobby, aus
+    await page.getByRole('button', { name: /Los geht/ }).click(); // Urlaub, aus
 
     await erfassenOeffnen(page, 'Ausgabe');
     await page.getByLabel('Betrag').fill('3333');

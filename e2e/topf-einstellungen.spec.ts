@@ -17,16 +17,16 @@ test.describe('Topf-Einstellungen', () => {
   test('das Zahnrad in der Leiste öffnet sie, samt Regeln dieses Topfes', async ({ page }) => {
     await einrichten(page);
     await page
-      .getByRole('link', { name: /Wohnen/ })
+      .getByRole('link', { name: /Haushalt/ })
       .first()
       .click();
-    await expect(page.getByRole('heading', { name: 'Wohnen', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Haushalt', level: 1 })).toBeVisible();
 
     // Nicht mehr im Seitenfluss: Es gibt keine Karte „Einstellungen" mehr.
     await expect(page.getByRole('button', { name: 'Bearbeiten' })).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Einstellungen dieses Topfes' }).click();
-    const sheet = page.getByRole('dialog', { name: /Wohnen/ });
+    const sheet = page.getByRole('dialog', { name: /Haushalt/ });
     await expect(sheet).toBeVisible();
 
     // Was vorher in der Karte stand, steht jetzt hier — plus die Regeln.
@@ -38,7 +38,7 @@ test.describe('Topf-Einstellungen', () => {
   test('eine Regel aus dem Topf heraus ist auf diesen Topf vorbelegt', async ({ page }) => {
     await einrichten(page);
     await page
-      .getByRole('link', { name: /Wohnen/ })
+      .getByRole('link', { name: /Haushalt/ })
       .first()
       .click();
     await page.getByRole('button', { name: 'Einstellungen dieses Topfes' }).click();
@@ -53,7 +53,7 @@ test.describe('Topf-Einstellungen', () => {
     const topfFeld = page.getByLabel('Topf', { exact: true });
     await expect(topfFeld).not.toHaveValue('');
     const gewaehlt = await topfFeld.locator('option:checked').textContent();
-    expect(gewaehlt).toContain('Wohnen');
+    expect(gewaehlt).toContain('Haushalt');
   });
 
   test('Töpfe sind ein eigener Punkt in den Einstellungen', async ({ page }) => {
@@ -69,12 +69,17 @@ test.describe('Topf-Einstellungen', () => {
     await page.getByRole('link', { name: /Anlegen, umbenennen/ }).click();
     await expect(page.getByRole('heading', { name: 'Töpfe', level: 1 })).toBeVisible();
 
-    // Jede Zeile führt in die Einstellungen des Topfes, nicht in den Alltag.
+    // Jede Zeile öffnet das Bearbeiten-Sheet direkt — kein Seitenwechsel mehr,
+    // seit die Detailseite (Buchungen, Regeln, Archivieren, Löschen) hier
+    // nicht mehr gebraucht wird.
     await page
-      .getByRole('link', { name: /Wohnen/ })
+      .getByRole('button', { name: /Haushalt/ })
       .first()
       .click();
-    await expect(page.getByRole('heading', { name: 'Wohnen', level: 1 })).toBeVisible();
+    const sheet = page.getByRole('dialog', { name: /Haushalt/ });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByLabel('Name')).toHaveValue('Haushalt');
+    await expect(page.getByRole('heading', { name: 'Töpfe', level: 1 })).toBeVisible();
   });
 
   test('„Ordnen" verweist nicht mehr auf die Töpfe', async ({ page }) => {

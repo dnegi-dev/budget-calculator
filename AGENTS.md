@@ -108,6 +108,68 @@ aber einen Standardwert in `withHouseholdDefaults` **und** im `householdSchema`
 — sonst ist das Feld bei bestehenden Installationen `undefined` (also unwahr)
 und ältere Sicherungen lassen sich nicht mehr einlesen.
 
+## Ersteinrichtung
+
+`components/onboarding/OnboardingWizard.tsx` — eine Frage pro Bildschirm, acht
+Schritte: Name, Währung/Periode, Einkommen, Betragsart, dann je ein eigener
+Schritt für die vier Vorschlags-Töpfe. Ein `useState`-Baum, keine Unterteilung
+in Unterkomponenten — die Schritte sind zu verschieden (Textfeld, Auswahl,
+Betrag, Topf-Vorschau), um eine gemeinsame Abstraktion zu lohnen.
+
+- **Genau vier Vorschläge, einer je Topf-Art**
+  (`components/onboarding/suggested-pots.ts`): Lebensmittel (Monatsbudget),
+  Haushalt (Nur Kategorie), Hobby (Budget mit Übertrag), Urlaub (Sparziel).
+  Lebensmittel/Haushalt sind voraktiviert, Hobby/Urlaub nicht — sie sind
+  Beispiele für die beiden Arten, die sonst kein Vorschlag zeigen würde.
+- **Nur `lebensmittel` ist mit `lib/domain/pot-categories.ts` verknüpft**
+  (`POT_CATEGORY_NAMES.lebensmittel`), weil nur dorthin ein mitgeliefertes
+  Bon-Profil zielt. `haushalt`/`hobby`/`urlaub` sind freie Namen ohne
+  Bon-Profil-Bezug — `SuggestedPot.key` ist deshalb ein eigener Typ
+  (`OnboardingPotKey`), nicht `PotCategory`. Die Kategorien-Namen selbst
+  (`wohnen`, `mobilitaet`, `sport`, `freizeit`, `sonstiges`) bleiben in
+  `pot-categories.ts` unverändert stehen — sie sind weiter das Ziel echter
+  Bon-Profile, nur legt die Ersteinrichtung diese Töpfe nicht mehr automatisch
+  an. Ein Topf mit demselben Namen von Hand angelegt bekommt die Vorschläge
+  trotzdem, weil `resolveCategoryPot` über den Namen sucht, nicht über eine
+  Herkunft.
+- **Ein Vorschlagsname darf nicht mit fester Oberflächen-Beschriftung
+  kollidieren.** „Haushalt" ist zugleich die App-Beschriftung der
+  Seitenleiste (`AppShell.tsx`, `hidden md:flex` — auf dem Telefon also im
+  Baum, aber unsichtbar). Ein `getByText('Haushalt')` in einem E2E-Test trifft
+  dort zuerst, nicht die Buchungszeile — deshalb zielen solche Prüfungen über
+  eine Rolle (`getByRole('button', …)`), nicht über freien Text. Wer einen
+  weiteren Vorschlagsnamen ergänzt, prüft kurz, ob er anderswo als feste
+  Beschriftung vorkommt.
+- **Einkommen steht vor den Töpfen, nicht danach.** Die Betragsart „Fest"
+  rechnet einen Anteil vom Einkommen (`lib/domain/onboarding-budget.ts`,
+  `amountFromIncomePercent`) — ohne Einkommen bliebe nur „Frei", und die
+  Reihenfolge macht diese Abhängigkeit sichtbar statt sie zu verstecken. Ohne
+  Einkommen ist „Fest" im Betragsart-Schritt ausgegraut, nicht versteckt: Der
+  Grund soll sichtbar bleiben.
+- **Der Anteil gilt nur für Lebensmittel und Hobby** — die beiden Vorschläge
+  mit einem Periodenlimit. Haushalt hat als „Nur Kategorie" kein Limit, auf
+  das sich ein Anteil anwenden ließe; Urlaub hat einen Zielbetrag über die
+  gesamte Lebenszeit des Topfes, keinen Periodenanteil, und bekommt deshalb
+  einen festen Vorschlag unabhängig vom Einkommen.
+- **Ein Topf-Schritt belegt seinen Betrag nur vor, solange er unberührt
+  ist** (`PotStepState.touched`). Ändert der Nutzer Einkommen oder Betragsart
+  nachträglich über „Zurück" und durchläuft die Schritte erneut, aktualisiert
+  sich nur, was er noch nicht selbst angefasst hat — eine Eingabe geht nicht
+  verloren, nur weil weiter vorn etwas anders gewählt wurde.
+- **Ein Umschalter „Diesen Topf anlegen" ist das Überspringen.** Kein
+  zweiter, eigener Knopf dafür — aus heißt: Beim Abschließen wird dieser Topf
+  nicht angelegt, alle anderen Schritte bleiben unverändert erreichbar.
+
+**Topf-Eigenschaften lassen sich auch aus den Einstellungen heraus ändern.**
+`app/einstellungen/toepfe/page.tsx` öffnet beim Antippen einer Zeile direkt
+das vorhandene Bearbeiten-Sheet (`PotSettingsForm`) — kein Umweg mehr über die
+Detailseite. Bewusst nur die Eigenschaften (Name, Art, Limit, Symbol, Farbe):
+Buchungen, wiederkehrende Regeln, Archivieren und Löschen bleiben auf der
+Detailseite, wo der Kontext (Verlauf, Buchungsliste) tatsächlich steht. Die
+Seite hält dafür die **ID** des zu bearbeitenden Topfes, nicht den Topf
+selbst — sonst zeigte das Sheet nach dem Speichern weiter den alten Stand,
+weil eine gehaltene Objektreferenz keine neue Revision aus dem Snapshot zieht.
+
 ## Deployment
 
 Die App läuft auf GitHub Pages unter einem **Unterpfad**

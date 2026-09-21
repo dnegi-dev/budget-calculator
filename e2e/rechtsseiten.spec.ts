@@ -39,10 +39,14 @@ test.describe('Rechtsseiten', () => {
     await entsperren(page);
     await page.goto('/');
     await page.getByLabel('Name des Haushalts').fill('Rechtstest');
-    await page.getByRole('button', { name: 'Weiter' }).click();
-    await page.getByRole('button', { name: 'Weiter' }).click();
-    await page.getByRole('button', { name: 'Weiter' }).click();
-    await page.getByRole('button', { name: /Los geht/ }).click();
+    await page.getByRole('button', { name: 'Weiter' }).click(); // Name
+    await page.getByRole('button', { name: 'Weiter' }).click(); // Währung/Periode
+    await page.getByRole('button', { name: 'Weiter' }).click(); // Einkommen, leer
+    await page.getByRole('button', { name: 'Weiter' }).click(); // Betragsart, „Frei"
+    await page.getByRole('button', { name: 'Weiter' }).click(); // Lebensmittel, an
+    await page.getByRole('button', { name: 'Weiter' }).click(); // Haushalt, an
+    await page.getByRole('button', { name: 'Weiter' }).click(); // Hobby, aus
+    await page.getByRole('button', { name: /Los geht/ }).click(); // Urlaub, aus
     await expect(page.getByRole('button', { name: 'Vorige Periode' })).toBeVisible();
 
     await page.getByRole('link', { name: 'Datenschutz' }).first().click();

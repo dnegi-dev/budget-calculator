@@ -7,10 +7,14 @@
  * unmöglich kennen — sie kann nur sagen „das ist etwas zum Essen". Welcher
  * Topf das auf diesem Gerät ist, entscheidet `resolveCategoryPot`.
  *
- * Die Schlüssel sind dieselben, unter denen die Ersteinrichtung ihre Töpfe
- * vorschlägt (`components/onboarding/suggested-pots.ts`) — deshalb stehen die
- * Namen hier und nicht dort: Sonst gäbe es zwei Listen, und die zweite wäre
- * irgendwann falsch.
+ * Diese Kategorien sind die, auf die mitgelieferte Bon-Profile zielen — nicht
+ * dasselbe wie die Vorschlagsliste der Ersteinrichtung
+ * (`components/onboarding/suggested-pots.ts`): Nur `lebensmittel` kommt in
+ * beiden vor, und trägt dort deshalb bewusst denselben Namen aus
+ * `POT_CATEGORY_NAMES` statt eines eigenen Literals. Die übrigen hier
+ * (`wohnen`, `mobilitaet`, …) legt die Ersteinrichtung nicht mehr automatisch
+ * an; wer einen gleichnamigen Topf von Hand anlegt, bekommt trotzdem die
+ * passenden Bon-Vorschläge, weil `resolveCategoryPot` über den Namen sucht.
  */
 
 import type { Pot } from './types';
