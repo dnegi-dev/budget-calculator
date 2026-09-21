@@ -26,7 +26,7 @@ test.describe('Standardtopf', () => {
     await einrichten(page);
 
     await einstellungOeffnen(page, 'Erfassen');
-    await optionWaehlen(page, 'Standardtopf', 'Wohnen');
+    await optionWaehlen(page, 'Standardtopf', 'Haushalt');
     await page.getByRole('radio', { name: 'Direkt in den Standardtopf' }).click();
     await expect(page.getByText(/Der Schritt entfällt/)).toBeVisible();
 
@@ -35,7 +35,7 @@ test.describe('Standardtopf', () => {
     await page.getByLabel('Betrag').fill('1250');
     // Der Hinweis steht schon im Betrag-Schritt: Ein stumm gesetzter Topf wäre
     // beim Auswerten eine Überraschung.
-    await expect(page.getByText(/Wird auf „Wohnen“ gebucht/)).toBeVisible();
+    await expect(page.getByText(/Wird auf „Haushalt“ gebucht/)).toBeVisible();
 
     // „Weiter" führt direkt in die Details — der Topf-Schritt fehlt.
     await page.getByRole('button', { name: 'Weiter' }).click();
@@ -44,7 +44,10 @@ test.describe('Standardtopf', () => {
     await page.getByRole('button', { name: 'Fertig' }).click();
 
     await page.getByRole('link', { name: 'Buchungen' }).first().click();
-    await expect(page.getByText('Wohnen', { exact: false }).first()).toBeVisible();
+    // Nicht `getByText`: „Haushalt" steht auf dem Schreibtisch zusätzlich —
+    // ausgeblendet, aber im Baum — als Beschriftung der Seitenleiste
+    // (`AppShell.tsx`). Die Buchungszeile ist dagegen eindeutig ein Knopf.
+    await expect(page.getByRole('button', { name: /Haushalt/ }).first()).toBeVisible();
     await expect(page.getByText('12,50', { exact: false }).first()).toBeVisible();
   });
 
@@ -52,7 +55,7 @@ test.describe('Standardtopf', () => {
     await einrichten(page);
 
     await einstellungOeffnen(page, 'Erfassen');
-    await optionWaehlen(page, 'Standardtopf', 'Wohnen');
+    await optionWaehlen(page, 'Standardtopf', 'Haushalt');
 
     await page.getByRole('link', { name: 'Heute' }).first().click();
     await erfassenOeffnen(page, 'Ausgabe');
@@ -70,7 +73,7 @@ test.describe('Standardtopf', () => {
     // auch als Filter-Option im Baum, und Playwright sucht Text ohne Rücksicht
     // auf Groß- und Kleinschreibung.
     const zeile = page.getByRole('button', { name: /7,00/ }).first();
-    await expect(zeile).toContainText('Wohnen');
+    await expect(zeile).toContainText('Haushalt');
     await expect(zeile).not.toContainText('ohne Topf');
   });
 });
@@ -89,7 +92,7 @@ test.describe('Tags', () => {
     await erfassenOeffnen(page, 'Ausgabe');
     await page.getByLabel('Betrag').fill('4000');
     await page.getByRole('button', { name: 'Weiter' }).click();
-    await page.getByRole('button', { name: /Wohnen/ }).click();
+    await page.getByRole('button', { name: /Haushalt/ }).click();
     await page.getByRole('button', { name: 'Weiter' }).click();
 
     await page.getByLabel('Tags', { exact: true }).fill('Urlaub');
@@ -102,7 +105,7 @@ test.describe('Tags', () => {
     await erfassenOeffnen(page, 'Ausgabe');
     await page.getByLabel('Betrag').fill('1000');
     await page.getByRole('button', { name: 'Weiter' }).click();
-    await page.getByRole('button', { name: /Wohnen/ }).click();
+    await page.getByRole('button', { name: /Haushalt/ }).click();
     await page.getByRole('button', { name: 'Weiter' }).click();
     // Vorschlag aus der ersten Buchung — so entstehen „Urlaub" und „urlaub"
     // gar nicht erst als zwei Tags.
@@ -148,7 +151,7 @@ test.describe('Tags', () => {
     await erfassenOeffnen(page, 'Ausgabe');
     await page.getByLabel('Betrag').fill('500');
     await page.getByRole('button', { name: 'Weiter' }).click();
-    await page.getByRole('button', { name: /Wohnen/ }).click();
+    await page.getByRole('button', { name: /Haushalt/ }).click();
     await page.getByRole('button', { name: 'Weiter' }).click();
 
     // Aus heißt aus: kein Feld, kein Filter, keine Karte in der Auswertung.

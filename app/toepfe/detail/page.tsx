@@ -323,7 +323,9 @@ function PotDetail() {
         {can('entry.create') && pot.archivedAt === null && !locked && (
           <div className="mt-4 hidden md:block">
             <Button variant="primary" block onClick={() => setEntryOpen(true)}>
-              {phase === 'spending' ? (
+              {phase === null ? (
+                <>Auf „{pot.name}“ buchen</>
+              ) : phase === 'spending' ? (
                 <>Von „{pot.name}“ ausgeben</>
               ) : (
                 <>In „{pot.name}“ einzahlen</>

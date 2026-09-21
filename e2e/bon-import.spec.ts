@@ -73,8 +73,8 @@ test.describe('Bon einlesen', () => {
     await expect(page.getByText('Musterbäckerei Schmidt')).toBeVisible();
 
     // Erst alles auf einen Topf, dann eine Zeile umhängen.
-    await optionWaehlen(page, 'Alles auf einen Topf', 'Wohnen');
-    await optionWaehlen(page, 'Topf für Kaffee to go', 'Mobilität');
+    await optionWaehlen(page, 'Alles auf einen Topf', 'Lebensmittel');
+    await optionWaehlen(page, 'Topf für Kaffee to go', 'Haushalt');
 
     await page.getByRole('button', { name: '2 Buchungen anlegen' }).click();
 
@@ -95,7 +95,7 @@ test.describe('Bon einlesen', () => {
     await expect(page.getByText(/Einkauf mit 2 Buchungen/).first()).toBeVisible();
     await expect(page.getByText(/1 Beleg/).first()).toBeVisible();
 
-    // 2,50 € auf Wohnen (Brötchen + Pfand − Rabatt), 2,00 € auf Mobilität.
+    // 2,50 € auf Lebensmittel (Brötchen + Pfand − Rabatt), 2,00 € auf Haushalt.
     await expect(page.getByText('2,50', { exact: false }).first()).toBeVisible();
     await expect(page.getByText('2,00', { exact: false }).first()).toBeVisible();
 
@@ -152,6 +152,15 @@ test.describe('Bon einlesen', () => {
   test('liest den Bon mit Werbekopf und belegt die Zuordnung vor', async ({ page }) => {
     await einrichten(page);
 
+    // „Sonstiges" entsteht nicht mehr automatisch aus der Ersteinrichtung —
+    // für die Vorbelegung aus dem Profil braucht es den Topf trotzdem.
+    await page.getByRole('button', { name: 'Neuer Topf' }).click();
+    await page.getByLabel('Wofür ist der Topf?').fill('Sonstiges');
+    await page.getByRole('button', { name: 'Weiter' }).click();
+    await page.getByRole('radio', { name: /^Nur Kategorie/ }).check();
+    await page.getByRole('button', { name: 'Weiter' }).click();
+    await page.getByRole('button', { name: 'Topf anlegen' }).click();
+
     await erfassenOeffnen(page, 'Ausgabe');
     await page.getByRole('button', { name: /Aus PDF-Bon einlesen/ }).click();
     await page.setInputFiles(
@@ -169,8 +178,9 @@ test.describe('Bon einlesen', () => {
 
     /*
       Aus dem Profil vorbelegt, ohne dass der Nutzer etwas getan hat:
-      „Gewebeband" ist Werkzeug und landet auf „Sonstiges", „Cola-Mix" auf
-      „Lebensmittel". Beide Töpfe gibt es aus der Ersteinrichtung.
+      „Gewebeband" ist Werkzeug und landet auf „Sonstiges" (eben von Hand
+      angelegt), „Cola-Mix" auf „Lebensmittel" — den gibt es aus der
+      Ersteinrichtung.
     */
     await expect(page.getByLabel('Topf für Gewebeband schwarz')).toHaveValue(/.+/);
     await expect(page.getByLabel('Topf für Cola-Mix Flasche')).toHaveValue(/.+/);

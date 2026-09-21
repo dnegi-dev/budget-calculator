@@ -3,7 +3,7 @@
 Kurzer, pflegbarer Überblick: was steht, was bewusst fehlt, was als Nächstes
 ansteht. Bei größeren Änderungen mitführen.
 
-**Stand:** 20.09.2026 · **Version:** 0.1.0 · **Zweig:** `main`
+**Stand:** 21.09.2026 · **Version:** 0.1.0 · **Zweig:** `main`
 
 ## Wo das Projekt steht
 
@@ -16,6 +16,8 @@ Konto und keine Übertragung.
 | Töpfe (Monatsbudget, Übertrag, reine Kategorie)    | fertig                                                       |
 | Sparziel-Topf (Betrag, Frist, automatische Sperre) | fertig; Sperre über `lockedAt`, getrennt vom Archivieren     |
 | Sparziel: Phasen-Schieberegler, eigene Wortwahl    | fertig; „Einzahlen"/„Ausgeben" nur im Sparziel-Kontext       |
+| Ersteinrichtung: Einkommen, fester/freier Betrag   | fertig; acht Schritte, ein Beispiel je Topf-Art              |
+| Topf-Eigenschaften direkt in den Einstellungen     | fertig; Zeile öffnet das Bearbeiten-Sheet ohne Seitenwechsel |
 | Buchungen erfassen, bearbeiten, filtern            | fertig                                                       |
 | Kassenzettel als Nachweis                          | fertig; Fotos bewusst ohne Auswertung des Inhalts            |
 | PDF-Bon einlesen, Posten auf Töpfe verteilen       | fertig, mit Summenprobe und gelernten Zuordnungen            |
@@ -43,7 +45,7 @@ Konto und keine Übertragung.
 | Impressum, Datenschutz                             | **Gerüst mit Platzhaltern — vor Veröffentlichung ausfüllen** |
 | Zentrale Datenbank, SSO                            | vorbereitet, nicht eingeschaltet                             |
 
-**Prüfstand:** 694 Unit-Tests (`npm test`), 57 E2E-Tests auf zwei Viewports
+**Prüfstand:** 696 Unit-Tests (`npm test`), 57 E2E-Tests auf zwei Viewports
 (`npm run test:e2e`, 114 Läufe, davon 108 bestanden und 6 bewusste
 Auslassungen — den schwebenden Knopf und die klebende Rechtsleiste gibt es ab
 `md` nicht), typecheck und lint grün, statischer Build erzeugt.

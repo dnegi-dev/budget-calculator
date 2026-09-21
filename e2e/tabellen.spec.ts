@@ -20,7 +20,7 @@ async function ausgabeErfassen(page: Page, betrag: string) {
   await erfassenOeffnen(page, 'Ausgabe');
   await page.getByLabel('Betrag').fill(betrag);
   await page.getByRole('button', { name: 'Weiter' }).click();
-  await page.getByRole('button', { name: /Wohnen/ }).click();
+  await page.getByRole('button', { name: /Haushalt/ }).click();
   await page.getByRole('button', { name: 'Weiter' }).click();
   await page.getByRole('button', { name: 'Fertig' }).click();
   await expect(page.getByRole('dialog')).toBeHidden();

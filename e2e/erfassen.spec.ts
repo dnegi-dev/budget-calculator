@@ -76,18 +76,18 @@ test.describe('Schwebender Knopf', () => {
     test.skip(!istMobil(page), 'Den Knopf gibt es nur mobil.');
     await einrichten(page);
 
-    await page.getByRole('link', { name: /Mobilität/ }).click();
-    await expect(page.getByRole('heading', { name: 'Mobilität', level: 1 })).toBeVisible();
+    await page.getByRole('link', { name: /Haushalt/ }).click();
+    await expect(page.getByRole('heading', { name: 'Haushalt', level: 1 })).toBeVisible();
     // Der Knopf auf der Seite ist weg — mobil macht das der schwebende.
-    await expect(page.getByRole('button', { name: /^Auf „Mobilität/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Auf „Haushalt/ })).toHaveCount(0);
 
     await schwebenderKnopf(page).click();
     await page.getByLabel('Betrag').fill('1000');
     await page.getByRole('button', { name: 'Weiter' }).click();
 
-    // Der Topf-Schritt zeigt „Mobilität" als gewählt: Der Knopf hat ihn aus
+    // Der Topf-Schritt zeigt „Haushalt" als gewählt: Der Knopf hat ihn aus
     // `?pot=` gelesen.
-    await expect(page.getByRole('button', { name: /Mobilität/ }).first()).toHaveAttribute(
+    await expect(page.getByRole('button', { name: /Haushalt/ }).first()).toHaveAttribute(
       'aria-pressed',
       'true',
     );

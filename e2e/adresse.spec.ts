@@ -22,7 +22,7 @@ test.describe('Firma und Anschrift', () => {
     await erfassenOeffnen(page, 'Ausgabe');
     await page.getByLabel('Betrag').fill('1999');
     await page.getByRole('button', { name: 'Weiter' }).click();
-    await page.getByRole('button', { name: /Wohnen/ }).click();
+    await page.getByRole('button', { name: /Haushalt/ }).click();
     await page.getByRole('button', { name: 'Weiter' }).click();
     await page.getByLabel('Firma').fill('Musterbaumarkt');
     await page.getByLabel('Wo?').fill(ANSCHRIFT);
@@ -54,7 +54,7 @@ test.describe('Firma und Anschrift', () => {
     await erfassenOeffnen(page, 'Ausgabe');
     await page.getByLabel('Betrag').fill('1999');
     await page.getByRole('button', { name: 'Weiter' }).click();
-    await page.getByRole('button', { name: /Wohnen/ }).click();
+    await page.getByRole('button', { name: /Haushalt/ }).click();
     await page.getByRole('button', { name: 'Weiter' }).click();
     await page.getByLabel('Wo?').fill(ANSCHRIFT);
     await page.getByRole('button', { name: 'Fertig' }).click();
