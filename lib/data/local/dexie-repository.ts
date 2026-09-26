@@ -63,6 +63,7 @@ import {
   type ReceiptUpload,
   type Snapshot,
 } from '../repository';
+import { entryMatchesQuery } from '../../domain/search';
 
 /** Was der Import von einer Tabelle braucht — schmal, damit jede Tabelle passt. */
 interface WritableTable<T> {
@@ -627,15 +628,8 @@ export class DexieBudgetRepository implements BudgetRepository {
       entries = entries.filter((entry) => hasTag(entry.tags, wanted));
     }
     if (filter.search) {
-      const needle = filter.search.trim().toLowerCase();
-      if (needle !== '') {
-        entries = entries.filter(
-          (entry) =>
-            (entry.note ?? '').toLowerCase().includes(needle) ||
-            (entry.merchant ?? '').toLowerCase().includes(needle) ||
-            (entry.address ?? '').toLowerCase().includes(needle),
-        );
-      }
+      const query = filter.search;
+      entries = entries.filter((entry) => entryMatchesQuery(entry, query));
     }
 
     entries.sort(byDateDesc);
@@ -674,26 +668,13 @@ export class DexieBudgetRepository implements BudgetRepository {
      */
     const fallbackPotId = await this.resolveFallbackPot(household);
 
-    const entries: Entry[] = inputs.map((input) => ({
-      id: newId(),
+    const context = {
       householdId: household.id,
-      createdAt: at,
-      updatedAt: at,
-      revision: 1,
-      deletedAt: null,
-      potId: input.potId ?? (input.kind === 'expense' ? fallbackPotId : null),
-      kind: input.kind,
-      amountCents: Math.round(Math.abs(input.amountCents)),
-      date: input.date,
-      note: clampText(input.note, TEXT_LIMITS.note),
-      merchant: clampText(input.merchant, TEXT_LIMITS.merchant),
-      address: clampText(input.address, TEXT_LIMITS.address),
-      tags: dedupeTags(input.tags ?? []),
-      splitGroupId: input.splitGroupId ?? null,
-      purchaseId: input.purchaseId ?? null,
-      recurringRuleId: input.recurringRuleId ?? null,
+      at,
       createdBy: principal?.userId ?? 'unbekannt',
-    }));
+      fallbackPotId,
+    };
+    const entries: Entry[] = inputs.map((input) => buildEntry(input, context));
 
     for (const potId of new Set(entries.map((entry) => entry.potId))) {
       await this.assertPotOpen(potId);
@@ -723,9 +704,20 @@ export class DexieBudgetRepository implements BudgetRepository {
       await this.assertPotOpen(patch.potId);
     }
 
+    // Die Verknüpfungen einer Buchung (Einkauf, Regel, Aufteilung) setzt nur
+    // der Weg, der sie angelegt hat. Über `updateEntry` umgeschrieben, zeigte
+    // eine Buchung auf einen fremden Einkauf und würde bei dessen nächster
+    // Änderung neu gerechnet oder gelöscht.
+    const {
+      purchaseId: _purchaseId,
+      recurringRuleId: _recurringRuleId,
+      splitGroupId: _splitGroupId,
+      ...editable
+    } = patch;
+
     const updated: Entry = {
       ...entry,
-      ...patch,
+      ...editable,
       amountCents:
         patch.amountCents === undefined
           ? entry.amountCents
@@ -1032,29 +1024,20 @@ export class DexieBudgetRepository implements BudgetRepository {
           const result = materializeRule(rule, today);
           if (!result) continue;
 
-          const entries: Entry[] = result.entries.map((input) => ({
-            id: newId(),
-            householdId: household.id,
-            createdAt: at,
-            updatedAt: at,
-            revision: 1,
-            deletedAt: null,
-            potId: input.potId ?? (input.kind === 'expense' ? fallbackPotId : null),
-            kind: input.kind,
-            amountCents: input.amountCents,
-            date: input.date,
-            note: clampText(input.note, TEXT_LIMITS.note),
-            merchant: null,
-            address: null,
-            // Wiederkehrende Regeln tragen selbst noch keine Tags — offen und
-            // in STATE.md notiert, nicht vergessen.
-            tags: [],
-            splitGroupId: null,
-            // Eine Regel erzeugt eine Summe, keinen Einkauf.
-            purchaseId: null,
-            recurringRuleId: rule.id,
-            createdBy: principal?.userId ?? 'unbekannt',
-          }));
+          // Wiederkehrende Regeln tragen selbst noch keine Tags — offen und in
+          // STATE.md notiert, nicht vergessen. Eine Regel erzeugt eine Summe,
+          // keinen Einkauf: `purchaseId` bleibt leer.
+          const entries: Entry[] = result.entries.map((input) =>
+            buildEntry(
+              { ...input, recurringRuleId: rule.id },
+              {
+                householdId: household.id,
+                at,
+                createdBy: principal?.userId ?? 'unbekannt',
+                fallbackPotId,
+              },
+            ),
+          );
 
           await this.db.entries.bulkAdd(entries);
           for (const entry of entries) {
@@ -1146,27 +1129,15 @@ export class DexieBudgetRepository implements BudgetRepository {
       purchaseTags: purchase.tags,
     });
 
-    const fallbackPotId = await this.resolveFallbackPot(household);
-    const entries: Entry[] = plan.create.map((entry) => ({
-      id: newId(),
+    const context = {
       householdId: household.id,
-      createdAt: at,
-      updatedAt: at,
-      revision: 1,
-      deletedAt: null,
-      potId: entry.potId ?? (entry.kind === 'expense' ? fallbackPotId : null),
-      kind: entry.kind,
-      amountCents: entry.amountCents,
-      date: entry.date,
-      note: clampText(entry.note, TEXT_LIMITS.note),
-      merchant: clampText(entry.merchant, TEXT_LIMITS.merchant),
-      address: clampText(entry.address ?? null, TEXT_LIMITS.address),
-      tags: entry.tags ?? [],
-      splitGroupId: entry.splitGroupId ?? null,
-      purchaseId: purchase.id,
-      recurringRuleId: null,
+      at,
       createdBy: principal?.userId ?? 'unbekannt',
-    }));
+      fallbackPotId: await this.resolveFallbackPot(household),
+    };
+    const entries: Entry[] = plan.create.map((entry) =>
+      buildEntry({ ...entry, purchaseId: purchase.id }, context),
+    );
 
     await this.db.transaction(
       'rw',
@@ -1247,27 +1218,15 @@ export class DexieBudgetRepository implements BudgetRepository {
       purchaseTags: purchase.tags ?? [],
     });
 
-    const fallbackPotId = await this.resolveFallbackPot(household);
-    const neue: Entry[] = plan.create.map((entry) => ({
-      id: newId(),
+    const context = {
       householdId: household.id,
-      createdAt: at,
-      updatedAt: at,
-      revision: 1,
-      deletedAt: null,
-      potId: entry.potId ?? (entry.kind === 'expense' ? fallbackPotId : null),
-      kind: entry.kind,
-      amountCents: entry.amountCents,
-      date: entry.date,
-      note: clampText(entry.note, TEXT_LIMITS.note),
-      merchant: clampText(entry.merchant, TEXT_LIMITS.merchant),
-      address: clampText(entry.address ?? null, TEXT_LIMITS.address),
-      tags: entry.tags ?? [],
-      splitGroupId: entry.splitGroupId ?? null,
-      purchaseId: purchase.id,
-      recurringRuleId: null,
+      at,
       createdBy: principal?.userId ?? 'unbekannt',
-    }));
+      fallbackPotId: await this.resolveFallbackPot(household),
+    };
+    const neue: Entry[] = plan.create.map((entry) =>
+      buildEntry({ ...entry, purchaseId: purchase.id }, context),
+    );
 
     const byId = new Map(bestehende.map((entry) => [entry.id, entry]));
     const geaenderte: Entry[] = [];
@@ -2010,6 +1969,47 @@ function withHouseholdDefaults(stored: Household): Household {
     tagsEnabled: stored.tagsEnabled ?? false,
     fabDefault: stored.fabDefault ?? 'expense',
     fabScopes: stored.fabScopes ?? {},
+  };
+}
+
+/**
+ * Eine neue Buchung aus einer Eingabe — der eine Weg, auf dem eine Buchung
+ * entsteht.
+ *
+ * Vorher stand dieses Objekt viermal im Adapter (Erfassen, Wiederkehrend,
+ * Bon-Import, Posten umhängen), und die Kopien waren schon auseinander
+ * gelaufen: Eine kürzte die Notiz nicht, eine räumte die Tags nicht auf, eine
+ * trug den Haushalt als Urheber ein. Was hier normalisiert wird, gilt jetzt für
+ * jede Buchung:
+ *
+ * - Standardtopf nur für Ausgaben ohne Topf (`fallbackPotId`, schon geprüft
+ *   über `resolveFallbackPot`),
+ * - Betrag positiv und ganzzahlig,
+ * - Freitexte gekürzt, Tags entdoppelt.
+ */
+function buildEntry(
+  input: NewEntryInput,
+  context: { householdId: string; at: string; createdBy: string; fallbackPotId: string | null },
+): Entry {
+  return {
+    id: newId(),
+    householdId: context.householdId,
+    createdAt: context.at,
+    updatedAt: context.at,
+    revision: 1,
+    deletedAt: null,
+    potId: input.potId ?? (input.kind === 'expense' ? context.fallbackPotId : null),
+    kind: input.kind,
+    amountCents: Math.round(Math.abs(input.amountCents)),
+    date: input.date,
+    note: clampText(input.note, TEXT_LIMITS.note),
+    merchant: clampText(input.merchant, TEXT_LIMITS.merchant),
+    address: clampText(input.address, TEXT_LIMITS.address),
+    tags: dedupeTags(input.tags ?? []),
+    splitGroupId: input.splitGroupId ?? null,
+    purchaseId: input.purchaseId ?? null,
+    recurringRuleId: input.recurringRuleId ?? null,
+    createdBy: context.createdBy,
   };
 }
 

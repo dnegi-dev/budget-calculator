@@ -150,3 +150,53 @@ export function describePotConfig(
   const limit = formatLimit(pot.limitCents);
   return pot.carryOver ? `${limit} pro Periode, mit Übertrag` : `${limit} pro Periode`;
 }
+
+/**
+ * Ob auf diesen Topf **neu** gebucht werden darf: nicht gelöscht, nicht
+ * archiviert, nicht gesperrt.
+ *
+ * Die eine Stelle für diese Frage. Vorher stand die Bedingung neunmal inline
+ * in der Oberfläche, und wer eine neue Sperre ergänzte (so kam `lockedAt`),
+ * musste jede Kopie finden — eine Auswahl, die er übersah, bot den Topf weiter
+ * an, und das Repository lehnte die Buchung dann ab.
+ */
+export function isPotBookable(pot: Pick<Pot, 'deletedAt' | 'archivedAt' | 'lockedAt'>): boolean {
+  return pot.deletedAt === null && pot.archivedAt === null && pot.lockedAt === null;
+}
+
+/**
+ * Die Töpfe für eine Auswahl. `keepId` hält den Topf drin, der gerade gewählt
+ * ist — eine Buchung auf einem inzwischen archivierten Topf zeigte sonst beim
+ * Bearbeiten „Kein Topf" an, und ein Speichern hätte ihn still entfernt.
+ */
+export function bookablePots<T extends Pick<Pot, 'id' | 'deletedAt' | 'archivedAt' | 'lockedAt'>>(
+  pots: readonly T[],
+  keepId: string | null = null,
+): T[] {
+  return pots.filter((pot) => isPotBookable(pot) || (keepId !== null && pot.id === keepId));
+}
+
+/**
+ * Die Unterzeile eines Topfes: Einstellung plus Zustand („· angepasst",
+ * „· archiviert", „· gesperrt").
+ *
+ * Detailseite und „Einstellungen → Töpfe" zeigen dieselbe Zeile; vorher baute
+ * jede sie selbst, und die Einstellungen vergaßen Frist und Sperre.
+ */
+export function describePotSummary(
+  pot: Pick<
+    Pot,
+    'kind' | 'limitCents' | 'carryOver' | 'goalCents' | 'targetDate' | 'archivedAt' | 'lockedAt'
+  >,
+  formatLimit: (cents: number) => string,
+  formatDate: (date: string) => string,
+): string {
+  return [
+    describePotConfig(pot, formatLimit, formatDate),
+    matchesPreset(pot) ? null : 'angepasst',
+    pot.archivedAt !== null ? 'archiviert' : null,
+    pot.lockedAt !== null ? 'gesperrt' : null,
+  ]
+    .filter((part): part is string => part !== null)
+    .join(' · ');
+}

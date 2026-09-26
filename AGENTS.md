@@ -212,6 +212,29 @@ sie:
   vorher ab dem Start der Regel — eine Wochenregel verstummte nach gut 9½
   Jahren still.
 
+### Gemeinsame Bausteine statt Kopien
+
+Was mehr als einmal gebraucht wird, steht einmal. Wer an einer dieser Stellen
+etwas ergänzt, ergänzt es für alle — und wer eine neue Liste oder Auswahl
+baut, nimmt den Baustein, statt ihn nachzubauen:
+
+| Frage                                | Baustein                                                                                     |
+| ------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Darf auf diesen Topf gebucht werden? | `isPotBookable` / `bookablePots(pots, keepId)` in `lib/domain/pot-kinds.ts`                  |
+| Unterzeile eines Topfes              | `describePotSummary` (ebd.)                                                                  |
+| Topf-Symbol auf Farbkachel           | `components/pots/PotIcon.tsx`                                                                |
+| `<option>`-Zeilen einer Topf-Auswahl | `components/pots/PotOptions.tsx` (markiert archiviert/gesperrt)                              |
+| Freitextsuche                        | `matchesQuery` / `entryMatchesQuery` in `lib/domain/search.ts` — auch im Repository          |
+| Wortwahl bei Sparzielen              | `potActionLabel`, `potTargetSentence`, `entryKindLabel` in `lib/domain/entry-kinds.ts`       |
+| Vorzeichen, Summen                   | `signSymbol`, `signedCents`, `sumCents` in `lib/domain/money.ts`                             |
+| Eine neue Buchung im Adapter         | `buildEntry` in `dexie-repository.ts` — der einzige Weg, auf dem ein `Entry`-Objekt entsteht |
+| Rückmeldung nach dem Import          | `describeImportResult` in `components/settings/useBackupImport.ts`                           |
+
+Zwei Folgen, die sichtbar sind: Eine Sparziel-Zeile auf „Heute" und „Töpfe"
+zeigt jetzt das Gesparte (`computeGoalState`) wie die Detailseite, nicht mehr
+„ohne Limit". Und `updateEntry` lässt `purchaseId`, `recurringRuleId` und
+`splitGroupId` unberührt — die setzt nur der Weg, der die Buchung angelegt hat.
+
 ### Import
 
 - **Jeder eingelesene Datensatz bekommt seine Outbox-Zeile**; „Ersetzen" leert

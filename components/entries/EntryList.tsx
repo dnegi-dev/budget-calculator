@@ -26,12 +26,14 @@ import { useCan } from '../../lib/auth/provider';
 import { useData } from '../../lib/data/provider';
 import { mapsHref, shortenAddress } from '../../lib/domain/address';
 import { canDeleteEntryDirectly } from '../../lib/domain/ledger';
+import { signSymbol } from '../../lib/domain/money';
+import { bookablePots } from '../../lib/domain/pot-kinds';
 import type { Entry, Pot } from '../../lib/domain/types';
 import { Button } from '../../lib/ui/Button';
 import { EmptyState } from '../../lib/ui/EmptyState';
 import { Icon } from '../../lib/ui/Icon';
 import { Sheet } from '../../lib/ui/Sheet';
-import { potColorVar } from '../../lib/ui/colors';
+import { PotIcon } from '../pots/PotIcon';
 import { useFormat } from '../../lib/ui/useFormat';
 import { useSwipeAction } from '../../lib/ui/useSwipeAction';
 import { useSwipeConfirm, useSwipeDelete } from '../../lib/prefs/useDevicePref';
@@ -198,7 +200,10 @@ export function EntryList({
       <EntrySheet
         open={editing !== null}
         onClose={() => setEditing(null)}
-        pots={pots}
+        // Beim Bearbeiten nur, was bebuchbar ist — plus der Topf, auf dem die
+        // Buchung schon steht. Vorher bot diese Auswahl archivierte und
+        // gesperrte Töpfe an, jede andere nicht.
+        pots={bookablePots(pots, editing?.potId ?? null)}
         entry={editing}
       />
 
@@ -326,17 +331,11 @@ function EntryRow({
             onSwipe !== null ? 'touch-pan-y' : '',
           ].join(' ')}
         >
-          <span
-            aria-hidden
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-base"
-            style={{
-              background: pot
-                ? `color-mix(in oklch, ${potColorVar(pot.color)} 18%, transparent)`
-                : 'var(--bg-subtle)',
-            }}
-          >
-            {pot?.icon ?? (entry.kind === 'income' ? '↓' : '–')}
-          </span>
+          <PotIcon
+            pot={pot}
+            fallback={entry.kind === 'income' ? '↓' : '–'}
+            className="h-9 w-9 rounded-lg text-base"
+          />
 
           <span className="min-w-0 flex-1">
             <span className="block truncate font-medium">
@@ -369,7 +368,7 @@ function EntryRow({
               entry.kind === 'income' ? 'text-positive' : '',
             ].join(' ')}
           >
-            {entry.kind === 'income' ? '+' : '−'}
+            {signSymbol(entry.kind)}
             {format.money(entry.amountCents)}
           </span>
         </button>

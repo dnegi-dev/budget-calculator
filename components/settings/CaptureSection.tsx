@@ -20,9 +20,11 @@
 import { useState } from 'react';
 import { useCan } from '../../lib/auth/provider';
 import { useData } from '../../lib/data/provider';
+import { bookablePots } from '../../lib/domain/pot-kinds';
 import { Card, CardHeader } from '../../lib/ui/Card';
 import { Field, selectClass } from '../../lib/ui/Field';
 import { SegmentedControl } from '../../lib/ui/SegmentedControl';
+import { PotOptions } from '../pots/PotOptions';
 
 export function CaptureSection() {
   const { repository, snapshot } = useData();
@@ -33,7 +35,7 @@ export function CaptureSection() {
   if (!household) return null;
 
   const darf = can('settings.manage');
-  const pots = snapshot.pots.filter((pot) => pot.archivedAt === null && pot.lockedAt === null);
+  const pots = bookablePots(snapshot.pots);
   const standard = pots.find((pot) => pot.id === household.defaultPotId) ?? null;
 
   async function speichern(patch: { defaultPotId?: string | null; askForPot?: boolean }) {
@@ -66,11 +68,7 @@ export function CaptureSection() {
               onChange={(event) => void speichern({ defaultPotId: event.target.value || null })}
             >
               <option value="">— keiner, bleibt ohne Topf —</option>
-              {pots.map((pot) => (
-                <option key={pot.id} value={pot.id}>
-                  {pot.icon} {pot.name}
-                </option>
-              ))}
+              <PotOptions pots={pots} />
             </select>
           )}
         </Field>

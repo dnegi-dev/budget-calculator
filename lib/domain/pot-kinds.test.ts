@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyPotKindPreset,
+  bookablePots,
   describePotConfig,
+  describePotSummary,
   goalPhaseOf,
   hasGoal,
   hasLimit,
   isGoalDue,
+  isPotBookable,
   matchesPreset,
   POT_KINDS,
   POT_KIND_PRESETS,
@@ -115,5 +118,41 @@ describe('describePotConfig', () => {
     expect(
       describePotConfig({ ...base, kind: 'envelope', limitCents: 5_000, carryOver: true }, money),
     ).toBe('50.00 € pro Periode, mit Übertrag');
+  });
+});
+
+describe('bookablePots', () => {
+  const basis = { deletedAt: null, archivedAt: null, lockedAt: null };
+  const pots = [
+    { ...basis, id: 'offen' },
+    { ...basis, id: 'archiviert', archivedAt: '2026-01-01T00:00:00.000Z' },
+    { ...basis, id: 'gesperrt', lockedAt: '2026-01-01T00:00:00.000Z' },
+    { ...basis, id: 'geloescht', deletedAt: '2026-01-01T00:00:00.000Z' },
+  ];
+
+  it('lässt nur bebuchbare Töpfe durch', () => {
+    expect(bookablePots(pots).map((pot) => pot.id)).toEqual(['offen']);
+    expect(isPotBookable(pots[2]!)).toBe(false);
+  });
+
+  it('hält den gerade gewählten Topf in der Auswahl', () => {
+    expect(bookablePots(pots, 'archiviert').map((pot) => pot.id)).toEqual(['offen', 'archiviert']);
+  });
+});
+
+describe('describePotSummary', () => {
+  it('hängt Abweichung und Zustand an die Einstellung', () => {
+    const money = (cents: number) => `${cents / 100} €`;
+    const day = (date: string) => date;
+    const pot = {
+      kind: 'goal' as const,
+      limitCents: null,
+      carryOver: false,
+      goalCents: 120_000,
+      targetDate: '2027-06-01',
+      archivedAt: null,
+      lockedAt: '2027-06-02T00:00:00.000Z',
+    };
+    expect(describePotSummary(pot, money, day)).toBe('Ziel: 1200 € bis 2027-06-01 · gesperrt');
   });
 });

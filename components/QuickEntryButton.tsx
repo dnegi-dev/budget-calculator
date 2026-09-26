@@ -49,7 +49,7 @@ import {
   resolveGoalFabAction,
   scopeForPath,
 } from '../lib/domain/fab';
-import { goalPhaseOf } from '../lib/domain/pot-kinds';
+import { bookablePots, goalPhaseOf } from '../lib/domain/pot-kinds';
 import type { EntryKind } from '../lib/domain/types';
 import { Icon } from '../lib/ui/Icon';
 import { Sheet } from '../lib/ui/Sheet';
@@ -81,9 +81,7 @@ export function QuickEntryButton() {
   if (!can('entry.create')) return null;
   if (!fabVisibleOnPath(pathname)) return null;
 
-  const activePots = snapshot.pots.filter(
-    (pot) => pot.archivedAt === null && pot.lockedAt === null,
-  );
+  const activePots = bookablePots(snapshot.pots);
 
   /**
    * Der Topf aus der Adresse, aber nur dort, wo er etwas bedeutet. Ein

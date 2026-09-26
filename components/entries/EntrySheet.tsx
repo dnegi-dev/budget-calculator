@@ -19,7 +19,11 @@ import { useMemo, useRef, useState } from 'react';
 import { useCan } from '../../lib/auth/provider';
 import { useData } from '../../lib/data/provider';
 import { todayIso } from '../../lib/domain/dates';
-import { entryKindActionLabel, entryKindLabel } from '../../lib/domain/entry-kinds';
+import {
+  entryKindActionLabel,
+  entryKindLabel,
+  potTargetSentence,
+} from '../../lib/domain/entry-kinds';
 import { canDeleteEntryDirectly } from '../../lib/domain/ledger';
 import { goalPhaseOf } from '../../lib/domain/pot-kinds';
 import { useDeleteButton } from '../../lib/prefs/useDevicePref';
@@ -31,7 +35,7 @@ import { Button } from '../../lib/ui/Button';
 import { Field, inputClass, textareaClass } from '../../lib/ui/Field';
 import { SegmentedControl } from '../../lib/ui/SegmentedControl';
 import { Sheet } from '../../lib/ui/Sheet';
-import { potColorVar } from '../../lib/ui/colors';
+import { PotIcon } from '../pots/PotIcon';
 import { useFormat } from '../../lib/ui/useFormat';
 import { collectTags } from '../../lib/domain/tags';
 import { ReceiptPicker } from '../receipts/ReceiptPicker';
@@ -291,15 +295,7 @@ function EntryForm({
           )}
           {selectedPot && (
             <p className="text-sm text-ink-muted">
-              {goalPhaseOf(selectedPot) !== null ? (
-                kind === 'expense' ? (
-                  <>Wird auf „{selectedPot.name}“ eingezahlt.</>
-                ) : (
-                  <>Wird von „{selectedPot.name}“ ausgegeben.</>
-                )
-              ) : (
-                <>Wird auf „{selectedPot.name}“ gebucht.</>
-              )}{' '}
+              {potTargetSentence(selectedPot, kind)}{' '}
               {potStepActive ? 'Im nächsten Schritt änderbar.' : 'In den Details änderbar.'}
             </p>
           )}
@@ -388,15 +384,7 @@ function EntryForm({
                     selected ? 'border-accent bg-accent-subtle' : 'border-line bg-surface',
                   ].join(' ')}
                 >
-                  <span
-                    aria-hidden
-                    className="grid h-9 w-9 place-items-center rounded-lg text-lg"
-                    style={{
-                      background: `color-mix(in oklch, ${potColorVar(pot.color)} 18%, transparent)`,
-                    }}
-                  >
-                    {pot.icon}
-                  </span>
+                  <PotIcon pot={pot} className="h-9 w-9 rounded-lg text-lg" />
                   <span className="w-full truncate text-center text-xs">{pot.name}</span>
                 </button>
               );

@@ -29,10 +29,12 @@ import { useSnapshot } from '../../lib/data/provider';
 import { todayIso } from '../../lib/domain/dates';
 import { entriesInPeriod } from '../../lib/domain/ledger';
 import { periodForDate } from '../../lib/domain/period';
+import { bookablePots } from '../../lib/domain/pot-kinds';
 import { collectTags } from '../../lib/domain/tags';
 import { Button } from '../../lib/ui/Button';
 import { Card, CardHeader } from '../../lib/ui/Card';
 import { useFormat } from '../../lib/ui/useFormat';
+import { signedCents, sumCents } from '../../lib/domain/money';
 
 export default function EntriesPage() {
   const snapshot = useSnapshot();
@@ -46,10 +48,7 @@ export default function EntriesPage() {
   const [periodKey, setPeriodKey] = useState(currentKey);
   const [entryOpen, setEntryOpen] = useState(false);
 
-  const activePots = useMemo(
-    () => snapshot.pots.filter((pot) => pot.archivedAt === null && pot.lockedAt === null),
-    [snapshot.pots],
-  );
+  const activePots = useMemo(() => bookablePots(snapshot.pots), [snapshot.pots]);
 
   const tagsEnabled = snapshot.household?.tagsEnabled ?? false;
   /**
@@ -70,11 +69,7 @@ export default function EntriesPage() {
   const visible = filters.visible;
 
   const total = useMemo(
-    () =>
-      visible.reduce(
-        (sum, entry) => sum + (entry.kind === 'income' ? entry.amountCents : -entry.amountCents),
-        0,
-      ),
+    () => sumCents(visible.map((entry) => signedCents(entry.kind, entry.amountCents))),
     [visible],
   );
 

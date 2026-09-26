@@ -26,6 +26,7 @@ import { Card, CardHeader } from '../../lib/ui/Card';
 import { inputClass } from '../../lib/ui/Field';
 import { Icon } from '../../lib/ui/Icon';
 import { SegmentedControl } from '../../lib/ui/SegmentedControl';
+import { matchesQuery, normalizeQuery } from '../../lib/domain/search';
 
 export function TagsSection({ search = '' }: { search?: string } = {}) {
   const { repository, snapshot } = useData();
@@ -42,12 +43,10 @@ export function TagsSection({ search = '' }: { search?: string } = {}) {
 
   const darfSchalten = can('settings.manage');
   const darfAendern = can('entry.edit.any');
-  const needle = search.trim().toLowerCase();
   const alle = collectTags(snapshot.entries);
   // Gesucht wird auf der geschriebenen Form, verglichen klein — dieselbe
   // Regel wie in `tagKey`, nur ohne Anspruch auf Gleichheit.
-  const tags =
-    needle === '' ? alle : alle.filter((usage) => usage.tag.toLowerCase().includes(needle));
+  const tags = alle.filter((usage) => matchesQuery(search, usage.tag));
 
   async function fuehreAus(arbeit: () => Promise<unknown>) {
     setFehler(null);
@@ -93,7 +92,7 @@ export function TagsSection({ search = '' }: { search?: string } = {}) {
 
       {tags.length === 0 ? (
         <p className="px-4 pb-4 text-sm text-ink-muted">
-          {needle === ''
+          {normalizeQuery(search) === ''
             ? 'Noch keine Tags benutzt. Sie entstehen beim Erfassen — dort tippen, mit Komma trennen.'
             : 'Kein Tag enthält diesen Text.'}
         </p>

@@ -16,6 +16,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { hasTag } from '../../lib/domain/tags';
 import type { Entry, EntryKind } from '../../lib/domain/types';
+import { entryMatchesQuery } from '../../lib/domain/search';
 
 export type KindFilter = EntryKind | 'all';
 
@@ -55,15 +56,7 @@ export function useEntryFilters(entries: readonly Entry[]): EntryFilters {
     if (tag === 'none') gefiltert = gefiltert.filter((entry) => (entry.tags ?? []).length === 0);
     else if (tag !== 'all') gefiltert = gefiltert.filter((entry) => hasTag(entry.tags, tag));
 
-    const needle = search.trim().toLowerCase();
-    if (needle !== '') {
-      gefiltert = gefiltert.filter(
-        (entry) =>
-          (entry.note ?? '').toLowerCase().includes(needle) ||
-          (entry.merchant ?? '').toLowerCase().includes(needle) ||
-          (entry.address ?? '').toLowerCase().includes(needle),
-      );
-    }
+    gefiltert = gefiltert.filter((entry) => entryMatchesQuery(entry, search));
     return gefiltert;
   }, [entries, kind, pot, tag, search]);
 

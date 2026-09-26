@@ -37,6 +37,7 @@ import { collectTags } from '../../lib/domain/tags';
 import { CHAIN_PROFILES } from '../../lib/domain/receipt/chains';
 import { matchProfile, suggestFromProfile } from '../../lib/domain/receipt/profile';
 import { resolveCategoryPot } from '../../lib/domain/pot-categories';
+import { bookablePots } from '../../lib/domain/pot-kinds';
 import type { Pot } from '../../lib/domain/types';
 import { extractPdf, PdfReadError } from '../../lib/pdf/extract';
 import { Banner } from '../../lib/ui/Banner';
@@ -46,6 +47,7 @@ import { Sheet } from '../../lib/ui/Sheet';
 import { TagInput } from '../entries/TagInput';
 import { selectClass } from '../../lib/ui/Field';
 import { useFormat } from '../../lib/ui/useFormat';
+import { PotOptions } from '../pots/PotOptions';
 
 const HERKUNFT: Record<ParsedReceipt['quality'], string> = {
   exakt: 'Aus dem Beleg selbst gelesen.',
@@ -119,13 +121,15 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
           dass Topf und Tags schon ausgefüllt sind.
         */
         const profil = matchProfile(lines, CHAIN_PROFILES)?.profile ?? null;
-        const aktivePots = snapshot.pots.filter(
-          (pot) => pot.archivedAt === null && pot.lockedAt === null,
-        );
+        const aktivePots = bookablePots(snapshot.pots);
+        const buchbar = new Set(aktivePots.map((pot) => pot.id));
 
         const vorschlag = ergebnis.items.map((item) => {
+          // Eine gelernte Zuordnung auf einen inzwischen archivierten oder
+          // gesperrten Topf ist kein Vorschlag mehr — dieselbe Prüfung wie
+          // beim Profil, nicht nur dort.
           const gelernt = suggestPot(item.label, snapshot.itemRules);
-          if (gelernt !== null) return gelernt;
+          if (gelernt !== null && buchbar.has(gelernt)) return gelernt;
           if (!profil) return null;
           const treffer = suggestFromProfile(item.label, profil.products);
           return treffer ? resolveCategoryPot(treffer.kategorie, aktivePots) : null;
@@ -383,11 +387,7 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
                   onChange={(event) => allesAuf(event.target.value || null)}
                 >
                   <option value="">— auswählen —</option>
-                  {pots.map((pot) => (
-                    <option key={pot.id} value={pot.id}>
-                      {pot.icon} {pot.name}
-                    </option>
-                  ))}
+                  <PotOptions pots={pots} />
                 </select>
               </label>
 
@@ -410,11 +410,7 @@ export function ReceiptImportSheet({ file, pots, onClose, onImported }: ReceiptI
                       onChange={(event) => setzePot(index, event.target.value || null)}
                     >
                       <option value="">Ohne Topf</option>
-                      {pots.map((pot) => (
-                        <option key={pot.id} value={pot.id}>
-                          {pot.icon} {pot.name}
-                        </option>
-                      ))}
+                      <PotOptions pots={pots} />
                     </select>
 
                     {/*

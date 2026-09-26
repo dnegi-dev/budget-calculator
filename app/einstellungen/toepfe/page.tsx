@@ -24,7 +24,7 @@ import { SettingsPage } from '../../../components/settings/SettingsPage';
 import { PotSettingsForm } from '../../../components/pots/PotSettingsForm';
 import { useCan } from '../../../lib/auth/provider';
 import { useSnapshot } from '../../../lib/data/provider';
-import { describePotConfig } from '../../../lib/domain/pot-kinds';
+import { describePotSummary } from '../../../lib/domain/pot-kinds';
 import type { Pot } from '../../../lib/domain/types';
 import { Card, CardHeader } from '../../../lib/ui/Card';
 import { EmptyState } from '../../../lib/ui/EmptyState';
@@ -107,7 +107,7 @@ function PotZeile({ pot, onClick }: { pot: Pot; onClick: () => void }) {
         <span className="min-w-0 flex-1">
           <span className="block truncate font-medium">{pot.name}</span>
           <span className="block truncate text-xs text-ink-muted">
-            {describePotConfig(pot, format.money)}
+            {describePotSummary(pot, format.money, format.day)}
           </span>
         </span>
         <span aria-hidden className="text-ink-muted">

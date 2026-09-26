@@ -25,6 +25,7 @@ import { Icon } from '../../lib/ui/Icon';
 import { EmptyState } from '../../lib/ui/EmptyState';
 import { SegmentedControl } from '../../lib/ui/SegmentedControl';
 import { useFormat } from '../../lib/ui/useFormat';
+import { matchesQuery } from '../../lib/domain/search';
 
 type Bereich = 'all' | 'active' | 'archived';
 
@@ -43,9 +44,7 @@ export default function PotsPage() {
   const [bereich, setBereich] = useState<Bereich>('all');
 
   const gefunden = useMemo(() => {
-    const needle = suche.trim().toLowerCase();
-    if (needle === '') return snapshot.pots;
-    return snapshot.pots.filter((pot) => pot.name.toLowerCase().includes(needle));
+    return snapshot.pots.filter((pot) => matchesQuery(suche, pot.name));
   }, [snapshot.pots, suche]);
 
   const active = useMemo(

@@ -16,6 +16,7 @@ import type { Pot } from '../../lib/domain/types';
 import { SegmentedControl } from '../../lib/ui/SegmentedControl';
 import { selectClass } from '../../lib/ui/Field';
 import type { EntryFilters } from './useEntryFilters';
+import { PotOptions } from '../pots/PotOptions';
 
 export function EntryFilterFields({
   filters,
@@ -58,11 +59,7 @@ export function EntryFilterFields({
         >
           <option value="all">Alle Töpfe</option>
           <option value="none">Ohne Topf</option>
-          {pots.map((pot) => (
-            <option key={pot.id} value={pot.id}>
-              {pot.icon} {pot.name}
-            </option>
-          ))}
+          <PotOptions pots={pots} />
         </select>
       )}
       {/* Ohne benutzte Tags gibt es nichts zu filtern — dann auch kein Feld. */}

@@ -23,6 +23,8 @@ import type { EntryKind } from '../../../lib/domain/types';
 import { Card } from '../../../lib/ui/Card';
 import { SegmentedControl } from '../../../lib/ui/SegmentedControl';
 import { selectClass } from '../../../lib/ui/Field';
+import { PotOptions } from '../../../components/pots/PotOptions';
+import { matchesQuery } from '../../../lib/domain/search';
 
 type ArtFilter = EntryKind | 'all';
 type LaufFilter = 'all' | 'active' | 'paused';
@@ -35,7 +37,6 @@ export default function RecurringPage() {
   const [lauf, setLauf] = useState<LaufFilter>('all');
 
   const sichtbar = useMemo(() => {
-    const needle = suche.trim().toLowerCase();
     const potsById = new Map(snapshot.pots.map((pot) => [pot.id, pot]));
 
     return snapshot.recurringRules.filter((rule) => {
@@ -44,16 +45,12 @@ export default function RecurringPage() {
       if (topf !== 'all' && topf !== 'none' && rule.potId !== topf) return false;
       if (lauf === 'paused' && !rule.paused) return false;
       if (lauf === 'active' && rule.paused) return false;
-      if (needle === '') return true;
 
       // Gesucht wird in dem, was in der Zeile steht: Notiz, Topf und der
       // beschriebene Rhythmus („monatlich am 1.“). Nach etwas zu suchen, was
       // nicht sichtbar ist, verwirrt mehr als es hilft.
       const pot = rule.potId ? potsById.get(rule.potId) : null;
-      const text = [rule.note ?? '', pot?.name ?? '', describeRecurrence(rule)]
-        .join(' ')
-        .toLowerCase();
-      return text.includes(needle);
+      return matchesQuery(suche, rule.note, pot?.name, describeRecurrence(rule));
     });
   }, [snapshot.recurringRules, snapshot.pots, suche, art, topf, lauf]);
 
@@ -95,11 +92,7 @@ export default function RecurringPage() {
             >
               <option value="all">Alle Töpfe</option>
               <option value="none">Ohne Topf</option>
-              {snapshot.pots.map((pot) => (
-                <option key={pot.id} value={pot.id}>
-                  {pot.icon} {pot.name}
-                </option>
-              ))}
+              <PotOptions pots={snapshot.pots} />
             </select>
           </div>
         }
