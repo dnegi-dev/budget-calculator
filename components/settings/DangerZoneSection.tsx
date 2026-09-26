@@ -25,7 +25,7 @@ import { Button } from '../../lib/ui/Button';
 import { Card, CardHeader } from '../../lib/ui/Card';
 import { Icon } from '../../lib/ui/Icon';
 import { BackupFilePicker } from './BackupFilePicker';
-import { useBackupImport } from './useBackupImport';
+import { describeImportResult, useBackupImport } from './useBackupImport';
 
 export function DangerZoneSection() {
   const { repository } = useData();
@@ -95,8 +95,7 @@ export function DangerZoneSection() {
 
             {ersetzen.result && (
               <Banner icon={<Icon icon={CircleCheck} size={18} />}>
-                Eingelesen: {ersetzen.result.pots} Töpfe, {ersetzen.result.entries} Buchungen,{' '}
-                {ersetzen.result.recurringRules} Regeln, {ersetzen.result.receipts} Belege.
+                {describeImportResult(ersetzen.result)}
               </Banner>
             )}
             {ersetzen.error && (

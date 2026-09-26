@@ -28,6 +28,13 @@ export interface BackupImport {
   pending: ExportFile | null;
   /** Anzahl der Texte, die beim Lesen gekürzt wurden. */
   truncated: number;
+  /**
+   * Name des Haushalts in der Datei, wenn es **nicht** dieser ist — sonst
+   * `null`. Dann fragt die Karte, ob übernommen werden soll: Zusammenführen
+   * heißt in dem Fall, die Datensätze in den eigenen Haushalt umzuschreiben
+   * (`adoptIntoHousehold`), solange ein Gerät nur einen Haushalt kennt.
+   */
+  foreignHousehold: string | null;
   result: ImportResult | null;
   error: string | null;
   busy: boolean;
@@ -36,8 +43,21 @@ export interface BackupImport {
   ausfuehren: (mode: 'replace' | 'merge') => Promise<void>;
 }
 
+/**
+ * Die Rückmeldung nach dem Einlesen — eine Formulierung für beide Karten.
+ * Vorher stand sie zweimal da, und nur eine nannte die übersprungenen.
+ */
+export function describeImportResult(result: ImportResult): string {
+  const parts = [
+    `Eingelesen: ${result.pots} Töpfe, ${result.entries} Buchungen, ${result.recurringRules} Regeln, ${result.receipts} Belege, ${result.purchases} Einkäufe, ${result.itemRules} Zuordnungen`,
+  ];
+  if (result.skipped > 0) parts.push(`${result.skipped} übersprungen (lokal neuer)`);
+  if (result.repaired > 0) parts.push(`${result.repaired} Verweise ins Leere gelöst`);
+  return `${parts.join(' — ')}.`;
+}
+
 export function useBackupImport(): BackupImport {
-  const { repository } = useData();
+  const { repository, snapshot } = useData();
 
   const [pending, setPending] = useState<ExportFile | null>(null);
   const [truncated, setTruncated] = useState(0);
@@ -73,7 +93,13 @@ export function useBackupImport(): BackupImport {
     try {
       // Kein zweites `parse`: Die Daten sind schon geprüft, und bei einer
       // Sicherung mit Belegen wäre das ein Megabyte-Durchlauf für nichts.
-      const imported = await repository.importAll(pending, mode);
+      const own = snapshot.household;
+      const adopt = mode === 'merge' && own !== null && own.id !== pending.household.id;
+      const imported = await repository.importAll(
+        pending,
+        mode,
+        adopt ? { adoptInto: own.id } : undefined,
+      );
       setResult(imported);
       setPending(null);
     } catch (caught) {
@@ -86,6 +112,12 @@ export function useBackupImport(): BackupImport {
   return {
     pending,
     truncated,
+    foreignHousehold:
+      pending !== null &&
+      snapshot.household !== null &&
+      pending.household.id !== snapshot.household.id
+        ? pending.household.name
+        : null,
     result,
     error,
     busy,

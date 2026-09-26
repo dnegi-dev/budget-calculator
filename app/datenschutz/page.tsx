@@ -101,6 +101,12 @@ export default function DatenschutzPage() {
           löschen“.
         </p>
         <p>
+          <strong>Ein gelöschter Beleg ist wirklich gelöscht.</strong> Löschst du eine Buchung,
+          einen Einkauf oder den Beleg selbst, wird die Datei aus dem Speicher des Geräts entfernt —
+          nicht nur ausgeblendet. Ältere Versionen der App hatten Belege gelöschter Buchungen nur
+          markiert; diese räumt die App beim nächsten Start auf.
+        </p>
+        <p>
           Das geschieht vollständig <strong>auf deinem Gerät</strong>, im Browser. Die Datei wird
           nicht übertragen, das Ergebnis nicht gemeldet. Der dafür nötige Programmteil (die
           Bibliothek pdf.js) wird von demselben Server geladen wie diese Seite; es ist kein Dienst

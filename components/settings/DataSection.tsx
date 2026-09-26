@@ -26,7 +26,7 @@ import { Card, CardHeader } from '../../lib/ui/Card';
 import { Icon } from '../../lib/ui/Icon';
 import { useFormat } from '../../lib/ui/useFormat';
 import { BackupFilePicker } from './BackupFilePicker';
-import { useBackupImport } from './useBackupImport';
+import { describeImportResult, useBackupImport } from './useBackupImport';
 
 export function DataSection() {
   const { repository, snapshot } = useData();
@@ -139,7 +139,11 @@ export function DataSection() {
 
         {einlesen.pending !== null && (
           <div className="rounded-card border border-[var(--warning)] px-4 py-3">
-            <p className="font-medium">Zusammenführen?</p>
+            <p className="font-medium">
+              {einlesen.foreignHousehold === null
+                ? 'Zusammenführen?'
+                : `Aus „${einlesen.foreignHousehold}" übernehmen?`}
+            </p>
             {einlesen.truncated > 0 && (
               <p className="mt-1 text-sm text-ink-muted">
                 {einlesen.truncated === 1
@@ -147,16 +151,24 @@ export function DataSection() {
                   : `${einlesen.truncated} zu lange Texte wurden auf die zulässige Länge gekürzt.`}
               </p>
             )}
-            <p className="mt-1 text-sm text-ink-muted">
-              Vorhandene Datensätze bleiben; bei gleicher ID gewinnt der neuere Stand.
-            </p>
+            {einlesen.foreignHousehold === null ? (
+              <p className="mt-1 text-sm text-ink-muted">
+                Vorhandene Datensätze bleiben; bei gleicher ID gewinnt der neuere Stand.
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-ink-muted">
+                Die Sicherung stammt aus einem anderen Haushalt. Ihre Töpfe, Buchungen und Regeln
+                werden in diesen Haushalt übernommen; die Einstellungen dieses Haushalts bleiben.
+                Töpfe mit gleichem Namen stehen danach doppelt da.
+              </p>
+            )}
             <div className="mt-3 flex flex-wrap gap-3">
               <Button
                 variant="primary"
                 disabled={einlesen.busy}
                 onClick={() => void einlesen.ausfuehren('merge')}
               >
-                Zusammenführen
+                {einlesen.foreignHousehold === null ? 'Zusammenführen' : 'Übernehmen'}
               </Button>
               <Button variant="ghost" onClick={einlesen.abbrechen}>
                 Abbrechen
@@ -167,12 +179,7 @@ export function DataSection() {
 
         {einlesen.result && (
           <Banner icon={<Icon icon={CircleCheck} size={18} />}>
-            Eingelesen: {einlesen.result.pots} Töpfe, {einlesen.result.entries} Buchungen,{' '}
-            {einlesen.result.recurringRules} Regeln, {einlesen.result.receipts} Belege
-            {einlesen.result.skipped > 0
-              ? ` — ${einlesen.result.skipped} übersprungen (lokal neuer)`
-              : ''}
-            .
+            {describeImportResult(einlesen.result)}
           </Banner>
         )}
 

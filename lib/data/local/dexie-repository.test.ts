@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTestDatabase, type BudgetDatabase } from './db';
 import { DexieBudgetRepository } from './dexie-repository';
 import { PermissionDeniedError, type Principal } from '../../rbac/can';
+import { ForeignHouseholdError } from '../repository';
 import { EXPORT_SCHEMA_VERSION, exportFileSchema, TEXT_LIMITS } from '../../domain/schemas';
 import type { Role } from '../../domain/types';
 
@@ -552,12 +553,18 @@ describe('Bon-Aufteilung und gelernte Zuordnungen', () => {
     expect(entry.splitGroupId).toBeNull();
   });
 
+  async function topf(name: string) {
+    return repo.createPot({ name, kind: 'category', limitCents: null, carryOver: false });
+  }
+
   it('merkt sich Zuordnungen und überschreibt statt zu verdoppeln', async () => {
-    const erst = await repo.rememberItemRule('vollmilch', 'topf-a');
-    const zweit = await repo.rememberItemRule('vollmilch', 'topf-b');
+    const a = await topf('A');
+    const b = await topf('B');
+    const erst = await repo.rememberItemRule('vollmilch', a.id);
+    const zweit = await repo.rememberItemRule('vollmilch', b.id);
 
     expect(zweit.id).toBe(erst.id);
-    expect(zweit.potId).toBe('topf-b');
+    expect(zweit.potId).toBe(b.id);
     expect(zweit.revision).toBe(2);
 
     const rules = await repo.listItemRules();
@@ -565,7 +572,7 @@ describe('Bon-Aufteilung und gelernte Zuordnungen', () => {
   });
 
   it('vergisst eine Zuordnung als Soft Delete', async () => {
-    const rule = await repo.rememberItemRule('spülmittel', 'topf-haushalt');
+    const rule = await repo.rememberItemRule('spülmittel', (await topf('Haushalt')).id);
     await repo.forgetItemRule(rule.id);
 
     expect(await repo.listItemRules()).toEqual([]);
@@ -574,7 +581,7 @@ describe('Bon-Aufteilung und gelernte Zuordnungen', () => {
   });
 
   it('nimmt Zuordnungen in die Sicherung mit', async () => {
-    await repo.rememberItemRule('kaffee', 'topf-genuss');
+    await repo.rememberItemRule('kaffee', (await topf('Genuss')).id);
     const file = await repo.exportAll({ includeReceipts: false });
 
     expect(exportFileSchema.safeParse(file).success).toBe(true);
@@ -1244,5 +1251,443 @@ describe('Bon-Posten', () => {
     const geparst = exportFileSchema.parse(alt);
     expect(geparst.purchases).toEqual([]);
     expect(geparst.purchaseItems).toEqual([]);
+  });
+});
+
+/**
+ * Funde aus dem Housekeeping: Stellen, an denen eine Regel auf einem Weg galt
+ * und auf einem zweiten nicht. Jeder Test hier schlug vor seiner Korrektur fehl.
+ */
+describe('Eine Regel auf jedem Weg', () => {
+  async function gesperrterTopf() {
+    const pot = await repo.createPot({
+      name: 'Urlaub',
+      kind: 'goal',
+      limitCents: null,
+      carryOver: false,
+      goalCents: 100_000,
+      targetDate: '2026-01-01',
+    });
+    await repo.lockDueGoalPots('2026-06-01');
+    return pot;
+  }
+
+  async function offenerTopf(name = 'Lebensmittel') {
+    return repo.createPot({ name, kind: 'budget', limitCents: 40_000, carryOver: false });
+  }
+
+  it('lehnt einen Bon auf einen gesperrten Topf ab', async () => {
+    const pot = await gesperrterTopf();
+    await expect(
+      repo.createPurchase({
+        merchant: 'Laden',
+        date: '2026-09-18',
+        totalCents: 250,
+        quality: 'exakt',
+        items: [{ label: 'Milch', amountCents: 250, potId: pot.id }],
+      }),
+    ).rejects.toThrow(/gesperrt/);
+    expect(await repo.listEntries()).toHaveLength(0);
+  });
+
+  it('lehnt es ab, einen Posten auf einen gesperrten Topf umzuhängen', async () => {
+    const offen = await offenerTopf();
+    const gesperrt = await gesperrterTopf();
+    await repo.createPurchase({
+      merchant: 'Laden',
+      date: '2026-09-18',
+      totalCents: 250,
+      quality: 'exakt',
+      items: [{ label: 'Milch', amountCents: 250, potId: offen.id }],
+    });
+    const item = (await repo.loadSnapshot()).purchaseItems[0]!;
+    await expect(repo.updatePurchaseItem(item.id, { potId: gesperrt.id })).rejects.toThrow(
+      /gesperrt/,
+    );
+  });
+
+  it('lehnt eine wiederkehrende Regel auf einen gesperrten oder gelöschten Topf ab', async () => {
+    const gesperrt = await gesperrterTopf();
+    const regel = {
+      kind: 'expense' as const,
+      amountCents: 1_000,
+      freq: 'monthly' as const,
+      interval: 1,
+      dayOfMonth: 1,
+      startDate: '2026-01-01',
+    };
+    await expect(repo.createRecurringRule({ ...regel, potId: gesperrt.id })).rejects.toThrow(
+      /gesperrt/,
+    );
+
+    const weg = await offenerTopf('Weg');
+    await repo.deletePot(weg.id);
+    await expect(repo.createRecurringRule({ ...regel, potId: weg.id })).rejects.toThrow(
+      /nicht gefunden/,
+    );
+  });
+
+  it('lehnt eine Zuordnung auf einen Topf ab, den es nicht gibt', async () => {
+    await expect(repo.rememberItemRule('milch', 'gibt-es-nicht')).rejects.toThrow(/nicht gefunden/);
+  });
+
+  it('lehnt eine Buchung auf einen gelöschten Topf ab', async () => {
+    const weg = await offenerTopf('Weg');
+    await repo.deletePot(weg.id);
+    await expect(
+      repo.createEntry({ potId: weg.id, kind: 'expense', amountCents: 100, date: '2026-09-18' }),
+    ).rejects.toThrow(/nicht gefunden/);
+  });
+
+  it('bucht eine Regel ohne Topf nicht in einen gesperrten Standardtopf', async () => {
+    const pot = await repo.createPot({
+      name: 'Urlaub',
+      kind: 'goal',
+      limitCents: null,
+      carryOver: false,
+      goalCents: 100_000,
+      targetDate: '2026-01-01',
+    });
+    await repo.updateHousehold({ defaultPotId: pot.id });
+    await repo.createRecurringRule({
+      potId: null,
+      kind: 'expense',
+      amountCents: 1_000,
+      freq: 'monthly',
+      interval: 1,
+      dayOfMonth: 1,
+      startDate: '2026-08-01',
+    });
+    await repo.lockDueGoalPots('2026-06-01');
+    // Den Standardtopf von Hand zurücksetzen, wie ihn eine ältere Installation
+    // nach dem Sperren noch trüge.
+    const household = (await db.households.toArray())[0]!;
+    await db.households.put({ ...household, defaultPotId: pot.id });
+
+    await repo.materializeRecurringRules('2026-09-18');
+    const entries = await repo.listEntries();
+    expect(entries.length).toBeGreaterThan(0);
+    expect(entries.every((entry) => entry.potId === null)).toBe(true);
+  });
+
+  it('räumt den Standardtopf, wenn sein Sparziel gesperrt wird', async () => {
+    const pot = await repo.createPot({
+      name: 'Urlaub',
+      kind: 'goal',
+      limitCents: null,
+      carryOver: false,
+      goalCents: 100_000,
+      targetDate: '2026-01-01',
+    });
+    await repo.updateHousehold({ defaultPotId: pot.id });
+    await repo.lockDueGoalPots('2026-06-01');
+    expect((await repo.getHousehold())?.defaultPotId).toBeNull();
+  });
+
+  it('erlaubt keinen gesperrten oder gelöschten Standardtopf', async () => {
+    const gesperrt = await gesperrterTopf();
+    await expect(repo.updateHousehold({ defaultPotId: gesperrt.id })).rejects.toThrow(/gesperrt/);
+    await expect(repo.updateHousehold({ defaultPotId: 'gibt-es-nicht' })).rejects.toThrow(
+      /nicht gefunden/,
+    );
+  });
+
+  it('erzeugt aus zwei Tabs gleichzeitig keine doppelten Buchungen', async () => {
+    await repo.createRecurringRule({
+      potId: null,
+      kind: 'expense',
+      amountCents: 1_000,
+      freq: 'monthly',
+      interval: 1,
+      dayOfMonth: 1,
+      startDate: '2026-07-01',
+    });
+    const zweiterTab = new DexieBudgetRepository(db, true);
+    zweiterTab.setPrincipalResolver(() => principal);
+
+    await Promise.all([
+      repo.materializeRecurringRules('2026-09-18'),
+      zweiterTab.materializeRecurringRules('2026-09-18'),
+    ]);
+    expect(await repo.listEntries()).toHaveLength(3);
+  });
+
+  it('materialisiert eine Wochenregel auch nach mehr als 500 Wochen', async () => {
+    await repo.createRecurringRule({
+      potId: null,
+      kind: 'expense',
+      amountCents: 500,
+      freq: 'weekly',
+      interval: 1,
+      weekday: 1,
+      startDate: '2014-01-06',
+    });
+    // Der Stand, den die Regel nach Jahren trägt: zuletzt vor drei Wochen.
+    const rule = (await repo.listRecurringRules())[0]!;
+    await db.recurringRules.put({ ...rule, lastMaterializedDate: '2026-08-24' });
+
+    expect(await repo.materializeRecurringRules('2026-09-18')).toBe(3);
+  });
+
+  it('räumt beim Löschen eines Topfes Zuordnungen und Posten mit', async () => {
+    const bleibt = await offenerTopf();
+    const weg = await offenerTopf('Drogerie');
+    await repo.rememberItemRule('zahnpasta', weg.id);
+    await repo.createPurchase({
+      merchant: 'Laden',
+      date: '2026-09-18',
+      totalCents: 1_000,
+      quality: 'exakt',
+      items: [
+        { label: 'Zahnpasta', amountCents: 250, potId: weg.id },
+        { label: 'Milch', amountCents: 750, potId: bleibt.id },
+      ],
+    });
+
+    await repo.deletePot(weg.id);
+
+    const snapshot = await repo.loadSnapshot();
+    expect(snapshot.itemRules).toHaveLength(0);
+    expect(snapshot.purchaseItems.find((item) => item.label === 'Zahnpasta')?.potId).toBeNull();
+
+    // Die nächste Änderung am Einkauf darf den gelöschten Topf nicht wieder beleben.
+    const milch = snapshot.purchaseItems.find((item) => item.label === 'Milch')!;
+    await repo.updatePurchaseItem(milch.id, { tags: [] });
+    expect((await repo.listEntries()).some((entry) => entry.potId === weg.id)).toBe(false);
+  });
+
+  it('benennt und löscht Tags auch an Einkauf und Posten', async () => {
+    await repo.updateHousehold({ tagsEnabled: true });
+    const pot = await offenerTopf();
+    await repo.createPurchase({
+      merchant: 'Laden',
+      date: '2026-09-18',
+      totalCents: 250,
+      quality: 'exakt',
+      tags: ['Urlaub'],
+      items: [{ label: 'Milch', amountCents: 250, potId: pot.id, tags: ['Bio'] }],
+    });
+
+    await repo.renameTag('urlaub', 'Reise');
+    await repo.deleteTag('bio');
+
+    let snapshot = await repo.loadSnapshot();
+    expect(snapshot.purchases[0]?.tags).toEqual(['Reise']);
+    expect(snapshot.purchaseItems[0]?.tags).toEqual([]);
+
+    // Neu rechnen darf die alten Namen nicht zurückbringen.
+    await repo.updatePurchaseItem(snapshot.purchaseItems[0]!.id, { potId: pot.id });
+    snapshot = await repo.loadSnapshot();
+    expect(snapshot.entries[0]?.tags).toEqual(['Reise']);
+  });
+
+  it('lässt ein Mitglied den eigenen Einkauf ändern und löschen', async () => {
+    const pot = await offenerTopf();
+    principal = { ...principal!, role: 'member' };
+    const { purchase } = await repo.createPurchase({
+      merchant: 'Laden',
+      date: '2026-09-18',
+      totalCents: 250,
+      quality: 'exakt',
+      items: [{ label: 'Milch', amountCents: 250, potId: pot.id }],
+    });
+    const item = (await repo.loadSnapshot()).purchaseItems[0]!;
+    await repo.updatePurchaseItem(item.id, { potId: null });
+    await repo.deletePurchase(purchase.id);
+    expect((await repo.loadSnapshot()).purchases).toHaveLength(0);
+  });
+
+  it('verweigert einem Mitglied den fremden Einkauf', async () => {
+    const pot = await offenerTopf();
+    const { purchase } = await repo.createPurchase({
+      merchant: 'Laden',
+      date: '2026-09-18',
+      totalCents: 250,
+      quality: 'exakt',
+      items: [{ label: 'Milch', amountCents: 250, potId: pot.id }],
+    });
+    principal = { ...principal!, userId: 'jemand-anderes', role: 'member' };
+    await expect(repo.deletePurchase(purchase.id)).rejects.toThrow(PermissionDeniedError);
+  });
+
+  it('kürzt Namen von Haushalt und Topf und Dateinamen beim Schreiben', async () => {
+    const lang = 'x'.repeat(400);
+    const pot = await repo.createPot({
+      name: lang,
+      kind: 'category',
+      limitCents: null,
+      carryOver: false,
+    });
+    expect(pot.name).toHaveLength(TEXT_LIMITS.potName);
+    expect((await repo.updatePot(pot.id, { name: lang })).name).toHaveLength(TEXT_LIMITS.potName);
+    expect((await repo.updateHousehold({ name: lang })).name).toHaveLength(
+      TEXT_LIMITS.householdName,
+    );
+
+    const entry = await repo.createEntry({
+      potId: null,
+      kind: 'expense',
+      amountCents: 100,
+      date: '2026-09-18',
+    });
+    const receipt = await repo.addReceipt(entry.id, {
+      filename: `${lang}.pdf`,
+      mime: 'application/pdf',
+      blob: new Blob(['%PDF'], { type: 'application/pdf' }),
+      thumbnail: null,
+    });
+    expect(receipt.filename.length).toBeLessThanOrEqual(TEXT_LIMITS.filename);
+
+    // Und die Sicherung bleibt einlesbar.
+    const file = await repo.exportAll({ includeReceipts: true });
+    expect(() => exportFileSchema.parse(JSON.parse(JSON.stringify(file)))).not.toThrow();
+  });
+
+  it('löscht den Beleg einer gelöschten Buchung wirklich', async () => {
+    const entry = await repo.createEntry({
+      potId: null,
+      kind: 'expense',
+      amountCents: 100,
+      date: '2026-09-18',
+    });
+    await repo.addReceipt(entry.id, {
+      filename: 'bon.pdf',
+      mime: 'application/pdf',
+      blob: new Blob(['%PDF'], { type: 'application/pdf' }),
+      thumbnail: null,
+    });
+    await repo.deleteEntry(entry.id);
+    expect(await db.receipts.count()).toBe(0);
+  });
+
+  it('räumt weich gelöschte Belege älterer Installationen auf', async () => {
+    const entry = await repo.createEntry({
+      potId: null,
+      kind: 'expense',
+      amountCents: 100,
+      date: '2026-09-18',
+    });
+    const meta = await repo.addReceipt(entry.id, {
+      filename: 'bon.pdf',
+      mime: 'application/pdf',
+      blob: new Blob(['%PDF'], { type: 'application/pdf' }),
+      thumbnail: null,
+    });
+    const stored = (await db.receipts.get(meta.id))!;
+    await db.receipts.put({ ...stored, deletedAt: '2026-09-18T00:00:00.000Z' });
+
+    expect(await repo.purgeDeletedReceipts()).toBe(1);
+    expect(await db.receipts.count()).toBe(0);
+  });
+});
+
+describe('Import: Bezüge und fremde Haushalte', () => {
+  it('leert beim Ersetzen auch die Outbox', async () => {
+    const file = await repo.exportAll({ includeReceipts: false });
+    await repo.createPot({ name: 'Lokal', kind: 'category', limitCents: null, carryOver: false });
+    await repo.importAll(file, 'replace');
+    const ids = new Set((await db.pots.toArray()).map((pot) => pot.id));
+    const verwaist = (await db.changeLog.toArray()).filter(
+      (change) => change.entity === 'pot' && !ids.has(change.entityId),
+    );
+    expect(verwaist).toEqual([]);
+  });
+
+  it('schreibt beim Import für jeden Datensatz eine Outbox-Zeile', async () => {
+    const pot = await repo.createPot({
+      name: 'Lebensmittel',
+      kind: 'budget',
+      limitCents: 1_000,
+      carryOver: false,
+    });
+    await repo.createEntry({
+      potId: pot.id,
+      kind: 'expense',
+      amountCents: 100,
+      date: '2026-09-18',
+    });
+    const file = await repo.exportAll({ includeReceipts: false });
+    await db.changeLog.clear();
+    await repo.importAll(file, 'replace');
+    const log = await db.changeLog.toArray();
+    expect(log.some((change) => change.entity === 'pot' && change.entityId === pot.id)).toBe(true);
+    expect(log.filter((change) => change.entity === 'entry')).toHaveLength(1);
+  });
+
+  it('behält beim Ersetzen die Belege, wenn die Sicherung ohne Belege ist', async () => {
+    const entry = await repo.createEntry({
+      potId: null,
+      kind: 'expense',
+      amountCents: 100,
+      date: '2026-09-18',
+    });
+    await repo.addReceipt(entry.id, {
+      filename: 'bon.pdf',
+      mime: 'application/pdf',
+      blob: new Blob(['%PDF'], { type: 'application/pdf' }),
+      thumbnail: null,
+    });
+    const file = await repo.exportAll({ includeReceipts: false });
+    await repo.importAll(file, 'replace');
+    expect(await repo.listReceipts()).toHaveLength(1);
+  });
+
+  it('löst Verweise auf, die ins Leere zeigen', async () => {
+    const pot = await repo.createPot({
+      name: 'Lebensmittel',
+      kind: 'budget',
+      limitCents: 1_000,
+      carryOver: false,
+    });
+    await repo.createEntry({
+      potId: pot.id,
+      kind: 'expense',
+      amountCents: 100,
+      date: '2026-09-18',
+    });
+    await repo.updateHousehold({ defaultPotId: pot.id });
+    const file = await repo.exportAll({ includeReceipts: false });
+    const ohneTopf = { ...file, pots: [] };
+
+    const result = await repo.importAll(ohneTopf, 'replace');
+    expect(result.repaired).toBeGreaterThan(0);
+    expect((await repo.listEntries())[0]?.potId).toBeNull();
+    expect((await repo.getHousehold())?.defaultPotId).toBeNull();
+  });
+
+  it('verweigert das Zusammenführen mit einem fremden Haushalt ohne Zustimmung', async () => {
+    const file = await repo.exportAll({ includeReceipts: false });
+    const fremd = { ...file, household: { ...file.household, id: 'fremd', name: 'Nachbarn' } };
+    await expect(repo.importAll(fremd, 'merge')).rejects.toThrow(ForeignHouseholdError);
+  });
+
+  it('übernimmt einen fremden Haushalt in den eigenen, wenn zugestimmt', async () => {
+    const eigener = (await repo.getHousehold())!;
+    const file = await repo.exportAll({ includeReceipts: false });
+    const fremdPot = {
+      ...(await repo.createPot({
+        name: 'X',
+        kind: 'category',
+        limitCents: null,
+        carryOver: false,
+      })),
+      id: 'fremder-topf',
+      name: 'Garten',
+      householdId: 'fremd',
+    };
+    const fremd = {
+      ...file,
+      household: { ...file.household, id: 'fremd', name: 'Nachbarn', periodStartDay: 15 },
+      pots: [fremdPot],
+    };
+
+    await repo.importAll(fremd, 'merge', { adoptInto: eigener.id });
+
+    expect(await db.households.count()).toBe(1);
+    const household = (await repo.getHousehold())!;
+    expect(household.name).toBe(eigener.name);
+    expect(household.periodStartDay).toBe(eigener.periodStartDay);
+    const garten = await repo.getPot('fremder-topf');
+    expect(garten?.householdId).toBe(eigener.id);
   });
 });

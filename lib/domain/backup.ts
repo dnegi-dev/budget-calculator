@@ -10,7 +10,7 @@
  */
 
 import type { ZodError } from 'zod';
-import { TEXT_LIMITS } from './schemas';
+import { TEXT_LIMITS, type ExportFile } from './schemas';
 import { dedupeTags } from './tags';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -75,11 +75,18 @@ export function clampBackupText(backup: unknown): number {
     ['merchant', TEXT_LIMITS.merchant],
     ['address', TEXT_LIMITS.address],
   ]);
-  if (Array.isArray(backup.entries)) {
-    for (const item of backup.entries) if (isRecord(item)) count += clampTags(item);
-  }
   count += clampEach(backup.recurringRules, [['note', TEXT_LIMITS.note]]);
   count += clampEach(backup.itemRules, [['keyword', TEXT_LIMITS.keyword]]);
+  count += clampEach(backup.purchases, [['merchant', TEXT_LIMITS.merchant]]);
+  count += clampEach(backup.purchaseItems, [['label', TEXT_LIMITS.itemLabel]]);
+  count += clampEach(backup.receipts, [['filename', TEXT_LIMITS.filename]]);
+  // Tags stehen an drei Stellen — an jeder dieselbe Nachsicht, sonst macht
+  // ein zu langer Tag am Einkauf die Sicherung unbrauchbar, während derselbe
+  // Tag an einer Buchung gekürzt würde.
+  for (const list of [backup.entries, backup.purchases, backup.purchaseItems]) {
+    if (!Array.isArray(list)) continue;
+    for (const item of list) if (isRecord(item)) count += clampTags(item);
+  }
 
   return count;
 }
@@ -104,4 +111,114 @@ export function describeImportError(error: ZodError): string {
   ]
     .filter((line): line is string => line !== null)
     .join('\n');
+}
+
+/**
+ * Löst Verweise, die ins Leere zeigen, und zählt sie.
+ *
+ * `known` sind IDs, die es außerhalb der Datei schon gibt — beim
+ * Zusammenführen darf eine Buchung auf einen Topf zeigen, der nur lokal
+ * existiert. Beim Ersetzen ist `known` leer.
+ *
+ * Die Regeln folgen dem, was das Repository beim Löschen tut: Eine Buchung
+ * verliert ihren Topf, bleibt aber; eine gelernte Zuordnung ohne Topf ist
+ * wertlos und fällt weg; ein Beleg ohne Buchung belegt nichts mehr.
+ */
+export function repairReferences(
+  file: ExportFile,
+  known: {
+    potIds?: Iterable<string>;
+    entryIds?: Iterable<string>;
+    purchaseIds?: Iterable<string>;
+  } = {},
+): { file: ExportFile; repaired: number } {
+  const potIds = new Set([...(known.potIds ?? []), ...file.pots.map((pot) => pot.id)]);
+  const purchaseIds = new Set([
+    ...(known.purchaseIds ?? []),
+    ...file.purchases.map((purchase) => purchase.id),
+  ]);
+  let repaired = 0;
+
+  const potOrNull = (potId: string | null): string | null => {
+    if (potId === null || potIds.has(potId)) return potId;
+    repaired += 1;
+    return null;
+  };
+
+  const entries = file.entries.map((entry) => {
+    const potId = potOrNull(entry.potId);
+    let purchaseId = entry.purchaseId ?? null;
+    if (purchaseId !== null && !purchaseIds.has(purchaseId)) {
+      purchaseId = null;
+      repaired += 1;
+    }
+    return potId === entry.potId && purchaseId === (entry.purchaseId ?? null)
+      ? entry
+      : { ...entry, potId, purchaseId };
+  });
+  const entryIds = new Set([...(known.entryIds ?? []), ...entries.map((entry) => entry.id)]);
+
+  const recurringRules = file.recurringRules.map((rule) => {
+    const potId = potOrNull(rule.potId);
+    // Wie beim Löschen eines Topfes: Eine Regel ohne ihr Ziel läuft nicht
+    // still weiter, sondern wartet auf eine Entscheidung.
+    return potId === rule.potId ? rule : { ...rule, potId, paused: true };
+  });
+
+  const itemRules = file.itemRules.filter((rule) => {
+    if (potIds.has(rule.potId)) return true;
+    repaired += 1;
+    return false;
+  });
+
+  const purchaseItems = file.purchaseItems.flatMap((item) => {
+    if (!purchaseIds.has(item.purchaseId)) {
+      repaired += 1;
+      return [];
+    }
+    const potId = potOrNull(item.potId);
+    return [potId === item.potId ? item : { ...item, potId }];
+  });
+
+  const receipts = file.receipts.filter((receipt) => {
+    if (entryIds.has(receipt.entryId)) return true;
+    repaired += 1;
+    return false;
+  });
+
+  const defaultPotId = potOrNull(file.household.defaultPotId ?? null);
+  const household =
+    defaultPotId === (file.household.defaultPotId ?? null)
+      ? file.household
+      : { ...file.household, defaultPotId };
+
+  return {
+    file: { ...file, household, entries, recurringRules, itemRules, purchaseItems, receipts },
+    repaired,
+  };
+}
+
+/**
+ * Schreibt jeden Datensatz einer Sicherung auf den eigenen Haushalt um.
+ *
+ * Haushalt und Nutzer der Datei bleiben draußen: Die Einstellungen des
+ * eigenen Haushalts gelten weiter, und ein zweiter Gerätenutzer aus einem
+ * fremden Haushalt hätte hier keine Bedeutung. Solange es nur einen Haushalt
+ * je Gerät gibt, ist das die einzige Art, zwei zusammenzuführen.
+ */
+export function adoptIntoHousehold(file: ExportFile, householdId: string): ExportFile {
+  const own = <T extends { householdId: string }>(records: readonly T[]): T[] =>
+    records.map((record) => ({ ...record, householdId }));
+  return {
+    ...file,
+    household: { ...file.household, id: householdId },
+    users: [],
+    pots: own(file.pots),
+    entries: own(file.entries),
+    recurringRules: own(file.recurringRules),
+    receipts: own(file.receipts),
+    itemRules: own(file.itemRules),
+    purchases: own(file.purchases),
+    purchaseItems: own(file.purchaseItems),
+  };
 }

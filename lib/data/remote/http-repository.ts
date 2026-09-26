@@ -254,6 +254,10 @@ export class HttpBudgetRepository implements BudgetRepository {
     throw new NotImplementedError('Export');
   }
 
+  purgeDeletedReceipts(): Promise<number> {
+    throw new NotImplementedError('Belegspeicher');
+  }
+
   importAll(_file: ExportFile, _mode: 'replace' | 'merge'): Promise<ImportResult> {
     throw new NotImplementedError('Import');
   }

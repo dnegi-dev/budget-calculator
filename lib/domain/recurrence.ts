@@ -13,7 +13,14 @@
 import { addDays, compareDates, daysInMonth, fromParts, toParts, weekdayOf } from './dates';
 import type { IsoDate, NewEntryInput, RecurringRule } from './types';
 
-/** Notbremse gegen Endlosschleifen bei absurden Eingaben. */
+/**
+ * Notbremse gegen Endlosschleifen bei absurden Eingaben — gezählt **ab dem
+ * gesuchten Zeitraum**, nicht ab dem Start der Regel (`firstIndexNear`).
+ *
+ * Vorher zählte die Schleife ab Index 0: Eine Wochenregel, die älter als 500
+ * Wochen war (gut 9½ Jahre), lieferte danach nie wieder ein Vorkommen — still,
+ * ohne Fehler.
+ */
 const MAX_OCCURRENCES = 500;
 
 export function normalizeInterval(interval: number): number {
@@ -60,7 +67,8 @@ export function occurrencesBetween(
 ): IsoDate[] {
   if (compareDates(fromDate, toDate) > 0) return [];
   const result: IsoDate[] = [];
-  for (let index = 0; index < MAX_OCCURRENCES; index += 1) {
+  const first = firstIndexNear(rule, fromDate);
+  for (let index = first; index < first + MAX_OCCURRENCES; index += 1) {
     const date = occurrenceAt(rule, index);
     if (date === null) break;
     if (compareDates(date, toDate) > 0) break;
@@ -71,7 +79,8 @@ export function occurrencesBetween(
 }
 
 export function nextOccurrenceAfter(rule: RecurringRule, date: IsoDate): IsoDate | null {
-  for (let index = 0; index < MAX_OCCURRENCES; index += 1) {
+  const first = firstIndexNear(rule, date);
+  for (let index = first; index < first + MAX_OCCURRENCES; index += 1) {
     const occurrence = occurrenceAt(rule, index);
     if (occurrence === null) return null;
     if (rule.endDate !== null && compareDates(occurrence, rule.endDate) > 0) return null;
@@ -163,6 +172,33 @@ export function describeRecurrence(rule: RecurringRule): string {
   const day = clampDayOfMonth(rule.dayOfMonth ?? toParts(rule.startDate).day);
   const rhythm = interval === 1 ? 'jährlich' : `alle ${interval} Jahre`;
   return `${rhythm} am ${day}. ${MONTH_LABELS[month - 1] ?? ''}`.trim();
+}
+
+/**
+ * Ein Index, dessen Vorkommen sicher **vor** (oder auf) `date` liegt — die
+ * Schleifen laufen von dort, statt jedes Vorkommen seit dem Start abzuzählen.
+ *
+ * Grob gerechnet und dann zwei Schritte zurück: Monatsenden und der Versatz
+ * des ersten Vorkommens verschieben den genauen Index um höchstens eins.
+ */
+function firstIndexNear(rule: RecurringRule, date: IsoDate): number {
+  if (compareDates(date, rule.startDate) <= 0) return 0;
+  const interval = normalizeInterval(rule.interval);
+  const start = toParts(rule.startDate);
+  const target = toParts(date);
+  let units: number;
+  if (rule.freq === 'weekly') {
+    const days =
+      (Date.UTC(target.year, target.month - 1, target.day) -
+        Date.UTC(start.year, start.month - 1, start.day)) /
+      86_400_000;
+    units = days / (7 * interval);
+  } else if (rule.freq === 'monthly') {
+    units = ((target.year - start.year) * 12 + (target.month - start.month)) / interval;
+  } else {
+    units = (target.year - start.year) / interval;
+  }
+  return Math.max(0, Math.floor(units) - 2);
 }
 
 function advanceToWeekday(date: IsoDate, weekday: number): IsoDate {
