@@ -9,14 +9,15 @@
 export async function blobToBase64(blob: Blob): Promise<string> {
   const buffer = await blob.arrayBuffer();
   const bytes = new Uint8Array(buffer);
-  let binary = '';
   // Blockweise, weil String.fromCharCode(...bytes) bei großen Dateien den
-  // Argument-Stack sprengt.
+  // Argument-Stack sprengt — und gesammelt statt angehängt, damit nicht bei
+  // jedem Block ein neuer, immer längerer Zwischenstring entsteht.
   const chunkSize = 0x8000;
+  const chunks: string[] = [];
   for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+    chunks.push(String.fromCharCode(...bytes.subarray(offset, offset + chunkSize)));
   }
-  return btoa(binary);
+  return btoa(chunks.join(''));
 }
 
 export function base64ToBlob(base64: string, mime: string): Blob {

@@ -189,6 +189,24 @@ describe('Budget mit Übertrag (Envelope)', () => {
     expect(state.carriedInCents).toBe(0);
   });
 
+  it('rechnet auch nach mehr als zehn Jahren jede Periode mit', () => {
+    const alt = pot({ ...p, createdAt: '2014-01-01T00:00:00.000Z' });
+    const entries = [entry('p1', 'expense', 7_000, '2014-01-15')];
+    // Januar 2014 bis August 2026 sind 152 Perioden; die erste Ausgabe liegt
+    // vor der Grenze, an der früher nur noch 120 Perioden zählten.
+    const state = computePotPeriodState(alt, entries, '2026-09', 1);
+    expect(state.carriedInCents).toBe(152 * 5_000 - 7_000);
+  });
+
+  it('zählt Einnahmen auf den Topf als Rückfluss', () => {
+    const entries = [
+      entry('p1', 'expense', 6_000, '2026-06-10'),
+      entry('p1', 'income', 1_000, '2026-07-10'),
+    ];
+    // 3 * 50 − 60 + 10 = 100 €
+    expect(computePotPeriodState(p, entries, '2026-09', 1).carriedInCents).toBe(10_000);
+  });
+
   it('setzt progress ins Verhältnis zum erweiterten Rahmen', () => {
     const entries = [entry('p1', 'expense', 10_000, '2026-09-10')];
     // Rahmen = 50 (Limit) + 150 (Übertrag) = 200 €, Verbrauch 100 €

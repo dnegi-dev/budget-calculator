@@ -235,6 +235,36 @@ zeigt jetzt das Gesparte (`computeGoalState`) wie die Detailseite, nicht mehr
 „ohne Limit". Und `updateEntry` lässt `purchaseId`, `recurringRuleId` und
 `splitGroupId` unberührt — die setzt nur der Weg, der die Buchung angelegt hat.
 
+### Langzeitnutzung
+
+Was erst nach Jahren oder Tausenden Buchungen auffällt:
+
+- **Übertrag in einem Durchlauf** (`computeCarryOverCents`): Limit mal Anzahl
+  vergangener Perioden minus Verbrauch seit Anlage. Vorher lief eine Schleife
+  über höchstens 120 Perioden und filterte je Periode alle Buchungen — nach
+  zehn Jahren fiel jeden Monat still die älteste Periode aus dem Übertrag.
+- **`entries.purchaseId` ist indiziert** (Dexie `version(4)`); die Buchungen
+  eines Einkaufs laufen über `entriesOfPurchase`, nicht über den ganzen
+  Bestand.
+- **Andere Tabs laden neu** — `notify()` sendet über einen
+  `BroadcastChannel`, der Empfänger lädt nur neu und sendet nicht weiter.
+- **Speicher voll** heißt in der Oberfläche so (`withStorageErrors` um Beleg
+  und Import); **eine zu große Sicherung** meldet sich mit dem Rat, ohne Belege
+  zu exportieren. Belege werden nacheinander kodiert, nicht alle auf einmal.
+- **`navigator.storage.persist()`** wird nach der Einrichtung einmal je
+  Sitzung erbeten (`lib/data/persist.ts`). Firefox fragt dabei nach; die
+  anderen entscheiden still.
+- **Beträge haben eine Obergrenze** (`MAX_AMOUNT_CENTS`) — in Eingabe,
+  Repository und Schema dieselbe Zahl, sonst ließe sich ein Betrag speichern,
+  den die Sicherung dann ablehnt.
+- **Die Outbox (`changeLog`) wächst ohne Ende, mit Absicht.** Sie ist die
+  künftige Sync-Warteschlange; kürzen darf sie erst, wer weiß, was ein Server
+  schon hat. Mit dem Server kommt das Aufräumen (`docs/roadmap-server.md`).
+- **Nicht gemacht, bewusst:** keine Virtualisierung der Listen (die
+  Buchungsliste ist auf eine Periode begrenzt), und der Snapshot lädt weiter
+  alle Tabellen nach jeder Änderung. Beides wird erst bei gemessenem Bedarf
+  angefasst.
+
 ### Import
 
 - **Jeder eingelesene Datensatz bekommt seine Outbox-Zeile**; „Ersetzen" leert

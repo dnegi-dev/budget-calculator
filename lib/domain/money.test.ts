@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatCentsPlain,
+  MAX_AMOUNT_CENTS,
   formatDigitsAsAmount,
   parseAmountToCents,
   signedCents,
@@ -114,5 +115,13 @@ describe('formatDigitsAsAmount', () => {
       const shown = formatDigitsAsAmount(digits);
       expect(parseAmountToCents(shown)).toBe(Number(digits));
     }
+  });
+});
+
+describe('Obergrenze', () => {
+  it('lehnt Beträge über der Grenze ab, statt still zu runden', () => {
+    expect(parseAmountToCents('10.000.000,00')).toBe(MAX_AMOUNT_CENTS);
+    expect(parseAmountToCents('10.000.000,01')).toBeNull();
+    expect(parseAmountToCents('9'.repeat(30))).toBeNull();
   });
 });
