@@ -8,6 +8,7 @@
 
 import { z } from 'zod';
 import { isIsoDate } from './dates';
+import { MAX_AMOUNT_CENTS } from './money';
 import { isPeriodKey } from './period';
 import { TAG_LIMITS } from './tags';
 
@@ -83,7 +84,7 @@ export const amountCentsSchema = z
   .number()
   .int('Nur ganze Cent')
   .min(0, 'Negative Beträge werden über die Art der Buchung ausgedrückt')
-  .max(1_000_000_000, 'Betrag unrealistisch groß');
+  .max(MAX_AMOUNT_CENTS, 'Betrag unrealistisch groß');
 
 const recordMetaShape = {
   id: idSchema,

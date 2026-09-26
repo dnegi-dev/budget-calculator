@@ -1712,3 +1712,29 @@ describe('Import: Bezüge und fremde Haushalte', () => {
     expect(garten?.householdId).toBe(eigener.id);
   });
 });
+
+describe('Mehrere Tabs', () => {
+  it('lädt im zweiten Tab neu, wenn der erste etwas ändert', async () => {
+    const tab1 = new DexieBudgetRepository(db, true, true);
+    const tab2 = new DexieBudgetRepository(db, true, true);
+    tab1.setPrincipalResolver(() => principal);
+    tab2.setPrincipalResolver(() => principal);
+    try {
+      await tab2.refresh();
+      const geladen = new Promise<void>((resolve) => {
+        const stop = tab2.subscribe(() => {
+          if ((tab2.getCachedSnapshot()?.pots.length ?? 0) > 0) {
+            stop();
+            resolve();
+          }
+        });
+      });
+      await tab1.createPot({ name: 'Neu', kind: 'category', limitCents: null, carryOver: false });
+      await geladen;
+      expect(tab2.getCachedSnapshot()?.pots.map((pot) => pot.name)).toEqual(['Neu']);
+    } finally {
+      tab1.dispose();
+      tab2.dispose();
+    }
+  });
+});

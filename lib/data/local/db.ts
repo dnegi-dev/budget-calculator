@@ -82,6 +82,20 @@ export class BudgetDatabase extends Dexie {
       purchases: 'id, householdId, date, deletedAt',
       purchaseItems: 'id, householdId, purchaseId, potId, deletedAt',
     });
+
+    /**
+     * Version 4: `entries.purchaseId` wird indiziert.
+     *
+     * Die Buchungen eines Einkaufs wurden bis hierher über den ganzen Bestand
+     * gesucht (`toArray().filter`) — bei jeder Postenänderung und jedem
+     * Löschen eines Einkaufs. Nach Jahren sind das Zehntausende Zeilen für
+     * eine Handvoll Treffer. Ein neuer Index braucht die vollständige Zeile
+     * dieser Tabelle, aber kein `upgrade()`: Dexie baut ihn aus dem Bestand.
+     */
+    this.version(4).stores({
+      entries:
+        'id, householdId, date, potId, kind, recurringRuleId, deletedAt, [potId+date], purchaseId',
+    });
   }
 }
 

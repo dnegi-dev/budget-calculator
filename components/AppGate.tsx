@@ -32,6 +32,7 @@ import { LoginGate } from './LoginGate';
 import { useData } from '../lib/data/provider';
 import { useUnlocked } from '../lib/auth/useUnlocked';
 import { todayIso } from '../lib/domain/dates';
+import { requestPersistentStorage } from '../lib/data/persist';
 
 /** Routen, die ohne eingerichteten Haushalt erreichbar bleiben müssen. */
 const PUBLIC_ROUTES = ['/impressum', '/datenschutz'];
@@ -65,6 +66,9 @@ export function AppGate({ children }: { children: ReactNode }) {
     // Bilder gelöschter Buchungen, die ältere Versionen nur markiert hatten.
     // Scheitert es, bleibt der Platz bis zum nächsten Start belegt — mehr nicht.
     void repository.purgeDeletedReceipts().catch(() => {});
+    // Erst mit eingerichtetem Haushalt: Vorher gibt es nichts, das zu
+    // verlieren wäre, und die Bitte käme ohne Zusammenhang.
+    void requestPersistentStorage();
   }, [repository, setupComplete, unlocked]);
 
   // Vor allem anderen — auch vor dem Ladezustand, denn diese Seiten brauchen

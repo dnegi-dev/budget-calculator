@@ -18,6 +18,7 @@ import type { Table } from 'dexie';
 import { getDatabase, type BudgetDatabase } from './db';
 import { newId } from '../../domain/ids';
 import { nowIso, todayIso } from '../../domain/dates';
+import { MAX_AMOUNT_CENTS } from '../../domain/money';
 import { clampPeriodStartDay } from '../../domain/period';
 import { applyPotKindPreset, isGoalDue } from '../../domain/pot-kinds';
 import { adoptIntoHousehold, repairReferences } from '../../domain/backup';
@@ -83,12 +84,28 @@ export class DexieBudgetRepository implements BudgetRepository {
   private cachedSnapshot: Snapshot | null = null;
   private lastError: Error | null = null;
 
+  /**
+   * Meldet anderen Tabs derselben App, dass sich etwas geändert hat. Ohne das
+   * zeigte ein zweiter Tab den alten Stand, bis jemand neu lud — und buchte
+   * darauf weiter (etwa einen längst gelöschten Topf).
+   */
+  private readonly channel: BroadcastChannel | null;
+
   constructor(
     db: BudgetDatabase = getDatabase(),
     writeChangeLog = process.env.NEXT_PUBLIC_CHANGE_LOG !== 'off',
+    crossTab = typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined',
   ) {
     this.db = db;
     this.writeChangeLog = writeChangeLog;
+    this.channel = crossTab ? new BroadcastChannel(`budget:${db.name}`) : null;
+    // Nur neu laden, nicht weitersenden — sonst schaukeln sich zwei Tabs auf.
+    this.channel?.addEventListener('message', () => void this.refresh());
+  }
+
+  /** Gibt den Kanal zu anderen Tabs frei — für Tests und ein späteres Abmelden. */
+  dispose(): void {
+    this.channel?.close();
   }
 
   setPrincipalResolver(resolver: () => Principal | null): void {
@@ -719,9 +736,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       ...entry,
       ...editable,
       amountCents:
-        patch.amountCents === undefined
-          ? entry.amountCents
-          : Math.round(Math.abs(patch.amountCents)),
+        patch.amountCents === undefined ? entry.amountCents : normalizeAmount(patch.amountCents),
       note: patch.note === undefined ? entry.note : clampText(patch.note, TEXT_LIMITS.note),
       merchant:
         patch.merchant === undefined
@@ -897,7 +912,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       deletedAt: null,
       potId: input.potId,
       kind: input.kind,
-      amountCents: Math.round(Math.abs(input.amountCents)),
+      amountCents: normalizeAmount(input.amountCents),
       note: clampText(input.note, TEXT_LIMITS.note),
       freq: input.freq,
       interval: input.interval,
@@ -934,9 +949,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       ...rule,
       ...patch,
       amountCents:
-        patch.amountCents === undefined
-          ? rule.amountCents
-          : Math.round(Math.abs(patch.amountCents)),
+        patch.amountCents === undefined ? rule.amountCents : normalizeAmount(patch.amountCents),
       note: patch.note === undefined ? rule.note : clampText(patch.note, TEXT_LIMITS.note),
       updatedAt: nowIso(),
       revision: rule.revision + 1,
@@ -1208,10 +1221,9 @@ export class DexieBudgetRepository implements BudgetRepository {
       .filter(alive)
       .map((candidate) => (candidate.id === geaendert.id ? geaendert : candidate));
 
-    const bestehende = (await this.db.entries.toArray())
-      .filter(alive)
-      .filter((entry) => entry.purchaseId === purchase.id)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const bestehende = (await this.entriesOfPurchase(purchase.id)).sort((a, b) =>
+      a.createdAt.localeCompare(b.createdAt),
+    );
 
     const plan = planPurchaseEntries(purchase, alle, bestehende, {
       tagsEnabled: household.tagsEnabled,
@@ -1336,9 +1348,7 @@ export class DexieBudgetRepository implements BudgetRepository {
         const items = (await this.db.purchaseItems.where('purchaseId').equals(id).toArray()).filter(
           alive,
         );
-        const entries = (await this.db.entries.toArray())
-          .filter(alive)
-          .filter((entry) => entry.purchaseId === id);
+        const entries = await this.entriesOfPurchase(id);
 
         for (const entry of entries) {
           await this.db.entries.put({
@@ -1496,10 +1506,12 @@ export class DexieBudgetRepository implements BudgetRepository {
       thumbnail: upload.thumbnail,
     };
 
-    await this.db.transaction('rw', this.db.receipts, this.db.changeLog, async () => {
-      await this.db.receipts.add(receipt);
-      await this.log('receipt', receipt.id, 'upsert', receipt.revision, receipt.householdId);
-    });
+    await withStorageErrors(() =>
+      this.db.transaction('rw', this.db.receipts, this.db.changeLog, async () => {
+        await this.db.receipts.add(receipt);
+        await this.log('receipt', receipt.id, 'upsert', receipt.revision, receipt.householdId);
+      }),
+    );
 
     await this.notify();
     return stripBlobs(receipt);
@@ -1570,15 +1582,19 @@ export class DexieBudgetRepository implements BudgetRepository {
         this.db.purchaseItems.toArray(),
       ]);
 
-    const receiptExports: ReceiptExport[] = options.includeReceipts
-      ? await Promise.all(
-          receipts.filter(alive).map(async (receipt) => ({
-            ...stripBlobs(receipt),
-            dataBase64: await blobToBase64(receipt.blob),
-            thumbnailBase64: receipt.thumbnail ? await blobToBase64(receipt.thumbnail) : null,
-          })),
-        )
-      : [];
+    // Einer nach dem anderen, nicht mit `Promise.all`: Parallel lägen alle
+    // Belege gleichzeitig als Byte-Puffer **und** als Text im Speicher, und
+    // bei ein paar hundert Fotos reicht das auf einem Telefon nicht.
+    const receiptExports: ReceiptExport[] = [];
+    if (options.includeReceipts) {
+      for (const receipt of receipts.filter(alive)) {
+        receiptExports.push({
+          ...stripBlobs(receipt),
+          dataBase64: await blobToBase64(receipt.blob),
+          thumbnailBase64: receipt.thumbnail ? await blobToBase64(receipt.thumbnail) : null,
+        });
+      }
+    }
 
     return {
       schemaVersion: EXPORT_SCHEMA_VERSION,
@@ -1653,96 +1669,98 @@ export class DexieBudgetRepository implements BudgetRepository {
     };
     const at = nowIso();
 
-    await this.db.transaction('rw', this.allTables(), async () => {
-      // Beim Ersetzen zählt nur die Datei; beim Zusammenführen darf ein
-      // Verweis auch auf etwas zeigen, das nur lokal existiert.
-      const known =
-        mode === 'merge'
-          ? {
-              potIds: (await this.db.pots.toArray()).filter(alive).map((pot) => pot.id),
-              entryIds: (await this.db.entries.toArray()).filter(alive).map((entry) => entry.id),
-              purchaseIds: (await this.db.purchases.toArray())
-                .filter(alive)
-                .map((purchase) => purchase.id),
+    await withStorageErrors(() =>
+      this.db.transaction('rw', this.allTables(), async () => {
+        // Beim Ersetzen zählt nur die Datei; beim Zusammenführen darf ein
+        // Verweis auch auf etwas zeigen, das nur lokal existiert.
+        const known =
+          mode === 'merge'
+            ? {
+                potIds: (await this.db.pots.toArray()).filter(alive).map((pot) => pot.id),
+                entryIds: (await this.db.entries.toArray()).filter(alive).map((entry) => entry.id),
+                purchaseIds: (await this.db.purchases.toArray())
+                  .filter(alive)
+                  .map((purchase) => purchase.id),
+              }
+            : {};
+        const repairedFile = repairReferences(file, known);
+        file = repairedFile.file;
+        result.repaired = repairedFile.repaired;
+
+        const householdId = adopted ? local!.id : file.household.id;
+        const write = async <T extends { id: string; revision: number }>(
+          table: WritableTable<NoInfer<T>>,
+          entity: ChangeLogEntry['entity'],
+          record: T,
+        ): Promise<boolean> => {
+          if (mode === 'merge' && !(await this.shouldWrite(table, record))) return false;
+          await table.put(record);
+          await this.log(entity, record.id, 'upsert', record.revision, householdId, at);
+          return true;
+        };
+
+        // Eine Sicherung ohne Belege (Export mit „ohne Belege") soll beim
+        // Ersetzen die vorhandenen nicht mitnehmen — sonst waren alle Bilder
+        // weg, ohne dass jemand danach gefragt hätte. Behalten wird, was an
+        // einer Buchung hängt, die die Datei wieder mitbringt.
+        const keptReceipts: Receipt[] = [];
+        if (mode === 'replace') {
+          const incomingReceiptIds = new Set(file.receipts.map((receipt) => receipt.id));
+          const entryIds = new Set(file.entries.map((entry) => entry.id));
+          for (const receipt of await this.db.receipts.toArray()) {
+            if (
+              alive(receipt) &&
+              !incomingReceiptIds.has(receipt.id) &&
+              entryIds.has(receipt.entryId)
+            ) {
+              keptReceipts.push(receipt);
             }
-          : {};
-      const repairedFile = repairReferences(file, known);
-      file = repairedFile.file;
-      result.repaired = repairedFile.repaired;
-
-      const householdId = adopted ? local!.id : file.household.id;
-      const write = async <T extends { id: string; revision: number }>(
-        table: WritableTable<NoInfer<T>>,
-        entity: ChangeLogEntry['entity'],
-        record: T,
-      ): Promise<boolean> => {
-        if (mode === 'merge' && !(await this.shouldWrite(table, record))) return false;
-        await table.put(record);
-        await this.log(entity, record.id, 'upsert', record.revision, householdId, at);
-        return true;
-      };
-
-      // Eine Sicherung ohne Belege (Export mit „ohne Belege") soll beim
-      // Ersetzen die vorhandenen nicht mitnehmen — sonst waren alle Bilder
-      // weg, ohne dass jemand danach gefragt hätte. Behalten wird, was an
-      // einer Buchung hängt, die die Datei wieder mitbringt.
-      const keptReceipts: Receipt[] = [];
-      if (mode === 'replace') {
-        const incomingReceiptIds = new Set(file.receipts.map((receipt) => receipt.id));
-        const entryIds = new Set(file.entries.map((entry) => entry.id));
-        for (const receipt of await this.db.receipts.toArray()) {
-          if (
-            alive(receipt) &&
-            !incomingReceiptIds.has(receipt.id) &&
-            entryIds.has(receipt.entryId)
-          ) {
-            keptReceipts.push(receipt);
           }
+          // Auch die Outbox: Sie zeigte sonst auf Datensätze, die es nicht mehr gibt.
+          await Promise.all(this.allTables().map((table) => table.clear()));
         }
-        // Auch die Outbox: Sie zeigte sonst auf Datensätze, die es nicht mehr gibt.
-        await Promise.all(this.allTables().map((table) => table.clear()));
-      }
 
-      if (!adopted) {
-        if (await write(this.db.households, 'household', file.household)) {
-          // Ohne Zählfeld — der Haushalt ist einer.
+        if (!adopted) {
+          if (await write(this.db.households, 'household', file.household)) {
+            // Ohne Zählfeld — der Haushalt ist einer.
+          }
+          for (const user of file.users) await write(this.db.users, 'user', user);
         }
-        for (const user of file.users) await write(this.db.users, 'user', user);
-      }
 
-      const count = async <T extends { id: string; revision: number }>(
-        table: WritableTable<NoInfer<T>>,
-        entity: ChangeLogEntry['entity'],
-        records: readonly T[],
-        key: 'pots' | 'entries' | 'recurringRules' | 'itemRules' | 'purchases' | 'purchaseItems',
-      ): Promise<void> => {
-        for (const record of records) {
-          if (await write(table, entity, record)) result[key] += 1;
+        const count = async <T extends { id: string; revision: number }>(
+          table: WritableTable<NoInfer<T>>,
+          entity: ChangeLogEntry['entity'],
+          records: readonly T[],
+          key: 'pots' | 'entries' | 'recurringRules' | 'itemRules' | 'purchases' | 'purchaseItems',
+        ): Promise<void> => {
+          for (const record of records) {
+            if (await write(table, entity, record)) result[key] += 1;
+            else result.skipped += 1;
+          }
+        };
+
+        await count(this.db.pots, 'pot', file.pots, 'pots');
+        await count(this.db.entries, 'entry', file.entries, 'entries');
+        await count(this.db.recurringRules, 'recurringRule', file.recurringRules, 'recurringRules');
+        await count(this.db.itemRules, 'itemRule', file.itemRules, 'itemRules');
+        await count(this.db.purchases, 'purchase', file.purchases, 'purchases');
+        await count(this.db.purchaseItems, 'purchaseItem', file.purchaseItems, 'purchaseItems');
+
+        for (const receiptExport of file.receipts) {
+          const { dataBase64, thumbnailBase64, ...meta } = receiptExport;
+          const receipt: Receipt = {
+            ...meta,
+            blob: base64ToBlob(dataBase64, meta.mime),
+            // Die Vorschau ist immer ein JPEG (`lib/ui/thumbnail.ts`), nicht
+            // vom Typ des Originals.
+            thumbnail: thumbnailBase64 ? base64ToBlob(thumbnailBase64, 'image/jpeg') : null,
+          };
+          if (await write(this.db.receipts, 'receipt', receipt)) result.receipts += 1;
           else result.skipped += 1;
         }
-      };
-
-      await count(this.db.pots, 'pot', file.pots, 'pots');
-      await count(this.db.entries, 'entry', file.entries, 'entries');
-      await count(this.db.recurringRules, 'recurringRule', file.recurringRules, 'recurringRules');
-      await count(this.db.itemRules, 'itemRule', file.itemRules, 'itemRules');
-      await count(this.db.purchases, 'purchase', file.purchases, 'purchases');
-      await count(this.db.purchaseItems, 'purchaseItem', file.purchaseItems, 'purchaseItems');
-
-      for (const receiptExport of file.receipts) {
-        const { dataBase64, thumbnailBase64, ...meta } = receiptExport;
-        const receipt: Receipt = {
-          ...meta,
-          blob: base64ToBlob(dataBase64, meta.mime),
-          // Die Vorschau ist immer ein JPEG (`lib/ui/thumbnail.ts`), nicht
-          // vom Typ des Originals.
-          thumbnail: thumbnailBase64 ? base64ToBlob(thumbnailBase64, 'image/jpeg') : null,
-        };
-        if (await write(this.db.receipts, 'receipt', receipt)) result.receipts += 1;
-        else result.skipped += 1;
-      }
-      for (const receipt of keptReceipts) await this.db.receipts.put(receipt);
-    });
+        for (const receipt of keptReceipts) await this.db.receipts.put(receipt);
+      }),
+    );
 
     await this.notify();
     return result;
@@ -1860,10 +1878,13 @@ export class DexieBudgetRepository implements BudgetRepository {
    * Mitglied konnte seinen eigenen Einkauf weder ändern noch löschen.
    */
   private async purchaseOwner(purchaseId: string): Promise<string | null> {
-    const entries = (await this.db.entries.toArray()).filter(
-      (entry) => alive(entry) && entry.purchaseId === purchaseId,
-    );
+    const entries = await this.entriesOfPurchase(purchaseId);
     return entries[0]?.createdBy ?? null;
+  }
+
+  /** Die lebenden Buchungen eines Einkaufs, über den Index (Dexie `version(4)`). */
+  private async entriesOfPurchase(purchaseId: string): Promise<Entry[]> {
+    return (await this.db.entries.where('purchaseId').equals(purchaseId).toArray()).filter(alive);
   }
 
   /**
@@ -1945,6 +1966,7 @@ export class DexieBudgetRepository implements BudgetRepository {
    */
   private async notify(): Promise<void> {
     await this.refresh();
+    this.channel?.postMessage('changed');
   }
 
   private emit(): void {
@@ -2000,7 +2022,7 @@ function buildEntry(
     deletedAt: null,
     potId: input.potId ?? (input.kind === 'expense' ? context.fallbackPotId : null),
     kind: input.kind,
-    amountCents: Math.round(Math.abs(input.amountCents)),
+    amountCents: normalizeAmount(input.amountCents),
     date: input.date,
     note: clampText(input.note, TEXT_LIMITS.note),
     merchant: clampText(input.merchant, TEXT_LIMITS.merchant),
@@ -2011,6 +2033,41 @@ function buildEntry(
     recurringRuleId: input.recurringRuleId ?? null,
     createdBy: context.createdBy,
   };
+}
+
+/**
+ * Betrag für die Ablage: positiv, ganze Cent, und nicht größer als die
+ * Sicherung annimmt (`MAX_AMOUNT_CENTS`).
+ */
+function normalizeAmount(amountCents: number): number {
+  const cents = Math.round(Math.abs(amountCents));
+  if (!Number.isFinite(cents) || cents > MAX_AMOUNT_CENTS) {
+    throw new Error('Der Betrag ist unrealistisch groß.');
+  }
+  return cents;
+}
+
+/**
+ * Übersetzt „Speicher voll" in einen Satz, mit dem jemand etwas anfangen kann.
+ *
+ * IndexedDB wirft `QuotaExceededError` (Dexie reicht den Namen durch), und
+ * vorher kam er als rohe Meldung in der Oberfläche an — oder gar nicht, wenn
+ * der Aufrufer nur `catch {}` hatte. Belege und Importe sind die Wege, die den
+ * Speicher tatsächlich füllen.
+ */
+async function withStorageErrors<T>(write: () => Promise<T>): Promise<T> {
+  try {
+    return await write();
+  } catch (caught) {
+    const name = (caught as { name?: string; inner?: { name?: string } } | null)?.name;
+    const inner = (caught as { inner?: { name?: string } } | null)?.inner?.name;
+    if (name === 'QuotaExceededError' || inner === 'QuotaExceededError') {
+      throw new Error(
+        'Der Speicher dieses Geräts ist voll. Lösche alte Belege oder exportiere eine Sicherung ohne Belege und räume dann auf.',
+      );
+    }
+    throw caught;
+  }
 }
 
 /**

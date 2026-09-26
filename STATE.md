@@ -45,7 +45,7 @@ Konto und keine Übertragung.
 | Impressum, Datenschutz                             | **Gerüst mit Platzhaltern — vor Veröffentlichung ausfüllen** |
 | Zentrale Datenbank, SSO                            | vorbereitet, nicht eingeschaltet                             |
 
-**Prüfstand:** 734 Unit-Tests (`npm test`), 57 E2E-Tests auf zwei Viewports
+**Prüfstand:** 738 Unit-Tests (`npm test`), 57 E2E-Tests auf zwei Viewports
 (`npm run test:e2e`, 114 Läufe, davon 108 bestanden und 6 bewusste
 Auslassungen — den schwebenden Knopf und die klebende Rechtsleiste gibt es ab
 `md` nicht), typecheck und lint grün, statischer Build erzeugt.

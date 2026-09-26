@@ -49,10 +49,21 @@ export function DataSection() {
       const file = await repository.exportAll({ includeReceipts });
       downloadFile(
         `haushalt-${todayIso()}.json`,
-        new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' }),
+        // Ohne Einrückung: Bei einer Sicherung mit Tausenden Buchungen sind
+        // die Leerzeichen ein spürbarer Teil der Datei — und des Speichers,
+        // den `JSON.stringify` auf einmal braucht.
+        new Blob([JSON.stringify(file)], { type: 'application/json' }),
       );
       setMessage('Sicherung heruntergeladen.');
     } catch (caught) {
+      // `RangeError: Invalid string length` — die Sicherung passt nicht mehr
+      // in einen einzigen Text. Belege sind fast immer der Grund.
+      if (caught instanceof RangeError) {
+        setError(
+          'Die Sicherung ist zu groß für eine Datei. Exportiere ohne Belege — die Buchungen sind dann vollständig gesichert.',
+        );
+        return;
+      }
       setError(caught instanceof Error ? caught.message : 'Export fehlgeschlagen');
     } finally {
       setBusy(false);

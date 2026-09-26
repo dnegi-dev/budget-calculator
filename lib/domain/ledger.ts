@@ -6,15 +6,9 @@
  * vollständig mit Tests abgedeckt (`ledger.test.ts`).
  */
 
-import { periodForDate, periodFromKey, periodDistance, shiftPeriodKey } from './period';
+import { periodForDate, periodFromKey, periodDistance } from './period';
 import { hasLimit } from './pot-kinds';
 import type { Entry, IsoDateTime, Pot } from './types';
-
-/**
- * Obergrenze für die Übertragsberechnung. Ein Envelope-Topf, der vor zehn
- * Jahren angelegt wurde, soll nicht 120 Perioden rückwärts summieren müssen.
- */
-const MAX_CARRY_PERIODS = 120;
 
 export interface PotPeriodState {
   potId: string;
@@ -132,16 +126,22 @@ export function computeCarryOverCents(
   const distance = periodDistance(firstKey, periodKey);
   if (distance <= 0) return 0;
 
-  const periodsToWalk = Math.min(distance, MAX_CARRY_PERIODS);
-  const startKey = shiftPeriodKey(periodKey, -periodsToWalk);
-
-  let carried = 0;
-  for (let offset = 0; offset < periodsToWalk; offset += 1) {
-    const key = shiftPeriodKey(startKey, offset);
-    const { netCents } = netForPeriod(entriesOfPot, key, periodStartDay);
-    carried += pot.limitCents - netCents;
+  // Ein Durchlauf statt einer Schleife über Perioden: Jede vergangene Periode
+  // bringt ihr Limit ein, und abgezogen wird der Verbrauch aller Buchungen
+  // von Beginn der ersten bis vor die aktuelle Periode. Das ist dieselbe
+  // Summe, nur ohne je Periode alle Buchungen erneut zu filtern.
+  //
+  // Vorher lief die Schleife über höchstens 120 Perioden. Das war zugleich
+  // eine stille Rechenänderung: Nach zehn Jahren fiel jeden Monat die älteste
+  // Periode aus dem Übertrag heraus.
+  const from = periodFromKey(firstKey, periodStartDay).start;
+  const until = periodFromKey(periodKey, periodStartDay).start;
+  let netCents = 0;
+  for (const entry of entriesOfPot) {
+    if (!isActive(entry) || entry.date < from || entry.date >= until) continue;
+    netCents += entry.kind === 'expense' ? entry.amountCents : -entry.amountCents;
   }
-  return carried;
+  return distance * pot.limitCents - netCents;
 }
 
 export function computePotPeriodState(

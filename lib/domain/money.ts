@@ -9,6 +9,17 @@
 export const CENTS_PER_UNIT = 100;
 
 /**
+ * Größter Betrag, den die App annimmt: 10 Mio. in Cent.
+ *
+ * Eine Zahl für drei Stellen — Eingabe (`parseAmountToCents`), Schreibweg im
+ * Repository und Schema der Sicherung. Stand die Grenze nur im Schema, ließ
+ * sich ein größerer Betrag speichern und exportieren, aber nicht mehr
+ * einlesen: derselbe Fehler, den `TEXT_LIMITS` für Texte schon einmal hatte.
+ * Und ohne Grenze verlöre eine sehr lange Ziffernfolge still an Genauigkeit.
+ */
+export const MAX_AMOUNT_CENTS = 1_000_000_000;
+
+/**
  * Nutzereingabe zu Cent. Gibt `null` zurück, wenn die Eingabe kein Betrag ist.
  *
  * Akzeptiert deutsche und englische Schreibweise ('12,50', '12.50', '1.234,56',
@@ -56,7 +67,7 @@ export function parseAmountToCents(input: string): number | null {
 
   const cents =
     Number(integerPart) * CENTS_PER_UNIT + Number(fractionPart.padEnd(2, '0').slice(0, 2));
-  if (!Number.isFinite(cents)) return null;
+  if (!Number.isFinite(cents) || cents > MAX_AMOUNT_CENTS) return null;
   return negative ? -cents : cents;
 }
 
