@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { einrichten, einstellungOeffnen, entsperren, erfassenOeffnen } from './helpers';
+import {
+  einrichten,
+  einstellungOeffnen,
+  entsperren,
+  erfassenOeffnen,
+  zuDenToepfen,
+} from './helpers';
 
 /**
  * Die Einstellungen als Übersicht mit Unterseiten.
@@ -75,7 +81,7 @@ test.describe('Einstellungen', () => {
     await einstellungOeffnen(page, 'Erfassen');
     await page.getByRole('radio', { name: 'Freitext' }).click();
 
-    await page.getByRole('link', { name: 'Heute' }).first().click();
+    await zuDenToepfen(page);
     await erfassenOeffnen(page, 'Ausgabe');
     const frei = page.getByLabel('Betrag');
     await frei.pressSequentially('12,5');

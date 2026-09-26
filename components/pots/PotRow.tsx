@@ -26,7 +26,7 @@ export function PotRow({ pot, state }: { pot: Pot; state: PotPeriodState }) {
 
   // Ein Sparziel ist nicht periodisch: Seine Zeile zeigt das Gesparte über die
   // ganze Lebenszeit, wie die Detailseite (`computeGoalState`). Vorher stand
-  // hier der Periodenstand mit „ohne Limit" — derselbe Topf sah auf „Heute"
+  // hier der Periodenstand mit „ohne Limit" — derselbe Topf sah auf der Startseite
   // anders aus als auf seiner eigenen Seite.
   const goal = useMemo(
     () =>

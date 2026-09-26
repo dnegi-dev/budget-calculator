@@ -26,9 +26,14 @@ export interface FabScopeInfo {
  * Reihenfolge wie in der Navigation, nicht alphabetisch — die
  * Einstellungsseite listet sie genau so.
  */
+/**
+ * `'home'` fehlt hier bewusst: Die Startseite „Heute" gibt es nicht mehr, `/`
+ * ist jetzt die Töpfe-Seite und fällt unter `'pots'`. Im Typ und im Schema
+ * bleibt `'home'` stehen, sonst ließe sich eine ältere Sicherung mit diesem
+ * Schlüssel nicht mehr einlesen — der Wert wird nur nicht mehr gelesen.
+ */
 export const FAB_SCOPES: readonly FabScopeInfo[] = [
-  { scope: 'home', label: 'Heute', hint: 'Die Startseite mit den Töpfen' },
-  { scope: 'pots', label: 'Töpfe', hint: 'Die Übersicht aller Töpfe' },
+  { scope: 'pots', label: 'Töpfe', hint: 'Die Startseite mit allen Töpfen' },
   { scope: 'potDetail', label: 'Einzelner Topf', hint: 'Dort ist der Topf schon vorbelegt' },
   { scope: 'entries', label: 'Buchungen', hint: 'Die Liste mit Suche und Filtern' },
   { scope: 'recurring', label: 'Wiederkehrend', hint: 'Die Unterseite mit den Regeln' },
@@ -54,7 +59,7 @@ export const FAB_ACTIONS: readonly { value: FabAction; label: string }[] = [
 export function scopeForPath(pathname: string): FabScope | null {
   const pfad = normalisePath(pathname);
 
-  if (pfad === '/') return 'home';
+  if (pfad === '/') return 'pots';
   if (pfad.startsWith('/buchungen/wiederkehrend')) return 'recurring';
   if (pfad.startsWith('/buchungen')) return 'entries';
   if (pfad.startsWith('/toepfe/detail')) return 'potDetail';

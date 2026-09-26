@@ -125,6 +125,21 @@ export async function einrichten(page: Page, name = 'Testhaushalt'): Promise<voi
   await expect(page.getByRole('link', { name: /Lebensmittel/ })).toBeVisible();
 }
 
+/**
+ * Zur Startseite mit den Töpfen, über die Hauptnavigation.
+ *
+ * Auf die Navigation eingeschränkt, weil „Töpfe" auch als Überschrift und als
+ * Punkt in den Einstellungen vorkommt. Welche der beiden Leisten gemeint ist,
+ * entscheidet die Rollen-Abfrage selbst: Die jeweils andere ist ausgeblendet
+ * und zählt nicht.
+ */
+export async function zuDenToepfen(page: Page): Promise<void> {
+  await page
+    .getByRole('navigation', { name: 'Hauptnavigation' })
+    .getByRole('link', { name: 'Töpfe', exact: true })
+    .click();
+}
+
 /** Ob das Fenster schmaler ist als der `md`-Umbruch — mobile Oberfläche. */
 export function istMobil(page: Page): boolean {
   return (page.viewportSize()?.width ?? MD_BREAKPOINT) < MD_BREAKPOINT;
@@ -163,7 +178,12 @@ export async function filterOeffnen(page: Page): Promise<void> {
  */
 export async function einstellungOeffnen(page: Page, punkt: string): Promise<void> {
   await page.getByRole('link', { name: 'Einstellungen' }).first().click();
-  await page.getByRole('link', { name: new RegExp(`^${punkt}`) }).click();
+  // Im Inhalt, nicht in der Navigation: Seit „Töpfe" dort ein eigenes Ziel
+  // ist, träfe `^Töpfe` beide.
+  await page
+    .getByRole('main')
+    .getByRole('link', { name: new RegExp(`^${punkt}`) })
+    .click();
   await expect(page.getByRole('heading', { name: punkt, level: 1 })).toBeVisible();
 }
 

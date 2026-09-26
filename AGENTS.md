@@ -389,11 +389,13 @@ Hürde erreichbar.
 - **Keine Kopfzeile.** Die oberste Bildschirmzeile gehört dem Inhalt; `main`
   trägt `pt-[max(…,env(safe-area-inset-top))]`, damit als installierte App
   nichts unter der Statusleiste liegt.
-- **Vier Ziele in der unteren Leiste**: Heute, Buchungen, Auswertung,
-  Einstellungen. „Töpfe" steht bewusst nicht dort — angelegt wird über die
-  Zeile „Neuer Topf" auf „Heute", verwaltet über den Link in den
-  Einstellungen. Wer einen fünften Eintrag ergänzen will, prüft ihn vorher bei
-  320 px Breite.
+- **Vier feste Ziele in beiden Leisten**: Töpfe, Buchungen, Auswertung,
+  Einstellungen — dazu mobil bis zu **ein**, am Desktop bis zu **vier**
+  Lieblings-Töpfe (siehe „Lieblings-Töpfe im Menü"). „Heute" gibt es nicht
+  mehr: Es zeigte dieselben Topf-Zeilen wie „Töpfe", nur ohne Suche; die
+  Töpfe-Seite ist jetzt die Startseite (`/`). Mit Favorit sind es mobil fünf
+  Einträge, und `e2e/favoriten.spec.ts` prüft sie bei 320 px — wer die Leiste
+  anfasst, lässt diesen Test laufen.
 - **Erfassen läuft über den schwebenden Knopf** (`QuickEntryButton`), der
   `EntrySheet` mit `lockKind` öffnet — Einzelheiten im Abschnitt „Schwebender
   Knopf". Seiten-Knöpfe zum Erfassen gibt es nur noch ab `md`. Wer den Knopf
@@ -425,6 +427,39 @@ Hürde erreichbar.
   Knopf erst ab `md` zeigen will, hängt `hidden md:inline-flex` an eine Hülle.
   Umgekehrt ist `md:hidden` am Knopf in Ordnung: Es steht in einer Media-Query
   und kommt damit später.
+
+## Lieblings-Töpfe im Menü
+
+Einstellungen → Töpfe → „Im Menü" (`components/settings/NavFavoritesSection.tsx`):
+mobil ein Topf in der unteren Leiste (an zweiter Stelle, nach „Töpfe"), am
+Desktop bis zu vier unter „Töpfe" in der Seitenleiste. Die Regeln stehen in
+`lib/domain/nav-favorites.ts`, das Menü in `components/nav/MainNav.tsx`.
+
+- **`/` ist die Töpfe-Seite.** `app/toepfe/page.tsx` leitet nur noch auf `/`
+  weiter (alte Lesezeichen, installierte Verknüpfungen); `/toepfe/detail`
+  bleibt, wo es ist. Umgekehrt (`/` → `/toepfe`) hätte jeder Start mit einer
+  Weiterleitung begonnen, und `start_url`, `APP_SHELL` und jedes
+  `goto('/')` im Test hätten sich mitändern müssen.
+- **Eine Gerätevorliebe, nicht am Haushalt** (`NAV_FAVORITES_*_KEY` in
+  `device-prefs.ts`). Es ist die Anordnung des Menüs auf diesem Gerät, wie
+  Thema und Akzentfarbe; mit späterem Sync hätte sonst jedes
+  Haushaltsmitglied dieselben. Der Preis: Sie stehen nicht in der Sicherung.
+- **Gespeichert wird die ID, angezeigt wird geprüft** (`resolveFavoritePots`):
+  Ein gelöschter oder archivierter Topf wird übergangen, nicht aus der Liste
+  genommen — nach „Wieder aktivieren" ist er wieder im Menü. Einen Platz
+  belegt er solange nicht (`toggleFavorite` zählt nur, was angezeigt wird).
+  Ein gesperrtes Sparziel bleibt, wie auf der Töpfe-Seite, sichtbar.
+- **`useSyncExternalStore` bekommt den gespeicherten Text, nicht die Liste.**
+  Eine bei jedem Aufruf neu geparste Liste wäre jedes Mal ein anderes Objekt
+  und damit eine Endlosschleife; geparst wird im Haken (`useNavFavoriteIds`).
+- **Markiert ist der Favorit, nicht zusätzlich „Töpfe".** Auf
+  `/toepfe/detail?pot=` eines Favoriten trägt nur dessen Eintrag
+  `aria-current`. Dafür liest das Menü `?pot=` und steht deshalb in einer
+  `Suspense`-Grenze — mit demselben Menü ohne diese Angabe als Ersatz, nicht
+  `null`: Sonst stünde im vorgerenderten HTML gar keine Navigation.
+- **Der Bereich „Heute" des schwebenden Knopfes ist weg**; `/` gehört zu
+  `'pots'`. Im Schema bleibt `'home'`, sonst ließe sich eine ältere Sicherung
+  mit diesem Schlüssel nicht einlesen.
 
 ## Schwebender Knopf
 

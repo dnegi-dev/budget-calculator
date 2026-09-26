@@ -15,37 +15,9 @@
  */
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { Suspense, type ReactNode } from 'react';
-import type { LucideIcon } from 'lucide-react';
-import { ChartPie, House, ListOrdered, Settings, Wallet } from 'lucide-react';
-import { Icon } from '../lib/ui/Icon';
+import { MainNav, MainNavWithParams } from './nav/MainNav';
 import { QuickEntryButton } from './QuickEntryButton';
-
-interface NavItem {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  /**
-   * In der unteren Leiste ist Platz für vier Ziele. „Töpfe" fehlt dort
-   * bewusst: Die Startseite listet dieselben Töpfe mit denselben
-   * Restbeträgen, jede Zeile führt ins Detail. Eine eigene Übersichtsseite
-   * wäre mobil eine Dopplung — in der Seitenleiste bleibt sie.
-   */
-  primary: boolean;
-}
-
-const NAV: readonly NavItem[] = [
-  { href: '/', label: 'Heute', icon: House, primary: true },
-  { href: '/toepfe', label: 'Töpfe', icon: Wallet, primary: false },
-  { href: '/buchungen', label: 'Buchungen', icon: ListOrdered, primary: true },
-  { href: '/auswertung', label: 'Auswertung', icon: ChartPie, primary: true },
-  { href: '/einstellungen', label: 'Einstellungen', icon: Settings, primary: true },
-];
-
-function isActive(pathname: string, href: string): boolean {
-  return href === '/' ? pathname === '/' : pathname.startsWith(href);
-}
 
 /** Impressum und Datenschutz müssen von jeder Seite aus erreichbar sein. */
 export function LegalLinks({ className = '' }: { className?: string }) {
@@ -62,8 +34,6 @@ export function LegalLinks({ className = '' }: { className?: string }) {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-
   return (
     <div className="min-h-dvh md:flex">
       {/* Seitenleiste ab Tablet */}
@@ -72,24 +42,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           <p className="font-medium">Haushalt</p>
           <p className="text-sm text-ink-muted">Planung &amp; Töpfe</p>
         </div>
-        <nav className="flex flex-1 flex-col gap-0.5 px-3" aria-label="Hauptnavigation">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={isActive(pathname, item.href) ? 'page' : undefined}
-              className={[
-                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[0.9375rem]',
-                isActive(pathname, item.href)
-                  ? 'bg-accent-subtle text-ink'
-                  : 'text-ink-muted hover:bg-subtle hover:text-ink',
-              ].join(' ')}
-            >
-              <Icon icon={item.icon} size={20} />
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        {/*
+          Beide Leisten stehen in `MainNav`: Die Lieblings-Töpfe lesen den
+          geöffneten Topf aus `?pot=`, und dafür braucht es diese Grenze. Ihr
+          Ersatz ist dasselbe Menü ohne diese Angabe — mit `null` stünde im
+          vorgerenderten HTML gar keines.
+        */}
+        <Suspense fallback={<MainNav layout="desktop" openPotId={null} />}>
+          <MainNavWithParams layout="desktop" />
+        </Suspense>
         <div className="px-5 py-4 text-xs text-ink-muted">
           <p>Daten liegen nur auf diesem Gerät.</p>
           <LegalLinks className="mt-2" />
@@ -156,34 +117,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           <QuickEntryButton />
         </Suspense>
 
-        <nav
-          aria-label="Hauptnavigation"
-          className={[
-            'fixed inset-x-0 bottom-0 z-40 flex md:hidden',
-            // Durchscheinend statt harter Fläche; die Haarlinie hält die
-            // Leiste trotzdem vom Inhalt getrennt, wenn darunter Weiß liegt.
-            'border-t border-line bg-surface/85 backdrop-blur-md',
-            'pb-[env(safe-area-inset-bottom)]',
-          ].join(' ')}
-        >
-          {NAV.filter((item) => item.primary).map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={isActive(pathname, item.href) ? 'page' : undefined}
-              className={[
-                'flex min-w-0 flex-1 flex-col items-center gap-1 px-1 py-2.5',
-                // Eine Stufe kleiner auf sehr schmalen Geräten: „Einstellungen“
-                // ist das längste Wort und stößt bei 320 px sonst an den Rand.
-                'text-[0.625rem] min-[360px]:text-[0.6875rem]',
-                isActive(pathname, item.href) ? 'text-accent' : 'text-ink-muted',
-              ].join(' ')}
-            >
-              <Icon icon={item.icon} size={22} />
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <Suspense fallback={<MainNav layout="mobile" openPotId={null} />}>
+          <MainNavWithParams layout="mobile" />
+        </Suspense>
       </div>
     </div>
   );
