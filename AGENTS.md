@@ -170,6 +170,66 @@ Seite hält dafür die **ID** des zu bearbeitenden Topfes, nicht den Topf
 selbst — sonst zeigte das Sheet nach dem Speichern weiter den alten Stand,
 weil eine gehaltene Objektreferenz keine neue Revision aus dem Snapshot zieht.
 
+## Regeln, die auf jedem Schreibweg gelten
+
+Eine Regel, die nur auf einem von zwei Wegen greift, ist eine Regel mit Loch —
+die meisten Funde der Aufräumrunde (PR „Housekeeping A") waren genau das.
+Deshalb stehen diese Prüfungen im Repository, einmal, und jeder Schreibweg ruft
+sie:
+
+- **`assertPotOpen`** — ein Topf, auf den gebucht wird, muss existieren und
+  darf nicht gesperrt sein. Gerufen von `createEntries`, `updateEntry`,
+  `createPurchase`, `updatePurchaseItem`, `create/updateRecurringRule`,
+  `rememberItemRule` und `updateHousehold` (Standardtopf). Vorher prüfte der
+  Bon-Import die Sperre gar nicht, und auf einen gelöschten Topf ließ sich
+  überall buchen.
+- **`resolveFallbackPot`** — der einzige Weg zum Standardtopf, auch im
+  Materialisierer (der hatte eine eigene, schwächere Prüfung).
+- **Sperren räumt den Standardtopf** wie Archivieren und Löschen
+  (`detachDefaultPot` in `lockDueGoalPots`).
+- **Löschen eines Topfes** löst Buchungen, pausiert Regeln, löscht gelernte
+  Zuordnungen und löst die Posten von Einkäufen. Blieben die Posten stehen,
+  rechnete die nächste Postenänderung wieder eine Buchung auf den gelöschten
+  Topf.
+- **Tags umbenennen/löschen** fasst Buchungen **und** Einkauf/Posten an
+  (`retagPurchases`) — die Buchungen eines Einkaufs werden aus dessen Tags neu
+  gerechnet, ein vergessener alter Name käme zurück.
+- **Einkauf ändern/löschen** prüft den Eigentümer (`purchaseOwner`, aus den
+  Buchungen des Einkaufs); ohne ihn konnte ein Mitglied seinen eigenen Einkauf
+  nicht mehr anfassen.
+- **Pflichttexte** (Haushalts- und Topfname) laufen über `requireText`,
+  Freitexte über `clampText`, Dateinamen über `TEXT_LIMITS.filename`. Und
+  `clampBackupText` kennt dieselben Felder, auch an Einkauf, Posten und Beleg.
+- **Belege werden hart gelöscht**, auf jedem Weg (`deleteReceipt`,
+  `deleteEntry`, `deletePurchase`). `purgeDeletedReceipts` räumt einmal je
+  Sitzung auf, was ältere Versionen nur markiert hatten.
+- **Wer vor der Transaktion liest, liest veraltet.** Materialisierer,
+  `lockDueGoalPots` und `deletePurchase` lesen ihren Bestand **in** der
+  Transaktion. `AppGate` schützt nur einen Tab; zwei Tabs, die gleichzeitig
+  starten, buchten sonst dieselben wiederkehrenden Termine doppelt.
+- **Wiederkehrende Regeln zählen ab dem gesuchten Zeitraum**
+  (`firstIndexNear` in `recurrence.ts`). Die Notbremse von 500 Vorkommen zählte
+  vorher ab dem Start der Regel — eine Wochenregel verstummte nach gut 9½
+  Jahren still.
+
+### Import
+
+- **Jeder eingelesene Datensatz bekommt seine Outbox-Zeile**; „Ersetzen" leert
+  die Outbox mit. Vorher gab es eine Zeile für den ganzen Import.
+- **Verweise ins Leere werden gelöst und gezählt** (`repairReferences` in
+  `lib/domain/backup.ts`, gemeldet als `ImportResult.repaired`). Beim
+  Zusammenführen zählen lokal vorhandene Datensätze als Ziel mit.
+- **Eine Sicherung ohne Belege nimmt beim Ersetzen keine Belege mit**: Was an
+  einer Buchung hängt, die die Datei wieder mitbringt, bleibt.
+- **Ein fremder Haushalt wird nur mit Zustimmung übernommen.** Das
+  Repository lehnt ab (`ForeignHouseholdError`), solange `adoptInto` fehlt;
+  die Karte „Sicherung" fragt vorher („Aus „X" übernehmen?"). Übernommen
+  heißt: `householdId` jedes Datensatzes wird umgeschrieben
+  (`adoptIntoHousehold`), Einstellungen und Nutzer des fremden Haushalts
+  bleiben draußen. Vorher entstand still ein zweiter Haushalt, den die App nie
+  liest. **Übergangslösung**: Mit mehreren Haushalten je Gerät wird aus der
+  Frage eine Auswahl.
+
 ## Deployment
 
 Die App läuft auf GitHub Pages unter einem **Unterpfad**

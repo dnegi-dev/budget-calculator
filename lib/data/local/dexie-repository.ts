@@ -20,6 +20,7 @@ import { newId } from '../../domain/ids';
 import { nowIso, todayIso } from '../../domain/dates';
 import { clampPeriodStartDay } from '../../domain/period';
 import { applyPotKindPreset, isGoalDue } from '../../domain/pot-kinds';
+import { adoptIntoHousehold, repairReferences } from '../../domain/backup';
 import { planPurchaseEntries } from '../../domain/purchase';
 import { materializeRule } from '../../domain/recurrence';
 import { dedupeTags, hasTag, normalizeTag, removeTag, tagKey } from '../../domain/tags';
@@ -51,15 +52,23 @@ import type {
 } from '../../domain/types';
 import { assertCan, type Principal } from '../../rbac/can';
 import { base64ToBlob, blobToBase64 } from '../blobs';
-import type {
-  BudgetRepository,
-  EntryFilter,
-  HouseholdSetupInput,
-  ImportResult,
-  ReceiptStorageStats,
-  ReceiptUpload,
-  Snapshot,
+import {
+  ForeignHouseholdError,
+  type BudgetRepository,
+  type EntryFilter,
+  type HouseholdSetupInput,
+  type ImportOptions,
+  type ImportResult,
+  type ReceiptStorageStats,
+  type ReceiptUpload,
+  type Snapshot,
 } from '../repository';
+
+/** Was der Import von einer Tabelle braucht — schmal, damit jede Tabelle passt. */
+interface WritableTable<T> {
+  get(id: string): Promise<T | undefined>;
+  put(record: T): Promise<unknown>;
+}
 
 const DEFAULT_POT_COLORS = ['emerald', 'sky', 'amber', 'violet', 'rose', 'slate'] as const;
 
@@ -173,7 +182,7 @@ export class DexieBudgetRepository implements BudgetRepository {
     const at = nowIso();
     const household: Household = {
       id: newId(),
-      name: input.name.trim(),
+      name: requireText(input.name, TEXT_LIMITS.householdName, 'Name fehlt.'),
       currency: input.currency,
       locale: input.locale,
       periodStartDay: clampPeriodStartDay(input.periodStartDay),
@@ -195,7 +204,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       updatedAt: at,
       revision: 1,
       deletedAt: null,
-      displayName: input.displayName?.trim() || 'Ich',
+      displayName: clampText(input.displayName, TEXT_LIMITS.displayName) ?? 'Ich',
       // Wer den Haushalt anlegt, ist Admin. Weitere Rollen ergeben erst mit
       // zentraler DB Sinn, sind aber ab jetzt zuweisbar.
       role: 'admin',
@@ -243,10 +252,19 @@ export class DexieBudgetRepository implements BudgetRepository {
     const onlyOnboarding =
       Object.keys(patch).length === 1 && Object.hasOwn(patch, 'onboardingCompletedAt');
     if (!onlyOnboarding) this.assert('settings.manage');
+    // Derselbe Maßstab wie für jede Buchung: Ein Standardtopf, der gesperrt
+    // oder weg ist, wäre ein Ziel, das `createEntries` dann still verwirft.
+    if (patch.defaultPotId != null && patch.defaultPotId !== current.defaultPotId) {
+      await this.assertPotOpen(patch.defaultPotId);
+    }
 
     const updated: Household = {
       ...current,
       ...patch,
+      name:
+        patch.name === undefined
+          ? current.name
+          : requireText(patch.name, TEXT_LIMITS.householdName, 'Name fehlt.'),
       periodStartDay:
         patch.periodStartDay === undefined
           ? current.periodStartDay
@@ -340,7 +358,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       updatedAt: at,
       revision: 1,
       deletedAt: null,
-      name: input.name.trim(),
+      name: requireText(input.name, TEXT_LIMITS.potName, 'Name fehlt.'),
       icon: input.icon ?? '🧺',
       color:
         input.color ?? (DEFAULT_POT_COLORS[existing.length % DEFAULT_POT_COLORS.length] as string),
@@ -387,7 +405,10 @@ export class DexieBudgetRepository implements BudgetRepository {
     const updated: Pot = {
       ...pot,
       ...patch,
-      name: (patch.name ?? pot.name).trim(),
+      name:
+        patch.name === undefined
+          ? pot.name
+          : requireText(patch.name, TEXT_LIMITS.potName, 'Name fehlt.'),
       kind,
       // Limit und Übertrag bleiben frei einstellbar; nur bei 'category' und
       // 'goal' erzwingt das Preset „kein Limit“, weil sonst widersprüchliche
@@ -451,22 +472,33 @@ export class DexieBudgetRepository implements BudgetRepository {
    * Knopf des Archivierens.
    */
   async lockDueGoalPots(today: IsoDate = todayIso()): Promise<number> {
-    const pots = (await this.listPots({ includeArchived: true })).filter(
-      (pot) => pot.lockedAt === null && isGoalDue(pot, today),
-    );
-    if (pots.length === 0) return 0;
-
     const at = nowIso();
-    await this.db.transaction('rw', this.db.pots, this.db.changeLog, async () => {
-      for (const pot of pots) {
-        const updated: Pot = { ...pot, lockedAt: at, updatedAt: at, revision: pot.revision + 1 };
-        await this.db.pots.put(updated);
-        await this.log('pot', updated.id, 'upsert', updated.revision, updated.householdId);
-      }
-    });
+    let locked = 0;
+    await this.db.transaction(
+      'rw',
+      this.db.pots,
+      this.db.households,
+      this.db.changeLog,
+      async () => {
+        // In der Transaktion gelesen: Laufen zwei Tabs gleichzeitig an, sieht
+        // der zweite die Sperre des ersten und schreibt nichts doppelt.
+        const due = (await this.db.pots.toArray()).filter(
+          (pot) => alive(pot) && pot.lockedAt === null && isGoalDue(pot, today),
+        );
+        for (const pot of due) {
+          const updated: Pot = { ...pot, lockedAt: at, updatedAt: at, revision: pot.revision + 1 };
+          await this.db.pots.put(updated);
+          await this.log('pot', updated.id, 'upsert', updated.revision, updated.householdId, at);
+          // Wie beim Archivieren: Ein Standardtopf, der nichts mehr annimmt,
+          // wäre ein Ziel, das jede Ausgabe ohne Topf ablehnt.
+          await this.detachDefaultPot(pot.id, at);
+        }
+        locked = due.length;
+      },
+    );
 
-    await this.notify();
-    return pots.length;
+    if (locked > 0) await this.notify();
+    return locked;
   }
 
   /**
@@ -482,11 +514,15 @@ export class DexieBudgetRepository implements BudgetRepository {
     const at = nowIso();
     await this.db.transaction(
       'rw',
-      this.db.pots,
-      this.db.entries,
-      this.db.recurringRules,
-      this.db.households,
-      this.db.changeLog,
+      [
+        this.db.pots,
+        this.db.entries,
+        this.db.recurringRules,
+        this.db.households,
+        this.db.itemRules,
+        this.db.purchaseItems,
+        this.db.changeLog,
+      ],
       async () => {
         await this.db.pots.put({
           ...pot,
@@ -527,6 +563,45 @@ export class DexieBudgetRepository implements BudgetRepository {
             'upsert',
             detached.revision,
             detached.householdId,
+          );
+        }
+
+        // Eine gelernte Zuordnung ohne Ziel ist wertlos (und das Schema
+        // verlangt einen Topf) — sie fällt weg.
+        const itemRules = (await this.db.itemRules.toArray()).filter(
+          (rule) => alive(rule) && rule.potId === id,
+        );
+        for (const rule of itemRules) {
+          await this.db.itemRules.put({
+            ...rule,
+            deletedAt: at,
+            updatedAt: at,
+            revision: rule.revision + 1,
+          });
+          await this.log('itemRule', rule.id, 'delete', rule.revision + 1, rule.householdId, at);
+        }
+
+        // Posten verlieren den Topf wie die Buchungen. Blieben sie stehen,
+        // rechnete die nächste Änderung am Einkauf wieder eine Buchung auf
+        // den gelöschten Topf.
+        const items = (await this.db.purchaseItems.toArray()).filter(
+          (item) => alive(item) && item.potId === id,
+        );
+        for (const item of items) {
+          const detached: PurchaseItem = {
+            ...item,
+            potId: null,
+            updatedAt: at,
+            revision: item.revision + 1,
+          };
+          await this.db.purchaseItems.put(detached);
+          await this.log(
+            'purchaseItem',
+            item.id,
+            'upsert',
+            detached.revision,
+            item.householdId,
+            at,
           );
         }
       },
@@ -701,17 +776,12 @@ export class DexieBudgetRepository implements BudgetRepository {
         });
         await this.log('entry', entry.id, 'delete', entry.revision + 1, entry.householdId);
 
-        // Ein Beleg ohne Buchung belegt nichts mehr.
-        const receipts = (await this.db.receipts.where('entryId').equals(id).toArray()).filter(
-          alive,
-        );
+        // Ein Beleg ohne Buchung belegt nichts mehr — und wird hart gelöscht
+        // wie in `deleteReceipt`: Ein weich gelöschtes Bild belegte seinen
+        // Platz für immer, unsichtbar für die Speicheranzeige.
+        const receipts = await this.db.receipts.where('entryId').equals(id).toArray();
         for (const receipt of receipts) {
-          await this.db.receipts.put({
-            ...receipt,
-            deletedAt: at,
-            updatedAt: at,
-            revision: receipt.revision + 1,
-          });
+          await this.db.receipts.delete(receipt.id);
           await this.log(
             'receipt',
             receipt.id,
@@ -751,23 +821,29 @@ export class DexieBudgetRepository implements BudgetRepository {
     const at = nowIso();
     let touched = 0;
 
-    await this.db.transaction('rw', this.db.entries, this.db.changeLog, async () => {
-      const entries = (await this.db.entries.toArray()).filter(alive);
-      for (const entry of entries) {
-        if (!hasTag(entry.tags, from)) continue;
-        const updated: Entry = {
-          ...entry,
-          tags: dedupeTags(
-            (entry.tags ?? []).map((tag) => (tagKey(tag) === tagKey(from) ? target : tag)),
-          ),
-          updatedAt: at,
-          revision: entry.revision + 1,
-        };
-        await this.db.entries.put(updated);
-        await this.log('entry', updated.id, 'upsert', updated.revision, updated.householdId);
-        touched += 1;
-      }
-    });
+    const rename = (tags: readonly string[]) =>
+      dedupeTags(tags.map((tag) => (tagKey(tag) === tagKey(from) ? target : tag)));
+
+    await this.db.transaction(
+      'rw',
+      [this.db.entries, this.db.purchases, this.db.purchaseItems, this.db.changeLog],
+      async () => {
+        await this.retagPurchases(from, rename, at);
+        const entries = (await this.db.entries.toArray()).filter(alive);
+        for (const entry of entries) {
+          if (!hasTag(entry.tags, from)) continue;
+          const updated: Entry = {
+            ...entry,
+            tags: rename(entry.tags ?? []),
+            updatedAt: at,
+            revision: entry.revision + 1,
+          };
+          await this.db.entries.put(updated);
+          await this.log('entry', updated.id, 'upsert', updated.revision, updated.householdId);
+          touched += 1;
+        }
+      },
+    );
 
     if (touched > 0) await this.notify();
     return touched;
@@ -783,21 +859,26 @@ export class DexieBudgetRepository implements BudgetRepository {
     const at = nowIso();
     let touched = 0;
 
-    await this.db.transaction('rw', this.db.entries, this.db.changeLog, async () => {
-      const entries = (await this.db.entries.toArray()).filter(alive);
-      for (const entry of entries) {
-        if (!hasTag(entry.tags, tag)) continue;
-        const updated: Entry = {
-          ...entry,
-          tags: removeTag(entry.tags ?? [], tag),
-          updatedAt: at,
-          revision: entry.revision + 1,
-        };
-        await this.db.entries.put(updated);
-        await this.log('entry', updated.id, 'upsert', updated.revision, updated.householdId);
-        touched += 1;
-      }
-    });
+    await this.db.transaction(
+      'rw',
+      [this.db.entries, this.db.purchases, this.db.purchaseItems, this.db.changeLog],
+      async () => {
+        await this.retagPurchases(tag, (tags) => removeTag([...tags], tag), at);
+        const entries = (await this.db.entries.toArray()).filter(alive);
+        for (const entry of entries) {
+          if (!hasTag(entry.tags, tag)) continue;
+          const updated: Entry = {
+            ...entry,
+            tags: removeTag(entry.tags ?? [], tag),
+            updatedAt: at,
+            revision: entry.revision + 1,
+          };
+          await this.db.entries.put(updated);
+          await this.log('entry', updated.id, 'upsert', updated.revision, updated.householdId);
+          touched += 1;
+        }
+      },
+    );
 
     if (touched > 0) await this.notify();
     return touched;
@@ -812,6 +893,7 @@ export class DexieBudgetRepository implements BudgetRepository {
   async createRecurringRule(input: NewRecurringRuleInput): Promise<RecurringRule> {
     this.assert('recurring.manage');
     const household = await this.requireHousehold();
+    await this.assertPotOpen(input.potId);
     const at = nowIso();
 
     const rule: RecurringRule = {
@@ -852,6 +934,9 @@ export class DexieBudgetRepository implements BudgetRepository {
     this.assert('recurring.manage');
     const rule = await this.db.recurringRules.get(id);
     if (!rule || !alive(rule)) throw new Error('Regel nicht gefunden.');
+    if (patch.potId !== undefined && patch.potId !== rule.potId) {
+      await this.assertPotOpen(patch.potId);
+    }
 
     const updated: RecurringRule = {
       ...rule,
@@ -918,10 +1003,7 @@ export class DexieBudgetRepository implements BudgetRepository {
     // ohne Topf landet im Standardtopf, wenn es einen gibt. Der Topf wird
     // vorab geprüft, weil in der Transaktion kein zweiter Lesezugriff auf
     // `pots` erlaubt ist — die Tabelle steht nicht in ihrer Liste.
-    const fallbackPotId =
-      household.defaultPotId !== null && (await this.getPot(household.defaultPotId)) !== null
-        ? household.defaultPotId
-        : null;
+    const fallbackPotId = await this.resolveFallbackPot(household);
     const lockedPotIds = new Set(
       (await this.listPots({ includeArchived: true }))
         .filter((pot) => pot.lockedAt !== null)
@@ -934,7 +1016,14 @@ export class DexieBudgetRepository implements BudgetRepository {
       this.db.recurringRules,
       this.db.changeLog,
       async () => {
-        for (const rule of rules) {
+        for (const stale of rules) {
+          // Frisch in der Transaktion gelesen: Laufen zwei Tabs gleichzeitig
+          // an, sieht der zweite das fortgeschriebene `lastMaterializedDate`
+          // des ersten und erzeugt nichts doppelt. Mit dem vorab gelesenen
+          // Stand buchten beide dieselben Termine.
+          const rule = await this.db.recurringRules.get(stale.id);
+          if (!rule || !alive(rule)) continue;
+
           // Eine Regel auf einen inzwischen gesperrten Sparziel-Topf läuft
           // nicht weiter — `lastMaterializedDate` bleibt stehen, damit sie
           // von dort fortsetzt, falls der Topf je entsperrt wird.
@@ -954,7 +1043,7 @@ export class DexieBudgetRepository implements BudgetRepository {
             kind: input.kind,
             amountCents: input.amountCents,
             date: input.date,
-            note: input.note ?? null,
+            note: clampText(input.note, TEXT_LIMITS.note),
             merchant: null,
             address: null,
             // Wiederkehrende Regeln tragen selbst noch keine Tags — offen und
@@ -964,7 +1053,7 @@ export class DexieBudgetRepository implements BudgetRepository {
             // Eine Regel erzeugt eine Summe, keinen Einkauf.
             purchaseId: null,
             recurringRuleId: rule.id,
-            createdBy: principal?.userId ?? rule.householdId,
+            createdBy: principal?.userId ?? 'unbekannt',
           }));
 
           await this.db.entries.bulkAdd(entries);
@@ -1046,6 +1135,12 @@ export class DexieBudgetRepository implements BudgetRepository {
       sortIndex: index,
     }));
 
+    // Dieselbe Schreibsperre wie in `createEntries` — der Bon-Import ist der
+    // zweite Weg, auf dem eine Buchung sonst an ihr vorbeikäme.
+    for (const potId of new Set(items.map((item) => item.potId))) {
+      await this.assertPotOpen(potId);
+    }
+
     const plan = planPurchaseEntries(purchase, items, [], {
       tagsEnabled: household.tagsEnabled,
       purchaseTags: purchase.tags,
@@ -1115,7 +1210,13 @@ export class DexieBudgetRepository implements BudgetRepository {
   ): Promise<Entry[]> {
     const item = await this.db.purchaseItems.get(id);
     if (!item || !alive(item)) throw new Error('Posten nicht gefunden.');
-    this.assert('entry.edit.any', { householdId: item.householdId });
+    this.assert('entry.edit.any', {
+      householdId: item.householdId,
+      ownerId: await this.purchaseOwner(item.purchaseId),
+    });
+    if (patch.potId !== undefined && patch.potId !== item.potId) {
+      await this.assertPotOpen(patch.potId);
+    }
 
     const household = await this.requireHousehold();
     const at = nowIso();
@@ -1257,16 +1358,12 @@ export class DexieBudgetRepository implements BudgetRepository {
   async deletePurchase(id: string): Promise<void> {
     const purchase = await this.db.purchases.get(id);
     if (!purchase || !alive(purchase)) return;
-    this.assert('entry.edit.any', { householdId: purchase.householdId });
+    this.assert('entry.edit.any', {
+      householdId: purchase.householdId,
+      ownerId: await this.purchaseOwner(id),
+    });
 
     const at = nowIso();
-    const items = (await this.db.purchaseItems.where('purchaseId').equals(id).toArray()).filter(
-      alive,
-    );
-    const entries = (await this.db.entries.toArray())
-      .filter(alive)
-      .filter((entry) => entry.purchaseId === id);
-
     await this.db.transaction(
       'rw',
       this.db.purchases,
@@ -1275,6 +1372,15 @@ export class DexieBudgetRepository implements BudgetRepository {
       this.db.receipts,
       this.db.changeLog,
       async () => {
+        // In der Transaktion gelesen, damit keine Buchung durchrutscht, die
+        // zwischen Lesen und Schreiben dazukam.
+        const items = (await this.db.purchaseItems.where('purchaseId').equals(id).toArray()).filter(
+          alive,
+        );
+        const entries = (await this.db.entries.toArray())
+          .filter(alive)
+          .filter((entry) => entry.purchaseId === id);
+
         for (const entry of entries) {
           await this.db.entries.put({
             ...entry,
@@ -1284,7 +1390,7 @@ export class DexieBudgetRepository implements BudgetRepository {
           });
           await this.log('entry', entry.id, 'delete', entry.revision + 1, purchase.householdId, at);
 
-          // Hart löschen wie in `deleteEntry`: Der Sinn ist, den Platz
+          // Hart löschen wie in `deleteEntry` und `deleteReceipt`: Der Sinn ist, den Platz
           // freizugeben; die Spur im changeLog genügt für den Sync.
           const belege = await this.db.receipts.where('entryId').equals(entry.id).toArray();
           for (const beleg of belege) {
@@ -1349,6 +1455,7 @@ export class DexieBudgetRepository implements BudgetRepository {
     const household = await this.requireHousehold();
     const normalized = clampText(keyword, TEXT_LIMITS.keyword);
     if (normalized === null) throw new Error('Leeres Schlagwort.');
+    await this.assertPotOpen(potId);
 
     const at = nowIso();
     // Dasselbe Schlagwort überschreibt seine Zuordnung, statt eine zweite
@@ -1423,7 +1530,7 @@ export class DexieBudgetRepository implements BudgetRepository {
       revision: 1,
       deletedAt: null,
       entryId,
-      filename: upload.filename,
+      filename: clampText(upload.filename, TEXT_LIMITS.filename) ?? 'beleg',
       mime: upload.mime,
       byteSize: upload.blob.size,
       blob: upload.blob,
@@ -1466,6 +1573,25 @@ export class DexieBudgetRepository implements BudgetRepository {
       count: receipts.length,
       byteSize: receipts.reduce((total, receipt) => total + receipt.byteSize, 0),
     };
+  }
+
+  /**
+   * Siehe `BudgetRepository.purgeDeletedReceipts`. Ohne Rechteprüfung, wie
+   * `materializeRecurringRules`: Es ist Aufräumen nach einer Regel, die schon
+   * beim Löschen hätte greifen sollen, keine Entscheidung eines Nutzers. Die
+   * Outbox-Zeile gab es damals schon (`delete`).
+   */
+  async purgeDeletedReceipts(): Promise<number> {
+    let purged = 0;
+    await this.db.transaction('rw', this.db.receipts, async () => {
+      const dead = await this.db.receipts
+        .filter((receipt) => receipt.deletedAt !== null)
+        .primaryKeys();
+      await this.db.receipts.bulkDelete(dead);
+      purged = dead.length;
+    });
+    if (purged > 0) await this.notify();
+    return purged;
   }
 
   // ----------------------------------------------------------- Export/Import
@@ -1520,114 +1646,143 @@ export class DexieBudgetRepository implements BudgetRepository {
    * - `merge` führt über die `id` zusammen; bei Konflikt gewinnt die höhere
    *   `revision`. Genau dafür wird `revision` überhaupt mitgeführt.
    */
-  async importAll(file: ExportFile, mode: 'replace' | 'merge'): Promise<ImportResult> {
+  async importAll(
+    file: ExportFile,
+    mode: 'replace' | 'merge',
+    options: ImportOptions = {},
+  ): Promise<ImportResult> {
     this.assert('data.import');
-    return this.writeImport(file, mode);
+    return this.writeImport(file, mode, options);
   }
 
-  /** Der eigentliche Schreibvorgang — von `importAll` und `restoreFromBackup` benutzt. */
-  private async writeImport(file: ExportFile, mode: 'replace' | 'merge'): Promise<ImportResult> {
+  /**
+   * Der eigentliche Schreibvorgang — von `importAll` und `restoreFromBackup` benutzt.
+   *
+   * Vor dem Schreiben passieren zwei Dinge, beide in `lib/domain/backup.ts`:
+   * Eine Sicherung aus einem fremden Haushalt wird nur mit Zustimmung
+   * (`adoptInto`) übernommen, und Verweise ins Leere werden gelöst und gezählt.
+   * Jeder geschriebene Datensatz bekommt seine Outbox-Zeile — vorher war es
+   * eine einzige für den ganzen Import.
+   */
+  private async writeImport(
+    incoming: ExportFile,
+    mode: 'replace' | 'merge',
+    options: ImportOptions = {},
+  ): Promise<ImportResult> {
+    const local = await this.getHousehold();
+    let file = incoming;
+    let adopted = false;
+    if (mode === 'merge' && local !== null && local.id !== incoming.household.id) {
+      if (options.adoptInto !== local.id) {
+        throw new ForeignHouseholdError(incoming.household.name, local.name);
+      }
+      file = adoptIntoHousehold(incoming, local.id);
+      adopted = true;
+    }
+
     const result: ImportResult = {
       mode,
       pots: 0,
       entries: 0,
       recurringRules: 0,
       receipts: 0,
+      itemRules: 0,
+      purchases: 0,
+      purchaseItems: 0,
       skipped: 0,
+      repaired: 0,
     };
+    const at = nowIso();
 
     await this.db.transaction('rw', this.allTables(), async () => {
+      // Beim Ersetzen zählt nur die Datei; beim Zusammenführen darf ein
+      // Verweis auch auf etwas zeigen, das nur lokal existiert.
+      const known =
+        mode === 'merge'
+          ? {
+              potIds: (await this.db.pots.toArray()).filter(alive).map((pot) => pot.id),
+              entryIds: (await this.db.entries.toArray()).filter(alive).map((entry) => entry.id),
+              purchaseIds: (await this.db.purchases.toArray())
+                .filter(alive)
+                .map((purchase) => purchase.id),
+            }
+          : {};
+      const repairedFile = repairReferences(file, known);
+      file = repairedFile.file;
+      result.repaired = repairedFile.repaired;
+
+      const householdId = adopted ? local!.id : file.household.id;
+      const write = async <T extends { id: string; revision: number }>(
+        table: WritableTable<NoInfer<T>>,
+        entity: ChangeLogEntry['entity'],
+        record: T,
+      ): Promise<boolean> => {
+        if (mode === 'merge' && !(await this.shouldWrite(table, record))) return false;
+        await table.put(record);
+        await this.log(entity, record.id, 'upsert', record.revision, householdId, at);
+        return true;
+      };
+
+      // Eine Sicherung ohne Belege (Export mit „ohne Belege") soll beim
+      // Ersetzen die vorhandenen nicht mitnehmen — sonst waren alle Bilder
+      // weg, ohne dass jemand danach gefragt hätte. Behalten wird, was an
+      // einer Buchung hängt, die die Datei wieder mitbringt.
+      const keptReceipts: Receipt[] = [];
       if (mode === 'replace') {
-        await Promise.all([
-          this.db.households.clear(),
-          this.db.users.clear(),
-          this.db.pots.clear(),
-          this.db.entries.clear(),
-          this.db.recurringRules.clear(),
-          this.db.receipts.clear(),
-          this.db.itemRules.clear(),
-          this.db.purchases.clear(),
-          this.db.purchaseItems.clear(),
-        ]);
-        await this.db.households.put(file.household);
-        await this.db.users.bulkPut(file.users);
-      } else {
-        const existingHousehold = await this.db.households.get(file.household.id);
-        if (!existingHousehold || existingHousehold.revision < file.household.revision) {
-          await this.db.households.put(file.household);
+        const incomingReceiptIds = new Set(file.receipts.map((receipt) => receipt.id));
+        const entryIds = new Set(file.entries.map((entry) => entry.id));
+        for (const receipt of await this.db.receipts.toArray()) {
+          if (
+            alive(receipt) &&
+            !incomingReceiptIds.has(receipt.id) &&
+            entryIds.has(receipt.entryId)
+          ) {
+            keptReceipts.push(receipt);
+          }
         }
-        for (const user of file.users) {
-          if (await this.shouldWrite(this.db.users, user)) await this.db.users.put(user);
-        }
+        // Auch die Outbox: Sie zeigte sonst auf Datensätze, die es nicht mehr gibt.
+        await Promise.all(this.allTables().map((table) => table.clear()));
       }
 
-      for (const pot of file.pots) {
-        if (mode === 'replace' || (await this.shouldWrite(this.db.pots, pot))) {
-          await this.db.pots.put(pot);
-          result.pots += 1;
-        } else {
-          result.skipped += 1;
+      if (!adopted) {
+        if (await write(this.db.households, 'household', file.household)) {
+          // Ohne Zählfeld — der Haushalt ist einer.
         }
+        for (const user of file.users) await write(this.db.users, 'user', user);
       }
 
-      for (const entry of file.entries) {
-        if (mode === 'replace' || (await this.shouldWrite(this.db.entries, entry))) {
-          await this.db.entries.put(entry);
-          result.entries += 1;
-        } else {
-          result.skipped += 1;
+      const count = async <T extends { id: string; revision: number }>(
+        table: WritableTable<NoInfer<T>>,
+        entity: ChangeLogEntry['entity'],
+        records: readonly T[],
+        key: 'pots' | 'entries' | 'recurringRules' | 'itemRules' | 'purchases' | 'purchaseItems',
+      ): Promise<void> => {
+        for (const record of records) {
+          if (await write(table, entity, record)) result[key] += 1;
+          else result.skipped += 1;
         }
-      }
+      };
 
-      for (const rule of file.recurringRules) {
-        if (mode === 'replace' || (await this.shouldWrite(this.db.recurringRules, rule))) {
-          await this.db.recurringRules.put(rule);
-          result.recurringRules += 1;
-        } else {
-          result.skipped += 1;
-        }
-      }
+      await count(this.db.pots, 'pot', file.pots, 'pots');
+      await count(this.db.entries, 'entry', file.entries, 'entries');
+      await count(this.db.recurringRules, 'recurringRule', file.recurringRules, 'recurringRules');
+      await count(this.db.itemRules, 'itemRule', file.itemRules, 'itemRules');
+      await count(this.db.purchases, 'purchase', file.purchases, 'purchases');
+      await count(this.db.purchaseItems, 'purchaseItem', file.purchaseItems, 'purchaseItems');
 
       for (const receiptExport of file.receipts) {
         const { dataBase64, thumbnailBase64, ...meta } = receiptExport;
         const receipt: Receipt = {
           ...meta,
           blob: base64ToBlob(dataBase64, meta.mime),
-          thumbnail: thumbnailBase64 ? base64ToBlob(thumbnailBase64, meta.mime) : null,
+          // Die Vorschau ist immer ein JPEG (`lib/ui/thumbnail.ts`), nicht
+          // vom Typ des Originals.
+          thumbnail: thumbnailBase64 ? base64ToBlob(thumbnailBase64, 'image/jpeg') : null,
         };
-        if (mode === 'replace' || (await this.shouldWrite(this.db.receipts, receipt))) {
-          await this.db.receipts.put(receipt);
-          result.receipts += 1;
-        } else {
-          result.skipped += 1;
-        }
+        if (await write(this.db.receipts, 'receipt', receipt)) result.receipts += 1;
+        else result.skipped += 1;
       }
-
-      for (const rule of file.itemRules) {
-        if (mode === 'replace' || (await this.shouldWrite(this.db.itemRules, rule))) {
-          await this.db.itemRules.put(rule);
-        }
-      }
-
-      for (const purchase of file.purchases) {
-        if (mode === 'replace' || (await this.shouldWrite(this.db.purchases, purchase))) {
-          await this.db.purchases.put(purchase);
-        }
-      }
-
-      for (const item of file.purchaseItems) {
-        if (mode === 'replace' || (await this.shouldWrite(this.db.purchaseItems, item))) {
-          await this.db.purchaseItems.put(item);
-        }
-      }
-
-      await this.log(
-        'household',
-        file.household.id,
-        'upsert',
-        file.household.revision,
-        file.household.id,
-      );
+      for (const receipt of keptReceipts) await this.db.receipts.put(receipt);
     });
 
     await this.notify();
@@ -1730,8 +1885,68 @@ export class DexieBudgetRepository implements BudgetRepository {
   private async assertPotOpen(potId: string | null): Promise<void> {
     if (potId === null) return;
     const pot = await this.getPot(potId);
-    if (pot?.lockedAt != null) {
+    // Ein gelöschter Topf ist kein Ziel — vorher ließ sich auf eine ID buchen,
+    // die es nicht mehr gab, und die Buchung hing dann an nichts.
+    if (pot === null) throw new Error('Topf nicht gefunden.');
+    if (pot.lockedAt !== null) {
       throw new Error('Dieses Sparziel ist gesperrt — es lässt sich nicht mehr bebuchen.');
+    }
+  }
+
+  /**
+   * Wer einen Einkauf angelegt hat. `Purchase` trägt kein `createdBy` — die
+   * Buchungen daraus tun es, und sie entstehen alle im selben Zug.
+   *
+   * Ohne diese Angabe prüfte `assertCan` nur `entry.edit.any`, und ein
+   * Mitglied konnte seinen eigenen Einkauf weder ändern noch löschen.
+   */
+  private async purchaseOwner(purchaseId: string): Promise<string | null> {
+    const entries = (await this.db.entries.toArray()).filter(
+      (entry) => alive(entry) && entry.purchaseId === purchaseId,
+    );
+    return entries[0]?.createdBy ?? null;
+  }
+
+  /**
+   * Tags an Einkauf und Posten nachziehen — in der Transaktion des Aufrufers.
+   *
+   * Die Buchungen eines Einkaufs werden aus diesen Tags **neu gerechnet**.
+   * Stand der alte Name nur hier noch, brachte die nächste Postenänderung
+   * ihn an die Buchungen zurück.
+   */
+  private async retagPurchases(
+    tag: string,
+    change: (tags: readonly string[]) => string[],
+    at: string,
+  ): Promise<void> {
+    for (const purchase of await this.db.purchases.toArray()) {
+      if (!alive(purchase) || !hasTag(purchase.tags, tag)) continue;
+      const updated: Purchase = {
+        ...purchase,
+        tags: change(purchase.tags ?? []),
+        updatedAt: at,
+        revision: purchase.revision + 1,
+      };
+      await this.db.purchases.put(updated);
+      await this.log('purchase', updated.id, 'upsert', updated.revision, updated.householdId, at);
+    }
+    for (const item of await this.db.purchaseItems.toArray()) {
+      if (!alive(item) || !hasTag(item.tags, tag)) continue;
+      const updated: PurchaseItem = {
+        ...item,
+        tags: change(item.tags ?? []),
+        updatedAt: at,
+        revision: item.revision + 1,
+      };
+      await this.db.purchaseItems.put(updated);
+      await this.log(
+        'purchaseItem',
+        updated.id,
+        'upsert',
+        updated.revision,
+        updated.householdId,
+        at,
+      );
     }
   }
 
@@ -1796,6 +2011,16 @@ function withHouseholdDefaults(stored: Household): Household {
     fabDefault: stored.fabDefault ?? 'expense',
     fabScopes: stored.fabScopes ?? {},
   };
+}
+
+/**
+ * Pflichttext: gekürzt wie jeder Freitext (`clampText`), aber leer ist ein
+ * Fehler statt `null` — ein Topf ohne Namen ist keiner.
+ */
+function requireText(value: string, limit: number, message: string): string {
+  const text = clampText(value, limit);
+  if (text === null) throw new Error(message);
+  return text;
 }
 
 function alive<T extends { deletedAt: string | null }>(record: T): boolean {

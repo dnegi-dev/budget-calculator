@@ -62,6 +62,9 @@ export function AppGate({ children }: { children: ReactNode }) {
     // Dieselbe Begründung gilt für abgelaufene Sparziele: Im schlimmsten Fall
     // sperrt eines erst beim nächsten Start.
     void repository.lockDueGoalPots(todayIso()).catch(() => {});
+    // Bilder gelöschter Buchungen, die ältere Versionen nur markiert hatten.
+    // Scheitert es, bleibt der Platz bis zum nächsten Start belegt — mehr nicht.
+    void repository.purgeDeletedReceipts().catch(() => {});
   }, [repository, setupComplete, unlocked]);
 
   // Vor allem anderen — auch vor dem Ladezustand, denn diese Seiten brauchen

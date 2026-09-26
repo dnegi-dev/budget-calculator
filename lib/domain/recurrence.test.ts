@@ -245,3 +245,48 @@ describe('describeRecurrence', () => {
     ).toContain('letzten Tag');
   });
 });
+
+describe('Regeln nach vielen Jahren', () => {
+  const alt: RecurringRule = {
+    id: 'r',
+    householdId: 'h',
+    createdAt: '2014-01-06T00:00:00.000Z',
+    updatedAt: '2014-01-06T00:00:00.000Z',
+    revision: 1,
+    deletedAt: null,
+    potId: null,
+    kind: 'expense',
+    amountCents: 500,
+    note: null,
+    freq: 'weekly',
+    interval: 1,
+    dayOfMonth: null,
+    weekday: 1,
+    month: null,
+    startDate: '2014-01-06',
+    endDate: null,
+    lastMaterializedDate: null,
+    paused: false,
+  };
+
+  it('liefert eine Wochenregel auch nach mehr als 500 Wochen', () => {
+    expect(occurrencesBetween(alt, '2026-09-01', '2026-09-18')).toEqual([
+      '2026-09-07',
+      '2026-09-14',
+    ]);
+    expect(nextOccurrenceAfter(alt, '2026-09-18')).toBe('2026-09-21');
+  });
+
+  it('trifft Monats- und Jahresregeln nach Jahrzehnten auf den Tag', () => {
+    const monatlich = { ...alt, freq: 'monthly' as const, dayOfMonth: 31, weekday: null };
+    expect(occurrencesBetween(monatlich, '2056-02-01', '2056-03-31')).toEqual([
+      '2056-02-29',
+      '2056-03-31',
+    ]);
+    const jaehrlich = { ...alt, freq: 'yearly' as const, month: 2, dayOfMonth: 29, weekday: null };
+    expect(occurrencesBetween(jaehrlich, '2600-01-01', '2601-12-31')).toEqual([
+      '2600-02-28',
+      '2601-02-28',
+    ]);
+  });
+});

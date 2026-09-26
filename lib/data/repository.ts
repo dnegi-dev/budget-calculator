@@ -89,7 +89,48 @@ export interface ImportResult {
   entries: number;
   recurringRules: number;
   receipts: number;
+  itemRules: number;
+  purchases: number;
+  purchaseItems: number;
   skipped: number;
+  /**
+   * Verweise, die ins Leere zeigten und gelöst wurden (Buchung auf einen
+   * Topf, der nicht in der Datei steht, und Ähnliches). Gemeldet statt
+   * verschwiegen — eine stille Reparatur sähe aus wie eine vollständige
+   * Sicherung.
+   */
+  repaired: number;
+}
+
+export interface ImportOptions {
+  /**
+   * Beim Zusammenführen einer Sicherung aus einem **anderen** Haushalt: die
+   * ID des eigenen, in den alles übernommen wird. Ohne sie lehnt der Import
+   * ab (`ForeignHouseholdError`) — die Oberfläche fragt vorher nach.
+   */
+  adoptInto?: string;
+}
+
+/**
+ * Die Sicherung stammt aus einem anderen Haushalt. Kein Fehler im Sinne von
+ * „kaputt", sondern eine Frage, die nur der Nutzer beantworten kann.
+ *
+ * Vorher legte der Merge still einen zweiten Haushalt an, den die App nie
+ * liest (`getHousehold` nimmt den ersten) — die Daten sahen eingelesen aus
+ * und waren unsichtbar.
+ */
+export class ForeignHouseholdError extends Error {
+  readonly fileHouseholdName: string;
+  readonly localHouseholdName: string;
+
+  constructor(fileHouseholdName: string, localHouseholdName: string) {
+    super(
+      `Die Sicherung stammt aus dem Haushalt „${fileHouseholdName}", nicht aus „${localHouseholdName}".`,
+    );
+    this.name = 'ForeignHouseholdError';
+    this.fileHouseholdName = fileHouseholdName;
+    this.localHouseholdName = localHouseholdName;
+  }
 }
 
 export interface ReceiptStorageStats {
@@ -248,9 +289,19 @@ export interface BudgetRepository {
   getReceipt(id: string): Promise<Receipt | null>;
   deleteReceipt(id: string): Promise<void>;
   receiptStorageStats(): Promise<ReceiptStorageStats>;
+  /**
+   * Löscht Belege endgültig, die ältere Versionen nur als gelöscht markiert
+   * hatten — deren Bilder belegten weiter Platz, unsichtbar für die
+   * Speicheranzeige. Gibt die Anzahl zurück.
+   */
+  purgeDeletedReceipts(): Promise<number>;
 
   exportAll(options: { includeReceipts: boolean }): Promise<ExportFile>;
-  importAll(file: ExportFile, mode: 'replace' | 'merge'): Promise<ImportResult>;
+  importAll(
+    file: ExportFile,
+    mode: 'replace' | 'merge',
+    options?: ImportOptions,
+  ): Promise<ImportResult>;
   /** Löscht alle lokalen Daten. Nur aus den Einstellungen und nur mit Rückfrage. */
   wipeAll(): Promise<void>;
 

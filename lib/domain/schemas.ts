@@ -37,6 +37,8 @@ export const TEXT_LIMITS = {
   keyword: 60,
   /** Die Bezeichnung eines Bon-Postens — so lang wie eine Kassenzeile wird. */
   itemLabel: 120,
+  /** Dateiname eines Belegs, wie ihn das Gerät liefert. */
+  filename: 255,
 } as const;
 
 /**
@@ -224,7 +226,7 @@ export const recurringRuleSchema = z
 export const receiptMetaSchema = z.object({
   ...recordMetaShape,
   entryId: idSchema,
-  filename: z.string().min(1).max(255),
+  filename: z.string().min(1).max(TEXT_LIMITS.filename),
   mime: z.string().min(1).max(120),
   byteSize: z.number().int().min(0),
 });
