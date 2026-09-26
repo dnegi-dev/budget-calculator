@@ -28,6 +28,7 @@ import { TagInput } from '../../../components/entries/TagInput';
 import { useCan } from '../../../lib/auth/provider';
 import { useData, useSnapshot } from '../../../lib/data/provider';
 import { collectTags } from '../../../lib/domain/tags';
+import { bookablePots } from '../../../lib/domain/pot-kinds';
 import type { PurchaseItem } from '../../../lib/domain/types';
 import { Banner } from '../../../lib/ui/Banner';
 import { Button } from '../../../lib/ui/Button';
@@ -35,8 +36,11 @@ import { Card, CardHeader } from '../../../lib/ui/Card';
 import { EmptyState } from '../../../lib/ui/EmptyState';
 import { Icon } from '../../../lib/ui/Icon';
 import { selectClass } from '../../../lib/ui/Field';
-import { potColorVar } from '../../../lib/ui/colors';
+import { PotIcon } from '../../../components/pots/PotIcon';
 import { useFormat } from '../../../lib/ui/useFormat';
+import { PotOptions } from '../../../components/pots/PotOptions';
+import { matchesQuery } from '../../../lib/domain/search';
+import { signSymbol, sumCents } from '../../../lib/domain/money';
 
 const HERKUNFT: Record<string, string> = {
   exakt: 'Aus dem Beleg selbst gelesen — vom Kassensystem geschrieben.',
@@ -86,9 +90,7 @@ function PurchaseDetail() {
   );
 
   const gefunden = useMemo(() => {
-    const needle = suche.trim().toLowerCase();
-    if (needle === '') return items;
-    return items.filter((item) => item.label.toLowerCase().includes(needle));
+    return items.filter((item) => matchesQuery(suche, item.label));
   }, [items, suche]);
 
   if (!purchase) {
@@ -105,10 +107,8 @@ function PurchaseDetail() {
   }
 
   const potsById = new Map(snapshot.pots.map((pot) => [pot.id, pot]));
-  const aktivePots = snapshot.pots.filter(
-    (pot) => pot.archivedAt === null && pot.lockedAt === null,
-  );
-  const summeDerPosten = items.reduce((sum, item) => sum + item.amountCents, 0);
+  const aktivePots = bookablePots(snapshot.pots);
+  const summeDerPosten = sumCents(items.map((item) => item.amountCents));
   const darfAendern = can('entry.edit.any');
 
   async function aendere(item: PurchaseItem, patch: { potId?: string | null; tags?: string[] }) {
@@ -206,17 +206,7 @@ function PurchaseDetail() {
                       Feld auf „ohne Topf", und ein Klick daneben hätte den
                       Topf stillschweigend entfernt.
                     */}
-                    {snapshot.pots
-                      .filter(
-                        (candidate) =>
-                          (candidate.archivedAt === null && candidate.lockedAt === null) ||
-                          candidate.id === item.potId,
-                      )
-                      .map((candidate) => (
-                        <option key={candidate.id} value={candidate.id}>
-                          {candidate.icon} {candidate.name}
-                        </option>
-                      ))}
+                    <PotOptions pots={bookablePots(snapshot.pots, item.potId)} />
                   </select>
 
                   {snapshot.household?.tagsEnabled && (
@@ -262,17 +252,7 @@ function PurchaseDetail() {
               const pot = entry.potId ? potsById.get(entry.potId) : null;
               return (
                 <li key={entry.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <span
-                    aria-hidden
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-sm"
-                    style={{
-                      background: pot
-                        ? `color-mix(in oklch, ${potColorVar(pot.color)} 18%, transparent)`
-                        : 'var(--bg-subtle)',
-                    }}
-                  >
-                    {pot?.icon ?? '–'}
-                  </span>
+                  <PotIcon pot={pot} className="h-8 w-8 rounded-lg text-sm" />
                   <span className="min-w-0 flex-1 truncate text-sm">
                     {pot?.name ?? 'Ohne Topf'}
                   </span>
@@ -281,7 +261,7 @@ function PurchaseDetail() {
                       entry.kind === 'income' ? 'text-positive' : ''
                     }`}
                   >
-                    {entry.kind === 'income' ? '+' : '−'}
+                    {signSymbol(entry.kind)}
                     {format.money(entry.amountCents)}
                   </span>
                 </li>

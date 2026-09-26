@@ -39,6 +39,28 @@ export function entryKindActionLabel(kind: EntryKind, pot: GoalPot | null): stri
 }
 
 /** Welche Buchungsart eine Phase vorbelegt: Einzahlphase → Ausgabe, Auszahlphase → Einnahme. */
+type NamedPot = Pick<Pot, 'kind' | 'name'>;
+
+/**
+ * Der Knopf, der auf einen bestimmten Topf bucht: „Auf „X“ buchen“, bei einem
+ * Sparziel „In „X“ einzahlen“ bzw. „Von „X“ ausgeben“.
+ *
+ * Stand vorher als eigene Verzweigung in der Topf-Detailseite — dieselbe
+ * Übersetzung wie `entryKindLabel`, nur ein zweites Mal geschrieben.
+ */
+export function potActionLabel(pot: NamedPot, kind: EntryKind): string {
+  if (!isGoal(pot)) return `Auf „${pot.name}“ buchen`;
+  return kind === 'expense' ? `In „${pot.name}“ einzahlen` : `Von „${pot.name}“ ausgeben`;
+}
+
+/** Der Hinweissatz im Erfassen-Sheet: wohin die Buchung geht. */
+export function potTargetSentence(pot: NamedPot, kind: EntryKind): string {
+  if (!isGoal(pot)) return `Wird auf „${pot.name}“ gebucht.`;
+  return kind === 'expense'
+    ? `Wird auf „${pot.name}“ eingezahlt.`
+    : `Wird von „${pot.name}“ ausgegeben.`;
+}
+
 export function kindForGoalPhase(phase: GoalPhase): EntryKind {
   return phase === 'saving' ? 'expense' : 'income';
 }

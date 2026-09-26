@@ -20,7 +20,8 @@ import { useCan } from '../../lib/auth/provider';
 import { useData, useSnapshot } from '../../lib/data/provider';
 import { todayIso } from '../../lib/domain/dates';
 import { entryKindLabel } from '../../lib/domain/entry-kinds';
-import { parseAmountToCents } from '../../lib/domain/money';
+import { parseAmountToCents, signSymbol } from '../../lib/domain/money';
+import { bookablePots } from '../../lib/domain/pot-kinds';
 import { TEXT_LIMITS } from '../../lib/domain/schemas';
 import { describeRecurrence, nextOccurrenceAfter } from '../../lib/domain/recurrence';
 import type { EntryKind, Frequency, RecurringRule } from '../../lib/domain/types';
@@ -33,7 +34,9 @@ import { Field, inputClass, selectClass } from '../../lib/ui/Field';
 import { SegmentedControl } from '../../lib/ui/SegmentedControl';
 import { Sheet } from '../../lib/ui/Sheet';
 import { WEEKDAY_LABELS } from '../../lib/domain/recurrence';
+import { PotIcon } from '../pots/PotIcon';
 import { useFormat } from '../../lib/ui/useFormat';
+import { PotOptions } from '../pots/PotOptions';
 
 /**
  * Die Liste der Regeln.
@@ -112,12 +115,11 @@ export function RecurringSection({
               : nextOccurrenceAfter(rule, rule.lastMaterializedDate ?? todayIso());
             return (
               <li key={rule.id} className="flex items-center gap-3 px-4 py-3">
-                <span
-                  aria-hidden
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-subtle"
-                >
-                  {pot?.icon ?? (rule.kind === 'income' ? '↓' : '↻')}
-                </span>
+                <PotIcon
+                  pot={pot}
+                  fallback={rule.kind === 'income' ? '↓' : '↻'}
+                  className="h-9 w-9 rounded-lg"
+                />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">
                     {rule.note || pot?.name || entryKindLabel(rule.kind, pot ?? null)}
@@ -131,7 +133,7 @@ export function RecurringSection({
                 <span
                   className={`tabular shrink-0 font-semibold ${rule.kind === 'income' ? 'text-positive' : ''}`}
                 >
-                  {rule.kind === 'income' ? '+' : '−'}
+                  {signSymbol(rule.kind)}
                   {format.money(rule.amountCents)}
                 </span>
                 {allowed && (
@@ -286,15 +288,7 @@ function RecurringSheet({
               onChange={(event) => setPotId(event.target.value)}
             >
               <option value="">Kein Topf</option>
-              {snapshot.pots
-                .filter(
-                  (pot) => (pot.archivedAt === null && pot.lockedAt === null) || pot.id === potId,
-                )
-                .map((pot) => (
-                  <option key={pot.id} value={pot.id}>
-                    {pot.icon} {pot.name}
-                  </option>
-                ))}
+              <PotOptions pots={bookablePots(snapshot.pots, potId === '' ? null : potId)} />
             </select>
           )}
         </Field>

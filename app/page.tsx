@@ -23,6 +23,7 @@ import { useSnapshot } from '../lib/data/provider';
 import { todayIso } from '../lib/domain/dates';
 import { computePotStates } from '../lib/domain/ledger';
 import { periodForDate } from '../lib/domain/period';
+import { bookablePots } from '../lib/domain/pot-kinds';
 import { Button } from '../lib/ui/Button';
 import { Card } from '../lib/ui/Card';
 import { Wallet } from 'lucide-react';
@@ -50,10 +51,7 @@ export default function HomePage() {
   // Ein gesperrtes Sparziel bleibt sichtbar (anders als ein archivierter
   // Topf), lässt sich aber nicht mehr bebuchen — deshalb ein eigener,
   // engerer Filter nur für die Auswahl im Erfassen-Sheet.
-  const bookablePots = useMemo(
-    () => activePots.filter((pot) => pot.lockedAt === null),
-    [activePots],
-  );
+  const buchbarePots = useMemo(() => bookablePots(activePots), [activePots]);
 
   const states = useMemo(
     () => computePotStates(activePots, snapshot.entries, periodKey, format.periodStartDay),
@@ -128,7 +126,7 @@ export default function HomePage() {
         )}
       </Card>
 
-      <EntrySheet open={entryOpen} onClose={() => setEntryOpen(false)} pots={bookablePots} />
+      <EntrySheet open={entryOpen} onClose={() => setEntryOpen(false)} pots={buchbarePots} />
       <PotWizard open={potWizardOpen} onClose={() => setPotWizardOpen(false)} />
     </div>
   );

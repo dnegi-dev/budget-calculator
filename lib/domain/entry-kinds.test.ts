@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { entryKindActionLabel, entryKindLabel, kindForGoalPhase } from './entry-kinds';
+import {
+  entryKindActionLabel,
+  entryKindLabel,
+  kindForGoalPhase,
+  potActionLabel,
+  potTargetSentence,
+} from './entry-kinds';
 import type { Pot } from './types';
 
 function topf(kind: Pot['kind']): Pick<Pot, 'kind'> {
@@ -37,5 +43,22 @@ describe('kindForGoalPhase', () => {
   it('leitet die vorbelegte Buchungsart aus der Phase ab', () => {
     expect(kindForGoalPhase('saving')).toBe('expense');
     expect(kindForGoalPhase('spending')).toBe('income');
+  });
+});
+
+describe('Beschriftungen mit Topfnamen', () => {
+  const budget = { kind: 'budget' as const, name: 'Lebensmittel' };
+  const ziel = { kind: 'goal' as const, name: 'Urlaub' };
+
+  it('nennt den Knopf je nach Topf-Art', () => {
+    expect(potActionLabel(budget, 'expense')).toBe('Auf „Lebensmittel“ buchen');
+    expect(potActionLabel(ziel, 'expense')).toBe('In „Urlaub“ einzahlen');
+    expect(potActionLabel(ziel, 'income')).toBe('Von „Urlaub“ ausgeben');
+  });
+
+  it('nennt das Ziel im Erfassen-Sheet', () => {
+    expect(potTargetSentence(budget, 'income')).toBe('Wird auf „Lebensmittel“ gebucht.');
+    expect(potTargetSentence(ziel, 'expense')).toBe('Wird auf „Urlaub“ eingezahlt.');
+    expect(potTargetSentence(ziel, 'income')).toBe('Wird von „Urlaub“ ausgegeben.');
   });
 });

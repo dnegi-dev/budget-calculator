@@ -1331,6 +1331,27 @@ describe('Eine Regel auf jedem Weg', () => {
     await expect(repo.rememberItemRule('milch', 'gibt-es-nicht')).rejects.toThrow(/nicht gefunden/);
   });
 
+  it('lässt die Verknüpfungen einer Buchung beim Bearbeiten unberührt', async () => {
+    const entry = await repo.createEntry({
+      potId: null,
+      kind: 'expense',
+      amountCents: 100,
+      date: '2026-09-18',
+    });
+    const updated = await repo.updateEntry(entry.id, {
+      note: 'neu',
+      purchaseId: 'fremder-einkauf',
+      splitGroupId: 'fremde-gruppe',
+      recurringRuleId: 'fremde-regel',
+    });
+    expect(updated).toMatchObject({
+      note: 'neu',
+      purchaseId: null,
+      splitGroupId: null,
+      recurringRuleId: null,
+    });
+  });
+
   it('lehnt eine Buchung auf einen gelöschten Topf ab', async () => {
     const weg = await offenerTopf('Weg');
     await repo.deletePot(weg.id);

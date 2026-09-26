@@ -102,6 +102,14 @@ export function signedCents(kind: 'expense' | 'income', amountCents: number): nu
   return kind === 'expense' ? -amountCents : amountCents;
 }
 
+/**
+ * Das Vorzeichen vor einem Betrag in einer Liste. Echtes Minus (U+2212), nicht
+ * der Bindestrich — in tabellarischen Ziffern ist es so breit wie das Plus.
+ */
+export function signSymbol(kind: 'expense' | 'income'): '+' | '−' {
+  return kind === 'income' ? '+' : '−';
+}
+
 /** Obergrenze der Ziffernfolge im Kassenzettel-Modus: 9 999 999,99 €. */
 export const MAX_AMOUNT_DIGITS = 9;
 

@@ -25,14 +25,14 @@ import { PotSettingsForm } from '../../../components/pots/PotSettingsForm';
 import { useCan } from '../../../lib/auth/provider';
 import { useData, useSnapshot } from '../../../lib/data/provider';
 import { todayIso } from '../../../lib/domain/dates';
-import { entryKindLabel, kindForGoalPhase } from '../../../lib/domain/entry-kinds';
+import { entryKindLabel, kindForGoalPhase, potActionLabel } from '../../../lib/domain/entry-kinds';
 import {
   computeGoalState,
   computePotPeriodState,
   entriesInPeriod,
 } from '../../../lib/domain/ledger';
 import { periodForDate } from '../../../lib/domain/period';
-import { describePotConfig, goalPhaseOf, matchesPreset } from '../../../lib/domain/pot-kinds';
+import { bookablePots, describePotSummary, goalPhaseOf } from '../../../lib/domain/pot-kinds';
 import { collectTags } from '../../../lib/domain/tags';
 import type { GoalPhase } from '../../../lib/domain/types';
 import { CircleHelp, Lock, Settings } from 'lucide-react';
@@ -44,6 +44,7 @@ import { ProgressBar } from '../../../lib/ui/ProgressBar';
 import { SegmentedControl } from '../../../lib/ui/SegmentedControl';
 import { Sheet } from '../../../lib/ui/Sheet';
 import { potColorVar } from '../../../lib/ui/colors';
+import { PotIcon } from '../../../components/pots/PotIcon';
 import { useFormat } from '../../../lib/ui/useFormat';
 
 export default function PotDetailPage() {
@@ -119,9 +120,7 @@ function PotDetail() {
 
   const color = potColorVar(pot.color);
   const hasLimit = state.availableCents !== null;
-  const activePots = snapshot.pots.filter(
-    (candidate) => candidate.archivedAt === null && candidate.lockedAt === null,
-  );
+  const activePots = bookablePots(snapshot.pots);
   const locked = pot.lockedAt !== null;
   const phase = goalPhaseOf(pot);
 
@@ -184,20 +183,11 @@ function PotDetail() {
 
       <Card className="px-4 py-4">
         <div className="flex items-center gap-3">
-          <span
-            aria-hidden
-            className="grid h-12 w-12 shrink-0 place-items-center rounded-xl text-2xl"
-            style={{ background: `color-mix(in oklch, ${color} 18%, transparent)` }}
-          >
-            {pot.icon}
-          </span>
+          <PotIcon pot={pot} className="h-12 w-12 rounded-xl text-2xl" />
           <div className="min-w-0 flex-1">
             <p className="truncate font-medium">{pot.name}</p>
             <p className="text-sm text-ink-muted">
-              {describePotConfig(pot, format.money, format.day)}
-              {!matchesPreset(pot) ? ' · angepasst' : ''}
-              {pot.archivedAt !== null ? ' · archiviert' : ''}
-              {locked ? ' · gesperrt' : ''}
+              {describePotSummary(pot, format.money, format.day)}
               {!locked && phase === 'spending' ? ' · Auszahlphase' : ''}
             </p>
           </div>
@@ -323,13 +313,7 @@ function PotDetail() {
         {can('entry.create') && pot.archivedAt === null && !locked && (
           <div className="mt-4 hidden md:block">
             <Button variant="primary" block onClick={() => setEntryOpen(true)}>
-              {phase === null ? (
-                <>Auf „{pot.name}“ buchen</>
-              ) : phase === 'spending' ? (
-                <>Von „{pot.name}“ ausgeben</>
-              ) : (
-                <>In „{pot.name}“ einzahlen</>
-              )}
+              {potActionLabel(pot, phase === null ? 'expense' : kindForGoalPhase(phase))}
             </Button>
           </div>
         )}

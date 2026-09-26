@@ -17,6 +17,7 @@
  * passenden Bon-Vorschläge, weil `resolveCategoryPot` über den Namen sucht.
  */
 
+import { isPotBookable } from './pot-kinds';
 import type { Pot } from './types';
 
 export type PotCategory =
@@ -50,12 +51,12 @@ export const POT_CATEGORY_NAMES: Record<PotCategory, string> = {
  * diese Kategorie keine Vorschläge mehr. Das ist besser als die Alternative —
  * auf einen Topf zu buchen, den der Nutzer nicht gemeint hat.
  *
- * Archivierte Töpfe zählen nicht: Auf sie soll nichts Neues laufen.
+ * Archivierte und gesperrte Töpfe zählen nicht: Auf sie soll nichts Neues laufen.
  */
 export function resolveCategoryPot(kategorie: PotCategory, pots: readonly Pot[]): string | null {
   const gesucht = POT_CATEGORY_NAMES[kategorie].toLowerCase();
   const treffer = pots.find(
-    (pot) => pot.archivedAt === null && pot.name.trim().toLowerCase() === gesucht,
+    (pot) => isPotBookable(pot) && pot.name.trim().toLowerCase() === gesucht,
   );
   return treffer?.id ?? null;
 }
