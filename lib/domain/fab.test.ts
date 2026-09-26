@@ -15,7 +15,7 @@ function haushalt(patch: Partial<Pick<Household, 'fabDefault' | 'fabScopes'>> = 
 
 describe('scopeForPath', () => {
   it('trennt die Unterseiten von ihren Elternseiten', () => {
-    expect(scopeForPath('/')).toBe('home');
+    expect(scopeForPath('/')).toBe('pots');
     expect(scopeForPath('/buchungen')).toBe('entries');
     expect(scopeForPath('/buchungen/wiederkehrend')).toBe('recurring');
     expect(scopeForPath('/toepfe')).toBe('pots');
@@ -33,7 +33,7 @@ describe('scopeForPath', () => {
     expect(scopeForPath('/buchungen/')).toBe('entries');
     expect(scopeForPath('/buchungen/wiederkehrend/')).toBe('recurring');
     expect(scopeForPath('/toepfe/detail/')).toBe('potDetail');
-    expect(scopeForPath('/')).toBe('home');
+    expect(scopeForPath('/')).toBe('pots');
   });
 
   it('gibt für Unbekanntes null zurück', () => {

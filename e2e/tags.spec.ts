@@ -6,6 +6,7 @@ import {
   erfassenOeffnen,
   filterOeffnen,
   optionWaehlen,
+  zuDenToepfen,
 } from './helpers';
 
 /**
@@ -30,7 +31,7 @@ test.describe('Standardtopf', () => {
     await page.getByRole('radio', { name: 'Direkt in den Standardtopf' }).click();
     await expect(page.getByText(/Der Schritt entfällt/)).toBeVisible();
 
-    await page.getByRole('link', { name: 'Heute' }).first().click();
+    await zuDenToepfen(page);
     await erfassenOeffnen(page, 'Ausgabe');
     await page.getByLabel('Betrag').fill('1250');
     // Der Hinweis steht schon im Betrag-Schritt: Ein stumm gesetzter Topf wäre
@@ -57,7 +58,7 @@ test.describe('Standardtopf', () => {
     await einstellungOeffnen(page, 'Erfassen');
     await optionWaehlen(page, 'Standardtopf', 'Haushalt');
 
-    await page.getByRole('link', { name: 'Heute' }).first().click();
+    await zuDenToepfen(page);
     await erfassenOeffnen(page, 'Ausgabe');
     await page.getByLabel('Betrag').fill('700');
     await page.getByRole('button', { name: 'Weiter' }).click();
@@ -88,7 +89,7 @@ test.describe('Tags', () => {
     await expect(page.getByText(/Noch keine Tags benutzt/)).toBeVisible();
 
     // --- Buchung mit Tag -------------------------------------------------
-    await page.getByRole('link', { name: 'Heute' }).first().click();
+    await zuDenToepfen(page);
     await erfassenOeffnen(page, 'Ausgabe');
     await page.getByLabel('Betrag').fill('4000');
     await page.getByRole('button', { name: 'Weiter' }).click();

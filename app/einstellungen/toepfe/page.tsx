@@ -12,7 +12,11 @@
  * Bewusst **kein** Umweg über die Detailseite mehr: Buchungen, wiederkehrende
  * Regeln, Archivieren und Löschen bleiben dort — der Kontext (Verlauf,
  * Buchungsliste) gehört dort hin, nicht in ein schnelles Eigenschaften-Sheet.
- * Wer Buchungen dieses Topfes sehen will, geht weiter über „Heute" → „Töpfe".
+ * Wer Buchungen dieses Topfes sehen will, geht über „Töpfe" (die Startseite).
+ *
+ * Darüber steht „Im Menü": welche Töpfe direkt in der Navigation stehen
+ * (`NavFavoritesSection`). Hier und nicht unter „Darstellung", weil es um
+ * Töpfe geht — wer einen Topf schneller erreichen will, sucht ihn hier.
  *
  * Aktive und archivierte getrennt: Ein archivierter Topf taucht im Alltag
  * nirgends mehr auf, und „wo ist der hin?" ist genau die Frage, die diese
@@ -20,6 +24,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { NavFavoritesSection } from '../../../components/settings/NavFavoritesSection';
 import { SettingsPage } from '../../../components/settings/SettingsPage';
 import { PotSettingsForm } from '../../../components/pots/PotSettingsForm';
 import { useCan } from '../../../lib/auth/provider';
@@ -52,6 +57,8 @@ export default function PotSettingsPage() {
       title="Töpfe"
       hint="Jede Zeile öffnet die Einstellungen des Topfes — Name, Art, Limit, Symbol und Farbe."
     >
+      <NavFavoritesSection />
+
       <Card>
         <CardHeader title={`${aktive.length} aktiv`} />
         {aktive.length === 0 ? (

@@ -1,11 +1,13 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
+import { parseFavoriteIds } from '../domain/nav-favorites';
 import {
   getAmountMode,
   getAppearance,
   getDeleteButton,
   getIconStyle,
+  getNavFavoritesRaw,
   getSwipeConfirm,
   getSwipeDelete,
   getThemeChoice,
@@ -13,6 +15,7 @@ import {
   type AmountMode,
   type Appearance,
   type IconStyle,
+  type NavLayout,
   type ThemeChoice,
 } from './device-prefs';
 
@@ -45,6 +48,16 @@ export function useSwipeConfirm(): boolean {
 
 export function useDeleteButton(): boolean {
   return useSyncExternalStore(subscribePrefs, getDeleteButton, () => true);
+}
+
+/** Die gespeicherten Favoriten-IDs einer Leiste — noch nicht gegen die Töpfe geprüft. */
+export function useNavFavoriteIds(layout: NavLayout): string[] {
+  const raw = useSyncExternalStore(
+    subscribePrefs,
+    () => getNavFavoritesRaw(layout),
+    () => null,
+  );
+  return useMemo(() => parseFavoriteIds(raw), [raw]);
 }
 
 /**

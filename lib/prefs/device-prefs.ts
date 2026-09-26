@@ -64,6 +64,16 @@ export const SWIPE_DELETE_KEY = 'haushalt.swipeDelete';
 export const SWIPE_CONFIRM_KEY = 'haushalt.swipeConfirm';
 export const DELETE_BUTTON_KEY = 'haushalt.deleteButton';
 
+/**
+ * Lieblings-Töpfe im Menü (`lib/domain/nav-favorites.ts`): je eine Liste von
+ * Topf-IDs als JSON, getrennt für Seitenleiste und untere Leiste.
+ *
+ * Am Gerät, nicht am Haushalt: Es ist die Anordnung des Menüs auf diesem
+ * Gerät, wie Thema und Akzentfarbe. In der Sicherung stehen sie deshalb nicht.
+ */
+export const NAV_FAVORITES_DESKTOP_KEY = 'haushalt.navFavoritesDesktop';
+export const NAV_FAVORITES_MOBILE_KEY = 'haushalt.navFavoritesMobile';
+
 const ALL_KEYS: readonly string[] = [
   THEME_KEY,
   AMOUNT_MODE_KEY,
@@ -75,6 +85,8 @@ const ALL_KEYS: readonly string[] = [
   SWIPE_DELETE_KEY,
   SWIPE_CONFIRM_KEY,
   DELETE_BUTTON_KEY,
+  NAV_FAVORITES_DESKTOP_KEY,
+  NAV_FAVORITES_MOBILE_KEY,
 ];
 
 const THEME_CHOICES: readonly ThemeChoice[] = ['system', 'light', 'dark'];
@@ -306,6 +318,29 @@ export function setSwipeConfirm(on: boolean): void {
 
 export function setDeleteButton(on: boolean): void {
   writeKey(DELETE_BUTTON_KEY, on ? 'on' : 'off');
+}
+
+export type NavLayout = 'desktop' | 'mobile';
+
+function favoritesKey(layout: NavLayout): string {
+  return layout === 'desktop' ? NAV_FAVORITES_DESKTOP_KEY : NAV_FAVORITES_MOBILE_KEY;
+}
+
+/**
+ * Der gespeicherte **Text**, nicht die geparste Liste: `useSyncExternalStore`
+ * vergleicht mit `Object.is`, und eine bei jedem Aufruf neu geparste Liste
+ * wäre jedes Mal eine andere — eine Endlosschleife. Geparst wird im Haken.
+ */
+export function getNavFavoritesRaw(layout: NavLayout): string | null {
+  try {
+    return localStorage.getItem(favoritesKey(layout));
+  } catch {
+    return null;
+  }
+}
+
+export function setNavFavorites(layout: NavLayout, ids: readonly string[]): void {
+  writeKey(favoritesKey(layout), JSON.stringify(ids));
 }
 
 const listeners = new Set<() => void>();

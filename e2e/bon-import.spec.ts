@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test';
 import {
   einrichten,
+  einstellungOeffnen,
   entsperren,
   erfassenOeffnen,
   optionWaehlen,
-  einstellungOeffnen,
+  zuDenToepfen,
 } from './helpers';
 
 /**
@@ -104,7 +105,7 @@ test.describe('Bon einlesen', () => {
     await expect(page.getByText('kaffee to go')).toBeVisible();
 
     // Und beim zweiten Mal ist die Zeile vorbelegt.
-    await page.getByRole('link', { name: 'Heute' }).first().click();
+    await zuDenToepfen(page);
     await erfassenOeffnen(page, 'Ausgabe');
     await page.getByRole('button', { name: /Aus PDF-Bon einlesen/ }).click();
     await page.setInputFiles(

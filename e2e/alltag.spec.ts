@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { entsperren, erfassenOeffnen, einstellungOeffnen } from './helpers';
+import { einstellungOeffnen, entsperren, erfassenOeffnen, zuDenToepfen } from './helpers';
 
 /**
  * Ein Durchlauf des Alltagswegs.
@@ -74,7 +74,7 @@ test.describe('Haushalt einrichten und buchen', () => {
     await expect(page.getByRole('link', { name: /Lebensmittel/ })).toBeVisible();
 
     // --- Ausgabe buchen --------------------------------------------------
-    await page.getByRole('link', { name: 'Heute' }).first().click();
+    await zuDenToepfen(page);
     // Mobil über den schwebenden Knopf, auf dem Desktop über den Knopf auf der
     // Seite — beides führt in dasselbe Sheet.
     await erfassenOeffnen(page, 'Ausgabe');

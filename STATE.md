@@ -32,7 +32,8 @@ Konto und keine Übertragung.
 | Themes, Akzentfarbe, Symbolstil, echtes Schwarz    | fertig; jede Kombination auf Kontrast geprüft (Test)         |
 | Einstellungen als Unterseiten mit Gefahrenzone     | fertig                                                       |
 | Schwebender Knopf mit Standardaktion               | fertig; immer ein Plus, langes Drücken für die Art           |
-| Klebende Leiste je Liste (Titel, Suche, Filter)    | fertig auf Heute, Buchungen, Wiederkehrend, Töpfe, Ordnen    |
+| Klebende Leiste je Liste (Titel, Suche, Filter)    | fertig auf Töpfe, Buchungen, Wiederkehrend, Ordnen           |
+| Töpfe als Startseite, Lieblings-Töpfe im Menü      | fertig; mobil 1, Desktop bis 4, pro Gerät                    |
 | Monat und Tag kleben über der Buchungsliste        | fertig, zwei Zeilen unter der Werkzeugleiste                 |
 | Buchung löschen (Wischen und Knopf)                | fertig, beides abschaltbar, Rückfrage voreingestellt         |
 | Firma und Anschrift getrennt, Anschrift als Karte  | fertig; `geo:`-Verweis, kein Kartendienst im Netz            |
@@ -45,10 +46,11 @@ Konto und keine Übertragung.
 | Impressum, Datenschutz                             | **Gerüst mit Platzhaltern — vor Veröffentlichung ausfüllen** |
 | Zentrale Datenbank, SSO                            | vorbereitet, nicht eingeschaltet                             |
 
-**Prüfstand:** 738 Unit-Tests (`npm test`), 57 E2E-Tests auf zwei Viewports
-(`npm run test:e2e`, 114 Läufe, davon 108 bestanden und 6 bewusste
+**Prüfstand:** 744 Unit-Tests (`npm test`), 61 E2E-Tests auf zwei Viewports
+(`npm run test:e2e`, 122 Läufe, davon 114 bestanden und 8 bewusste
 Auslassungen — den schwebenden Knopf und die klebende Rechtsleiste gibt es ab
-`md` nicht), typecheck und lint grün, statischer Build erzeugt.
+`md` nicht, und die Favoriten der unteren Leiste bzw. der Seitenleiste jeweils
+nur auf einer Breite), typecheck und lint grün, statischer Build erzeugt.
 CI prüft jeden Pull Request, der Deploy-Workflow prüft erneut vor der
 Veröffentlichung.
 

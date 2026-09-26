@@ -6,6 +6,7 @@ import {
   istMobil,
   langDruecken,
   schwebenderKnopf,
+  zuDenToepfen,
 } from './helpers';
 
 /**
@@ -108,7 +109,7 @@ test.describe('Schwebender Knopf', () => {
     await page.getByRole('link', { name: 'Buchungen' }).first().click();
     await expect(schwebenderKnopf(page)).toHaveAttribute('aria-label', /^Einnahme erfassen/);
 
-    await page.getByRole('link', { name: 'Heute' }).first().click();
+    await zuDenToepfen(page);
     await expect(schwebenderKnopf(page)).toHaveAttribute('aria-label', /^Ausgabe erfassen/);
   });
 
@@ -122,7 +123,7 @@ test.describe('Schwebender Knopf', () => {
       .getByRole('radio', { name: 'Fragen' })
       .click();
 
-    await page.getByRole('link', { name: 'Heute' }).first().click();
+    await zuDenToepfen(page);
     await schwebenderKnopf(page).click();
     const frage = page.getByRole('dialog');
     await expect(page.getByRole('heading', { name: /Was möchtest du erfassen/ })).toBeVisible();
