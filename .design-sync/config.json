@@ -1,0 +1,8 @@
+{
+  "pkg": "budget-calculator",
+  "globalName": "Haushaltsplanung",
+  "shape": "package",
+  "srcDir": ".design-sync/synth-src",
+  "tsconfig": "tsconfig.json",
+  "cssEntry": ".design-sync/.cache/compiled-tailwind.css"
+}
